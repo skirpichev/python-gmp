@@ -1,0 +1,2 @@
+# FIXME: doesn't work with package-date
+include *.h

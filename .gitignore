@@ -1,0 +1,8 @@
+**.pyc
+**.so
+.hypothesis/
+venv/
+.venv/
+*.egg-info/
+*.swp
+build/

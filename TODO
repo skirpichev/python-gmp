@@ -1,0 +1,44 @@
+Overall:
+- naming && formatting
+- test coverage (add examples for corner cases, errors)
+- memory management (remove dealloc?)
+- README.rst
+- benchmark (basic, e.g. multiplication)
+- CI (basic tests)
+- asserts
+- publish
+- transform TODO to issues
+- try in mpmath/diofant
+- split-out low-level (non-Python) library with "safe" zz/qq types
+- CI (cibuildwheel with M$)
+- work with PyPy?
+- mixed-mode operations (with float)?
+- specialize small integers case (see flint, cpython and faster-python/ideas)?
+- support optionally mpq output in __truediv__
+
+Missing features:
+- more input validation (invalid digits, etc)
+- float(mpz(int)) doesn't match float(int) (as for gmpy2)
+- repr as mpz(str)
+- pickle protocols 0 and 1
+- allow subclasses
+- fast mpz<->int (now uses temporary hex strings)
+
+Missing mpz dunders:
+- __round__
+- __pow__ (3-arg case, floating-point args)
+- __truediv__
+- __format__ (like int)
+- __lshift__
+- __rshift__
+
+Missing mpz methods:
+- from_bytes/to_bytes
+- is_probab_prime ?
+
+Missing types:
+- mpq
+
+Missing functions:
+- factorial // diofant/sympy
+- isqrt_rem, factorial2, fib // mpmath
