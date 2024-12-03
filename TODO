@@ -11,7 +11,6 @@ Overall:
 - try in mpmath/diofant
 - split-out low-level (non-Python) library with "safe" zz/qq types
 - CI (cibuildwheel with M$)
-- work with PyPy?
 - mixed-mode operations (with float)?
 - specialize small integers case (see flint, cpython and faster-python/ideas)?
 - support optionally mpq output in __truediv__
