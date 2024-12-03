@@ -1,9 +1,9 @@
 import math
 import operator
 import pickle
+import platform
 import sys
 
-import gmpy2
 import pytest
 from hypothesis import example, given, settings
 from hypothesis.strategies import integers
@@ -174,6 +174,7 @@ def test_getseters(x):
 def test_methods(x):
     if sys.version_info < (3, 12):
         pytest.skip("is_integer or/and bit_count are missing")
+    gmpy2 = pytest.importorskip('gmpy2')
     mx = mpz(x)
     gx = gmpy2.mpz(x)
     assert mx.conjugate() == x.conjugate()
@@ -204,6 +205,8 @@ def test_functions(x, y):
         assert isqrt(mx) == math.isqrt(x)
 
 
+@pytest.mark.skipif(platform.python_implementation() == 'PyPy',
+                    reason="FIXME: a different signature on PyPy")
 def test___sizeof__():
     ms = [mpz(1<<i*(8*limb_size)) for i in range(3)]
     sz = sys.getsizeof(ms[1]) - sys.getsizeof(ms[0])
@@ -212,6 +215,7 @@ def test___sizeof__():
 
 @given(integers(), integers(min_value=2, max_value=62))
 def test_digits(x, base):
+    gmpy2 = pytest.importorskip('gmpy2')
     res = gmpy2.mpz(x).digits(base)
     mx = mpz(x)
     assert mx.digits(base) == res
