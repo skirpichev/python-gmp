@@ -201,6 +201,16 @@ def test___float__(x):
         assert float(mx) == fx
 
 
+@pytest.mark.xfail(reason="https://github.com/diofant/python-gmp/issues/4")
+@given(integers(), integers(min_value=-20, max_value=30))
+def test___round__(x, n):
+    mx = mpz(x)
+    mn = mpz(n)
+    assert round(mx, n) == round(mx, mn) == round(x, n)
+    if not n:
+        assert round(mx) == round(x)
+
+
 @given(integers(), integers())
 def test_functions(x, y):
     mx = mpz(x)
