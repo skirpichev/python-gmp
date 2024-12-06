@@ -105,6 +105,9 @@ MPZ_to_str(MPZ_Object *self, int base)
 }
 
 
+/* Table of digit values for 8-bit string->mpz conversion.
+   Note that when converting a base B string, a char c is a legitimate
+   base B digit iff gmp_digit_value_tab[c] < B. */
 const unsigned char gmp_digit_value_tab[] =
 {
   -1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,
@@ -191,7 +194,7 @@ MPZ_from_str(PyObject *s, int base)
             len -= 2;
         }
     }
-    if (p[0] != '0' && base == 0) {
+    if (base == 0) {
         base = 10;
     }
 
@@ -202,6 +205,12 @@ MPZ_from_str(PyObject *s, int base)
     }
     for (Py_ssize_t i = 0; i < len; i++) {
         p[i] = digit_value[p[i]];
+        if (p[i] >= base) {
+            PyErr_Format(PyExc_ValueError,
+                         "invalid literal for mpz() with base %d: %.200R",
+                         base, s);
+            return NULL;
+        }
     }
 
     MPZ_Object *res = MPZ_new(1 + len/2, negative);
