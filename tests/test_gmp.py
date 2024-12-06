@@ -2,6 +2,8 @@ import math
 import operator
 import pickle
 import platform
+import random
+import resource
 import sys
 
 import pytest
@@ -268,3 +270,23 @@ def test_frombase_auto(x):
 def test_pickle(protocol, x):
     mx = mpz(x)
     assert mx == pickle.loads(pickle.dumps(mx, protocol))
+
+
+@pytest.mark.skipif(platform.python_implementation() == 'PyPy',
+                    reason="FIXME: how to do this on PyPy?")
+def test_outofmemory():
+    resource.setrlimit(resource.RLIMIT_AS, (1024*32*1024, -1))
+    total = 20
+    for n in range(total):
+        a = random.randint(49846727467293, 249846727467293)
+        a = mpz(a)
+        i = 1
+        while True:
+            try:
+                a = a*a
+            except MemoryError:
+                assert i > 5
+                break
+            i += 1
+    assert n + 1 == total
+    resource.setrlimit(resource.RLIMIT_AS, (-1, -1))

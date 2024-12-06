@@ -3,10 +3,73 @@
 #define PY_SSIZE_T_CLEAN
 #include <Python.h>
 
+#include <setjmp.h>
 #include <gmp.h>
 
 
 static const char python_gmp_version[] = "0.1.0";
+
+
+static jmp_buf gmp_env;
+#define GMP_TRACKER_SIZE_INCR 16
+static struct {
+    size_t size;
+    size_t alloc;
+    void** ptrs;
+} gmp_tracker;
+
+
+static void *
+gmp_allocate_function(size_t size)
+{
+    if (gmp_tracker.size >= gmp_tracker.alloc) {
+        void** tmp = gmp_tracker.ptrs;
+
+        gmp_tracker.alloc += GMP_TRACKER_SIZE_INCR;
+        gmp_tracker.ptrs = realloc(tmp, gmp_tracker.alloc*sizeof(void*));
+        if (!gmp_tracker.ptrs) {
+            gmp_tracker.alloc -= GMP_TRACKER_SIZE_INCR;
+            gmp_tracker.ptrs = tmp;
+            goto err;
+        }
+    }
+
+    void *ret = malloc(size);
+
+    if (!ret) {
+        goto err;
+    }
+    gmp_tracker.ptrs[gmp_tracker.size] = ret;
+    gmp_tracker.size++;
+    return ret;
+err:
+    for (size_t i = 0; i < gmp_tracker.size; i++) {
+        if (gmp_tracker.ptrs[i]) {
+            free(gmp_tracker.ptrs[i]);
+            gmp_tracker.ptrs[i] = NULL;
+        }
+    }
+    gmp_tracker.alloc = 0;
+    gmp_tracker.size = 0;
+    longjmp(gmp_env, 1);
+}
+
+
+static void
+gmp_free_function(void *ptr, size_t size)
+{
+    for (size_t i = gmp_tracker.size - 1; i >= 0; i--) {
+        if (gmp_tracker.ptrs[i] && gmp_tracker.ptrs[i] == ptr) {
+            gmp_tracker.ptrs[i] = 0;
+            if (i == gmp_tracker.size - 1) {
+                gmp_tracker.size--;
+            }
+            break;
+        }
+    }
+    free(ptr);
+}
+
 
 
 typedef struct _mpzobject {
@@ -81,11 +144,18 @@ MPZ_to_str(MPZ_Object *self, int base)
     }
     buf[0] = '-';
 
-    mp_size_t actual_len = mpn_get_str(buf + 1, base,
-                                       self->digits, self->size);
     const char *num_to_text = ("0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ"
                                "abcdefghijklmnopqrstuvwxyz");
+    mp_size_t actual_len = 0;
 
+    if (setjmp(gmp_env) != 1) {
+        actual_len = mpn_get_str(buf + 1, base,
+                                 self->digits, self->size);
+    }
+    else {
+        PyMem_Free(buf);
+        return PyErr_NoMemory();
+    }
     len += (actual_len == len);
     if (base <= 36) {
         num_to_text = "0123456789abcdefghijklmnopqrstuvwxyz";
@@ -214,7 +284,15 @@ MPZ_from_str(PyObject *s, int base)
     }
 
     MPZ_Object *res = MPZ_new(1 + len/2, negative);
-    res->size = mpn_set_str(res->digits, p, len, base);
+
+    if (setjmp(gmp_env) != 1) {
+        res->size = mpn_set_str(res->digits, p, len, base);
+    }
+    else {
+        Py_DECREF(res);
+        PyMem_Free(buf);
+        return (MPZ_Object*)PyErr_NoMemory();
+    }
     PyMem_Free(buf);
 
     mp_limb_t *tmp = res->digits;
@@ -451,11 +529,23 @@ MPZ_mul(MPZ_Object *v, MPZ_Object *u)
         SWAP(MPZ_Object*, u, v);
     }
     if (u == v) {
-        mpn_sqr(res->digits, u->digits, u->size);
+        if (setjmp(gmp_env) != 1) {
+            mpn_sqr(res->digits, u->digits, u->size);
+        }
+        else {
+            Py_DECREF(res);
+            return PyErr_NoMemory();
+        }
     }
     else {
-        mpn_mul(res->digits, u->digits, u->size,
-                v->digits, v->size);
+        if (setjmp(gmp_env) != 1) {
+            mpn_mul(res->digits, u->digits, u->size,
+                    v->digits, v->size);
+        }
+        else {
+            Py_DECREF(res);
+            return PyErr_NoMemory();
+        }
     }
     MPZ_normalize(res);
     return (PyObject*)res;
@@ -509,9 +599,16 @@ MPZ_DivMod(MPZ_Object *a, MPZ_Object *b, MPZ_Object **q, MPZ_Object **r)
             Py_DECREF(*q);
             return -1;
         }
-        mpn_tdiv_qr((*q)->digits, (*r)->digits, 0,
-                    a->digits, a->size,
-                    b->digits, b->size);
+        if (setjmp(gmp_env) != 1) {
+            mpn_tdiv_qr((*q)->digits, (*r)->digits, 0,
+                        a->digits, a->size,
+                        b->digits, b->size);
+        }
+        else {
+            Py_DECREF(*q);
+            Py_DECREF(*r);
+            return -1;
+        }
         if ((*q)->negative) {
             if (a->digits[a->size - 1] == GMP_NUMB_MAX
                 && b->digits[b->size - 1] == 1)
@@ -1096,8 +1193,15 @@ power(PyObject *a, PyObject *b, PyObject *m)
                 Py_DECREF(res);
                 return PyErr_NoMemory();
             }
-            res->size = mpn_pow_1(res->digits, u->digits, u->size,
-                                  v->digits[0], tmp);
+            if (setjmp(gmp_env) != 1) {
+                res->size = mpn_pow_1(res->digits, u->digits, u->size,
+                                      v->digits[0], tmp);
+            }
+            else {
+                PyMem_Free(tmp);
+                Py_DECREF(res);
+                return PyErr_NoMemory();
+            }
             PyMem_Free(tmp);
             tmp = res->digits;
             res->digits = PyMem_Resize(tmp, mp_limb_t, res->size);
@@ -1596,12 +1700,26 @@ gmp_gcd(PyObject *self, PyObject * const *args, Py_ssize_t nargs)
             mp_size_t newsize;
 
             if (tmp->size >= arg->size) {
-                newsize = mpn_gcd(res->digits, tmp->digits, tmp->size,
-                                  arg->digits, arg->size);
+                if (setjmp(gmp_env) != 1) {
+                    newsize = mpn_gcd(res->digits, tmp->digits, tmp->size,
+                                      arg->digits, arg->size);
+                }
+                else {
+                    Py_DECREF(tmp);
+                    Py_DECREF(res);
+                    return PyErr_NoMemory();
+                }
             }
             else {
-                newsize = mpn_gcd(res->digits, arg->digits, arg->size,
-                                  tmp->digits, tmp->size);
+                if (setjmp(gmp_env) != 1) {
+                    newsize = mpn_gcd(res->digits, arg->digits, arg->size,
+                                      tmp->digits, tmp->size);
+                }
+                else {
+                    Py_DECREF(tmp);
+                    Py_DECREF(res);
+                    return PyErr_NoMemory();
+                }
             }
             Py_DECREF(tmp);
             if (newsize != res->size) {
@@ -1643,7 +1761,13 @@ gmp_isqrt(PyObject *self, PyObject *other)
     if (!res) {
         return NULL;
     }
-    mpn_sqrtrem(res->digits, NULL, x->digits, x->size);
+    if (setjmp(gmp_env) != 1) {
+        mpn_sqrtrem(res->digits, NULL, x->digits, x->size);
+    }
+    else {
+        Py_DECREF(res);
+        return PyErr_NoMemory();
+    }
     return (PyObject*)res;
 }
 
@@ -1684,5 +1808,7 @@ PyInit_gmp(void)
     {
         return NULL;
     }
+    mp_set_memory_functions(gmp_allocate_function, NULL,
+                            gmp_free_function);
     return m;
 }
