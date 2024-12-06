@@ -1157,40 +1157,47 @@ end:
 static PyObject *
 power(PyObject *a, PyObject *b, PyObject *m)
 {
-    MPZ_Object *u = (MPZ_Object *)a, *v = (MPZ_Object *)b;
+    MPZ_Object *res = NULL;
 
+    CHECK_OP(u, a);
+    CHECK_OP(v, b);
     if (Py_IsNone(m)) {
         if (!v->size) {
-            return (PyObject*)MPZ_FromDigitSign(1, 0);
+            res = MPZ_FromDigitSign(1, 0);
+            goto end;
         }
         if (!u->size) {
-            return (PyObject*)MPZ_FromDigitSign(0, 0);
+            res = MPZ_FromDigitSign(0, 0);
+            goto end;
         }
         if (v->negative) {
             PyErr_SetString(PyExc_NotImplementedError,
                             "mpz.__pow__: float arg");
-            return NULL;
+            goto end;
         }
         if (u->size == 1 && u->digits[0] == 1) {
             if (u->negative) {
-                return (PyObject*)MPZ_FromDigitSign(1, v->digits[0]%2);
+                res = MPZ_FromDigitSign(1, v->digits[0]%2);
+                goto end;
             }
             else {
-                return (PyObject*)MPZ_FromDigitSign(1, 0);
+                res = MPZ_FromDigitSign(1, 0);
+                goto end;
             }
         }
         if (v->size == 1) {
-            MPZ_Object *res = MPZ_new(u->size*v->digits[0],
-                                      u->negative && v->digits[0]%2);
-
+            res = MPZ_new(u->size*v->digits[0],
+                          u->negative && v->digits[0]%2);
             if (!res) {
-                return NULL;
+                goto end;
             }
 
             mp_limb_t *tmp = PyMem_New(mp_limb_t, res->size);
 
             if (!tmp) {
                 Py_DECREF(res);
+                Py_DECREF(u);
+                Py_DECREF(v);
                 return PyErr_NoMemory();
             }
             if (setjmp(gmp_env) != 1) {
@@ -1208,17 +1215,24 @@ power(PyObject *a, PyObject *b, PyObject *m)
             if (!res->digits) {
                 res->digits = tmp;
                 Py_DECREF(res);
+                Py_DECREF(u);
+                Py_DECREF(v);
                 return PyErr_NoMemory();
             }
-            return (PyObject*)res;
+            goto end;
         }
+        Py_DECREF(u);
+        Py_DECREF(v);
         return PyErr_NoMemory();
     }
     else {
         PyErr_SetString(PyExc_NotImplementedError,
                         "mpz.__pow__: ternary power");
-        return NULL;
     }
+end:
+    Py_DECREF(u);
+    Py_DECREF(v);
+    return (PyObject*)res;
 }
 
 

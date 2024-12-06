@@ -125,7 +125,10 @@ def test_divmod(x, y):
 def test_power(x, y):
     mx = mpz(x)
     my = mpz(y)
-    assert mx**my == x**y
+    r = x**y
+    assert mx**my == r
+    assert mx**y == r
+    assert x**my == r
 
 
 @given(integers())
