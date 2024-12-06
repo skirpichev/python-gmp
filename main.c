@@ -1745,8 +1745,23 @@ gmp_gcd(PyObject *self, PyObject * const *args, Py_ssize_t nargs)
 static PyObject *
 gmp_isqrt(PyObject *self, PyObject *other)
 {
-    MPZ_Object *x = (MPZ_Object*)other;
+    static MPZ_Object *x, *res;
 
+    if (MPZ_CheckExact(other)) {
+        x = (MPZ_Object*)other;
+        Py_INCREF(x);
+    }
+    else if (PyLong_Check(other)) {
+        x = from_int(other);
+        if (!x) {
+            goto end;
+        }
+    }
+    else {
+        PyErr_SetString(PyExc_TypeError,
+                        "isqrt() argument must be an integer");
+        return NULL;
+    }
     if (x->negative) {
         PyErr_SetString(PyExc_ValueError,
                         "isqrt() argument must be nonnegative");
@@ -1755,9 +1770,7 @@ gmp_isqrt(PyObject *self, PyObject *other)
     else if (!x->size) {
         return (PyObject*)MPZ_FromDigitSign(0, 0);
     }
-
-    MPZ_Object *res = MPZ_new((x->size + 1)/2, 0);
-
+    res = MPZ_new((x->size + 1)/2, 0);
     if (!res) {
         return NULL;
     }
@@ -1766,8 +1779,11 @@ gmp_isqrt(PyObject *self, PyObject *other)
     }
     else {
         Py_DECREF(res);
+        Py_DECREF(x);
         return PyErr_NoMemory();
     }
+end:
+    Py_DECREF(x);
     return (PyObject*)res;
 }
 

@@ -9,7 +9,7 @@ from gmp import mpz, gcd, isqrt
 @given(integers(min_value=0))
 def test_isqrt(x):
     mx = mpz(x)
-    assert isqrt(mx) == math.isqrt(x)
+    assert isqrt(mx) == isqrt(x) == math.isqrt(x)
 
 
 @given(integers(), integers())
