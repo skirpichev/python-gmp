@@ -207,7 +207,7 @@ def test_functions(x, y):
 
 
 @pytest.mark.skipif(platform.python_implementation() == 'PyPy',
-                    reason="FIXME: a different signature on PyPy")
+                    reason="sys.getsizeof raises TypeError")
 def test___sizeof__():
     ms = [mpz(1<<i*(8*limb_size)) for i in range(3)]
     sz = sys.getsizeof(ms[1]) - sys.getsizeof(ms[0])
