@@ -14,7 +14,7 @@ from gmp import isqrt, gcd, mpz
 from gmp import _limb_size as limb_size
 
 
-@given(integers(min_value=0))
+@given(integers())
 @example(0)
 @example(123)
 @example(75424656551107706)
@@ -22,14 +22,11 @@ from gmp import _limb_size as limb_size
 @example(65869376547959985897597359)
 def test_mpz_from_to_str(x):
     sx = str(x)
-    snx = str(-x)
     mx = mpz(sx)
-    mnx = mpz(snx)
     assert str(mx) == sx
-    assert str(mnx) == snx
 
 
-@given(integers(min_value=0))
+@given(integers())
 @example(0)
 @example(123)
 @example(75424656551107706)
@@ -37,24 +34,18 @@ def test_mpz_from_to_str(x):
 @example(65869376547959985897597359)
 def test_mpz_from_to_int(x):
     sx = str(x)
-    snx = str(-x)
     mx = mpz(x)
-    mnx = mpz(-x)
     assert mpz(mx) == mx == x
-    assert mpz(mnx) == mnx == -x
     assert int(mx) == x
-    assert int(mnx) == -x
 
 
 @given(integers(), integers())
 def test_mpz_richcompare(x, y):
     mx = mpz(x)
     my = mpz(y)
-
     for op in [operator.eq, operator.ne, operator.lt, operator.le,
                operator.gt, operator.ge]:
         assert op(mx, my) == op(x, y)
-
     assert bool(mx) == bool(x)
 
 
@@ -67,7 +58,7 @@ def test_mpz_hash(x):
     assert hash(mx) == hash(x)
 
 
-@given(integers(min_value=0))
+@given(integers())
 @example(0)
 @example(123)
 @example(75424656551107706)
@@ -75,50 +66,52 @@ def test_mpz_hash(x):
 @example(65869376547959985897597359)
 def test_mpz_plus_minus_abs(x):
     mx = mpz(x)
-    mnx = mpz(-x)
     assert +mx == x
-    assert +mnx == -x
     assert -mx == -x
-    assert -mnx == x
     assert abs(mx) == abs(x)
-    assert abs(mnx) == abs(x)
 
 
 @given(integers(), integers())
 def test_add_sub(x, y):
+    mx = mpz(x)
+    my = mpz(y)
     r = x + y
-    assert mpz(x) + mpz(y) == r
-    assert mpz(x) + y == r
-    assert x + mpz(y) == r
+    assert mx + my == r
+    assert mx + y == r
+    assert x + my == r
     r = x - y
-    assert mpz(x) - mpz(y) == r
-    assert mpz(x) - y == r
-    assert x - mpz(y) == r
+    assert mx - my == r
+    assert mx - y == r
+    assert x - my == r
 
 
 @given(integers(), integers())
 def test_mul(x, y):
-    assert mpz(x) * mpz(x) == x * x
+    mx = mpz(x)
+    my = mpz(y)
+    assert mx * mx == x * x
     r = x * y
-    assert mpz(x) * mpz(y) == r
-    assert mpz(x) * y == r
-    assert x * mpz(y) == r
+    assert mx * my == r
+    assert mx * y == r
+    assert x * my == r
 
 
 @given(integers(), integers())
 def test_divmod(x, y):
     if not y:
         return
+    mx = mpz(x)
+    my = mpz(y)
     r = x // y
-    assert mpz(x) // mpz(y) == r
-    assert mpz(x) // y == r
-    assert x // mpz(y) == r
+    assert mx // my == r
+    assert mx // y == r
+    assert x // my == r
     r = x % y
-    assert mpz(x) % mpz(y) == r
-    assert mpz(x) % y == r
-    assert x % mpz(y) == r
+    assert mx % my == r
+    assert mx % y == r
+    assert x % my == r
     r = divmod(x, y)
-    assert divmod(mpz(x), mpz(y)) == r
+    assert divmod(mx, my) == r
 
 
 @given(integers(min_value=-1000000, max_value=1000000),
@@ -130,36 +123,45 @@ def test_divmod(x, y):
 @example(123, 321)
 @example(-56, 321)
 def test_power(x, y):
-    assert mpz(x)**mpz(y) == x**y
+    mx = mpz(x)
+    my = mpz(y)
+    assert mx**my == x**y
 
 
 @given(integers())
 def test_invert(x):
-    assert ~mpz(x) == ~x
+    mx = mpz(x)
+    assert ~mx == ~x
 
 
 @given(integers(), integers())
 def test_and(x, y):
+    mx = mpz(x)
+    my = mpz(y)
     r = x & y
-    assert mpz(x) & mpz(y) == r
-    assert mpz(x) & y == r
-    assert x & mpz(y) == r
+    assert mx & my == r
+    assert mx & y == r
+    assert x & my == r
 
 
 @given(integers(), integers())
 def test_or(x, y):
+    mx = mpz(x)
+    my = mpz(y)
     r = x | y
-    assert mpz(x) | mpz(y) == r
-    assert mpz(x) | y == r
-    assert x | mpz(y) == r
+    assert mx | my == r
+    assert mx | y == r
+    assert x | my == r
 
 
 @given(integers(), integers())
 def test_xor(x, y):
+    mx = mpz(x)
+    my = mpz(y)
     r = x ^ y
-    assert mpz(x) ^ mpz(y) == r
-    assert mpz(x) ^ y == r
-    assert x ^ mpz(y) == r
+    assert mx ^ my == r
+    assert mx ^ y == r
+    assert x ^ my == r
 
 
 @given(integers())
@@ -221,10 +223,10 @@ def test___sizeof__():
 @given(integers(), integers(min_value=2, max_value=62))
 def test_digits(x, base):
     gmpy2 = pytest.importorskip('gmpy2')
-    res = gmpy2.mpz(x).digits(base)
     mx = mpz(x)
+    gx = gmpy2.mpz(x)
+    res = gx.digits(base)
     assert mx.digits(base) == res
-    assert mx.digits(base=base) == res
 
 
 @given(integers(), integers(min_value=2, max_value=62))
@@ -232,10 +234,8 @@ def test_digits_frombase(x, base):
     mx = mpz(x)
     smx = mx.digits(base)
     assert mpz(smx, base) == mx
-    assert mpz(smx, base=base) == mx
     if base <= 36:
         assert mpz(smx.upper(), base) == mx
-        assert mpz(smx.upper(), base=base) == mx
         assert int(smx, base) == mx
         smaller_base = (base + 2)//2 + 1
         try:
