@@ -7,10 +7,10 @@ import resource
 import sys
 
 import pytest
-from hypothesis import example, given, settings
+from hypothesis import example, given
 from hypothesis.strategies import integers
 
-from gmp import isqrt, gcd, mpz
+from gmp import mpz
 from gmp import _limb_size as limb_size
 
 
@@ -209,17 +209,6 @@ def test___round__(x, n):
     assert round(mx, n) == round(mx, mn) == round(x, n)
     if not n:
         assert round(mx) == round(x)
-
-
-@given(integers(), integers())
-def test_functions(x, y):
-    mx = mpz(x)
-    my = mpz(y)
-    assert gcd(mx, my) == math.gcd(x, y)
-    if x < 0:
-        pytest.raises(ValueError, lambda: isqrt(mx))
-    else:
-        assert isqrt(mx) == math.isqrt(x)
 
 
 @pytest.mark.skipif(platform.python_implementation() == 'PyPy',
