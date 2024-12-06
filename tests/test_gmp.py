@@ -173,20 +173,20 @@ def test_getseters(x):
 
 @given(integers())
 def test_methods(x):
-    if sys.version_info < (3, 12):
-        pytest.skip("is_integer or/and bit_count are missing")
-    gmpy2 = pytest.importorskip('gmpy2')
     mx = mpz(x)
-    gx = gmpy2.mpz(x)
     assert mx.conjugate() == x.conjugate()
     assert mx.bit_length() == x.bit_length()
-    assert mx.bit_count() == x.bit_count()
+    if sys.version_info >= (3, 10):
+        assert mx.bit_count() == x.bit_count()
     assert mx.as_integer_ratio() == x.as_integer_ratio()
-    assert mx.is_integer() == x.is_integer()
+    if sys.version_info >= (3, 12):
+        assert mx.is_integer() == x.is_integer()
     assert math.trunc(mx) == math.trunc(x)
     assert math.floor(mx) == math.floor(x)
     assert math.ceil(mx) == math.ceil(x)
     # XXX: doesn't match with CPython
+    gmpy2 = pytest.importorskip('gmpy2')
+    gx = gmpy2.mpz(x)
     try:
         float(gx)
     except OverflowError:
