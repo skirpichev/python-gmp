@@ -7,8 +7,8 @@ import resource
 import sys
 
 import pytest
-from hypothesis import example, given
-from hypothesis.strategies import integers
+from hypothesis import assume, example, given
+from hypothesis.strategies import booleans, integers, sampled_from
 
 from gmp import mpz
 from gmp import _limb_size as limb_size
@@ -186,6 +186,68 @@ def test_methods(x):
     assert math.trunc(mx) == math.trunc(x)
     assert math.floor(mx) == math.floor(x)
     assert math.ceil(mx) == math.ceil(x)
+
+
+@pytest.mark.xfail(reason="https://github.com/diofant/python-gmp/issues/3")
+@given(integers(), integers(min_value=0, max_value=10000),
+       sampled_from(['big', 'little']), booleans())
+@example(0, 0, 'big', False)
+@example(0, 0, 'little', False)
+@example(0, 1, 'big', False)
+@example(128, 1, 'big', True)
+@example(128, 1, 'little', True)
+@example(-129, 1, 'big', True)
+@example(-129, 1, 'little', True)
+@example(-1, 0, 'big', True)
+@example(-2, 0, 'big', True)
+@example(-2, 0, 'little', True)
+@example(42, 1, 'big', False)
+@example(42, 1, 'little', False)
+@example(42, 3, 'big', False)
+@example(42, 3, 'little', False)
+@example(1000, 2, 'big', False)
+@example(1000, 4, 'big', False)
+@example(-2049, 1, 'big', True)
+@example(-65281, 3, 'big', True)
+@example(-65281, 3, 'little', True)
+def test_to_bytes(x, length, byteorder, signed):
+    try:
+        rx = x.to_bytes(length, byteorder, signed=signed)
+    except OverflowError:
+        with raises(OverflowError):
+            mpz(x).to_bytes(length, byteorder, signed=signed)
+    else:
+        assert rx == mpz(x).to_bytes(length, byteorder, signed=signed)
+
+
+@pytest.mark.xfail(reason="https://github.com/diofant/python-gmp/issues/3")
+@given(integers(), integers(min_value=0, max_value=10000),
+       sampled_from(['big', 'little']), booleans())
+@example(0, 0, 'big', False)
+@example(0, 0, 'little', False)
+@example(0, 1, 'big', False)
+@example(128, 1, 'big', True)
+@example(128, 1, 'little', True)
+@example(-129, 1, 'big', True)
+@example(-129, 1, 'little', True)
+@example(-1, 0, 'big', True)
+@example(-1, 1, 'big', True)
+@example(-1, 1, 'little', True)
+@example(-2, 0, 'big', True)
+@example(-2, 0, 'little', True)
+@example(-1, 3, 'big', True)
+@example(-2, 3, 'big', True)
+@example(-2, 5, 'little', True)
+def test_from_bytes(x, length, byteorder, signed):
+    try:
+        bytes = x.to_bytes(length, byteorder, signed=signed)
+    except OverflowError:
+        assume(False)
+    else:
+        rx = int.from_bytes(bytes, byteorder, signed=signed)
+        assert rx == mpz.from_bytes(bytes, byteorder, signed=signed)
+        assert rx == mpz.from_bytes(bytearray(bytes), byteorder, signed=signed)
+        assert rx == mpz.from_bytes(list(bytes), byteorder, signed=signed)
 
 
 @pytest.mark.xfail(reason="https://github.com/diofant/python-gmp/issues/2")
