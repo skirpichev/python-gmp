@@ -184,15 +184,19 @@ def test_methods(x):
     assert math.trunc(mx) == math.trunc(x)
     assert math.floor(mx) == math.floor(x)
     assert math.ceil(mx) == math.ceil(x)
-    # XXX: doesn't match with CPython
-    gmpy2 = pytest.importorskip('gmpy2')
-    gx = gmpy2.mpz(x)
+
+
+@pytest.mark.xfail(reason="https://github.com/diofant/python-gmp/issues/2")
+@given(integers())
+@example(117529601297931785)
+def test___float__(x):
+    mx = mpz(x)
     try:
-        float(gx)
+        fx = float(x)
     except OverflowError:
         pytest.raises(OverflowError, lambda: float(mx))
     else:
-        assert float(mx) == float(gx)
+        assert float(mx) == fx
 
 
 @given(integers(), integers())
