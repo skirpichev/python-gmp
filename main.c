@@ -128,7 +128,7 @@ MPZ_FromDigitSign(mp_limb_t digit, uint8_t negative)
 
 
 static PyObject *
-MPZ_to_str(MPZ_Object *self, int base)
+MPZ_to_str(MPZ_Object *self, int base, int repr)
 {
     if (base < 2 || base > 62) {
         PyErr_SetString(PyExc_ValueError,
@@ -137,38 +137,44 @@ MPZ_to_str(MPZ_Object *self, int base)
     }
 
     Py_ssize_t len = mpn_sizeinbase(self->digits, self->size, base);
-    unsigned char *buf = PyMem_Malloc(len + 1), *p = buf;
+    Py_ssize_t prefix = repr ? 4 : 0;
+    unsigned char *buf = PyMem_Malloc(len + prefix + repr + self->negative);
 
-    if (buf == NULL) {
+    if (!buf) {
         return PyErr_NoMemory();
     }
-    buf[0] = '-';
+    if (prefix) {
+        strcpy((char*)buf, "mpz(");
+    }
+    if (self->negative) {
+        buf[prefix] = '-';
+    }
+    repr += prefix;
+    prefix += self->negative;
 
-    const char *num_to_text = ("0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ"
-                               "abcdefghijklmnopqrstuvwxyz");
-    mp_size_t actual_len = 0;
+    const char *num_to_text = (base > 36 ?
+                               ("0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+                                "abcdefghijklmnopqrstuvwxyz") :
+                               "0123456789abcdefghijklmnopqrstuvwxyz");
 
     if (setjmp(gmp_env) != 1) {
-        actual_len = mpn_get_str(buf + 1, base,
-                                 self->digits, self->size);
+        len -= (mpn_get_str(buf + prefix, base,
+                            self->digits, self->size) != (size_t)len);
     }
     else {
         PyMem_Free(buf);
         return PyErr_NoMemory();
     }
-    len += (actual_len == len);
-    if (base <= 36) {
-        num_to_text = "0123456789abcdefghijklmnopqrstuvwxyz";
-    }
-    for (mp_size_t i = 1; i < actual_len + 1; i++) {
+    for (mp_size_t i = prefix; i < len + prefix; i++)
+    {
         buf[i] = num_to_text[buf[i]];
     }
-    if (!self->negative) {
-        p++;
-        len--;
+    if (repr) {
+        buf[prefix + len] = ')';
     }
 
-    PyObject *res = PyUnicode_FromStringAndSize((char*)p, len);
+    PyObject *res = PyUnicode_FromStringAndSize((char*)buf,
+                                                len + repr + self->negative);
 
     PyMem_Free(buf);
     return res;
@@ -352,7 +358,7 @@ absolute(MPZ_Object *a)
 static PyObject *
 to_int(MPZ_Object *self)
 {
-    PyObject *str = MPZ_to_str(self, 16);
+    PyObject *str = MPZ_to_str(self, 16, 0);
 
     if (!str) {
         return NULL;
@@ -1157,40 +1163,47 @@ end:
 static PyObject *
 power(PyObject *a, PyObject *b, PyObject *m)
 {
-    MPZ_Object *u = (MPZ_Object *)a, *v = (MPZ_Object *)b;
+    MPZ_Object *res = NULL;
 
+    CHECK_OP(u, a);
+    CHECK_OP(v, b);
     if (Py_IsNone(m)) {
         if (!v->size) {
-            return (PyObject*)MPZ_FromDigitSign(1, 0);
+            res = MPZ_FromDigitSign(1, 0);
+            goto end;
         }
         if (!u->size) {
-            return (PyObject*)MPZ_FromDigitSign(0, 0);
+            res = MPZ_FromDigitSign(0, 0);
+            goto end;
         }
         if (v->negative) {
             PyErr_SetString(PyExc_NotImplementedError,
                             "mpz.__pow__: float arg");
-            return NULL;
+            goto end;
         }
         if (u->size == 1 && u->digits[0] == 1) {
             if (u->negative) {
-                return (PyObject*)MPZ_FromDigitSign(1, v->digits[0]%2);
+                res = MPZ_FromDigitSign(1, v->digits[0]%2);
+                goto end;
             }
             else {
-                return (PyObject*)MPZ_FromDigitSign(1, 0);
+                res = MPZ_FromDigitSign(1, 0);
+                goto end;
             }
         }
         if (v->size == 1) {
-            MPZ_Object *res = MPZ_new(u->size*v->digits[0],
-                                      u->negative && v->digits[0]%2);
-
+            res = MPZ_new(u->size*v->digits[0],
+                          u->negative && v->digits[0]%2);
             if (!res) {
-                return NULL;
+                goto end;
             }
 
             mp_limb_t *tmp = PyMem_New(mp_limb_t, res->size);
 
             if (!tmp) {
                 Py_DECREF(res);
+                Py_DECREF(u);
+                Py_DECREF(v);
                 return PyErr_NoMemory();
             }
             if (setjmp(gmp_env) != 1) {
@@ -1208,17 +1221,24 @@ power(PyObject *a, PyObject *b, PyObject *m)
             if (!res->digits) {
                 res->digits = tmp;
                 Py_DECREF(res);
+                Py_DECREF(u);
+                Py_DECREF(v);
                 return PyErr_NoMemory();
             }
-            return (PyObject*)res;
+            goto end;
         }
+        Py_DECREF(u);
+        Py_DECREF(v);
         return PyErr_NoMemory();
     }
     else {
         PyErr_SetString(PyExc_NotImplementedError,
                         "mpz.__pow__: ternary power");
-        return NULL;
     }
+end:
+    Py_DECREF(u);
+    Py_DECREF(v);
+    return (PyObject*)res;
 }
 
 
@@ -1250,7 +1270,14 @@ static PyNumberMethods as_number = {
 static PyObject *
 repr(MPZ_Object *self)
 {
-    return MPZ_to_str(self, 10);
+    return MPZ_to_str(self, 10, 1);
+}
+
+
+static PyObject *
+str(MPZ_Object *self)
+{
+    return MPZ_to_str(self, 10, 0);
 }
 
 
@@ -1468,7 +1495,7 @@ __round__(PyObject *self, PyObject *const *args, Py_ssize_t nargs)
 static PyObject *
 __getnewargs__(PyObject *self, PyObject *Py_UNUSED(ignored))
 {
-    return Py_BuildValue("(Ni)", MPZ_to_str((MPZ_Object*)self, 16), 16);
+    return Py_BuildValue("(Ni)", MPZ_to_str((MPZ_Object*)self, 16, 0), 16);
 }
 
 static PyObject *
@@ -1553,7 +1580,7 @@ digits(PyObject *self, PyObject *const *args, Py_ssize_t nargs,
         }
     }
 
-    return MPZ_to_str((MPZ_Object*)self, base);
+    return MPZ_to_str((MPZ_Object*)self, base, 0);
 }
 
 PyDoc_STRVAR(to_bytes__doc__,
@@ -1643,6 +1670,7 @@ PyTypeObject MPZ_Type = {
     .tp_new = new,
     .tp_dealloc = (destructor) dealloc,
     .tp_repr = (reprfunc) repr,
+    .tp_str = (reprfunc) str,
     .tp_as_number = &as_number,
     .tp_richcompare = richcompare,
     .tp_hash = (hashfunc) hash,
@@ -1658,42 +1686,77 @@ gmp_gcd(PyObject *self, PyObject * const *args, Py_ssize_t nargs)
         return (PyObject*)MPZ_FromDigitSign(0, 0);
     }
 
-    Py_ssize_t i = 0;
     mp_bitcnt_t nzeros_res = 0;
-    MPZ_Object *res, *arg = (MPZ_Object*)args[i];
+    MPZ_Object *res, *arg, *tmp;
 
-    for (; i < nargs; i++) {
-        arg = (MPZ_Object*)args[i];
-        if (arg->size) {
-            i++;
-            break;
+    if (MPZ_CheckExact(args[0])) {
+        arg = (MPZ_Object*)args[0];
+        Py_INCREF(arg);
+    }
+    else if (PyLong_Check(args[0])) {
+        arg = from_int(args[0]);
+        if (!arg) {
+            return NULL;
         }
     }
+    else {
+        PyErr_SetString(PyExc_TypeError,
+                        "gcd() arguments must be integers");
+        return NULL;
+    }
     res = (MPZ_Object*)absolute(arg);
+    Py_DECREF(arg);
     if (!res) {
         return NULL;
     }
-    for (; i < nargs; i++) {
+    for (Py_ssize_t i = 1; i < nargs; i++) {
         if (res->size != 1 || res->negative || res->digits[0] != 1)
         {
+            if (MPZ_CheckExact(args[i])) {
+                arg = (MPZ_Object*)absolute((MPZ_Object*)args[i]);
+            }
+            else if (PyLong_Check(args[i])) {
+                tmp = from_int(args[i]);
+                if (!tmp) {
+                    Py_DECREF(res);
+                    return NULL;
+                }
+                arg = (MPZ_Object*)absolute(tmp);
+                if (!arg) {
+                    Py_DECREF(tmp);
+                    Py_DECREF(res);
+                    return NULL;
+                }
+            }
+            else {
+                Py_DECREF(res);
+                PyErr_SetString(PyExc_TypeError,
+                                "gcd() arguments must be integers");
+                return NULL;
+            }
+            if (!res->size) {
+                Py_DECREF(res);
+                res = (MPZ_Object*)absolute(arg);
+                Py_DECREF(arg);
+                continue;
+            }
             nzeros_res = mpn_scan1(res->digits, 0);
             if (nzeros_res) {
                 mpn_rshift(res->digits, res->digits,
                            res->size, nzeros_res);
             }
-            arg = (MPZ_Object*)args[i];
             if (!arg->size) {
+                Py_DECREF(arg);
                 continue;
             }
             nzeros_res = Py_MIN(nzeros_res, mpn_scan1(arg->digits, 0));
             if (nzeros_res) {
                 mpn_rshift(arg->digits, arg->digits, arg->size, nzeros_res);
             }
-
-            MPZ_Object *tmp = (MPZ_Object*)plus((MPZ_Object*)res);
-
+            tmp = (MPZ_Object*)plus((MPZ_Object*)res);
             if (!tmp) {
                 Py_DECREF(res);
+                Py_DECREF(arg);
                 return NULL;
             }
 
@@ -1707,6 +1770,7 @@ gmp_gcd(PyObject *self, PyObject * const *args, Py_ssize_t nargs)
                 else {
                     Py_DECREF(tmp);
                     Py_DECREF(res);
+                    Py_DECREF(arg);
                     return PyErr_NoMemory();
                 }
             }
@@ -1718,9 +1782,11 @@ gmp_gcd(PyObject *self, PyObject * const *args, Py_ssize_t nargs)
                 else {
                     Py_DECREF(tmp);
                     Py_DECREF(res);
+                    Py_DECREF(arg);
                     return PyErr_NoMemory();
                 }
             }
+            Py_DECREF(arg);
             Py_DECREF(tmp);
             if (newsize != res->size) {
                 mp_limb_t *tmp_limbs = res->digits;
@@ -1745,8 +1811,23 @@ gmp_gcd(PyObject *self, PyObject * const *args, Py_ssize_t nargs)
 static PyObject *
 gmp_isqrt(PyObject *self, PyObject *other)
 {
-    MPZ_Object *x = (MPZ_Object*)other;
+    static MPZ_Object *x, *res;
 
+    if (MPZ_CheckExact(other)) {
+        x = (MPZ_Object*)other;
+        Py_INCREF(x);
+    }
+    else if (PyLong_Check(other)) {
+        x = from_int(other);
+        if (!x) {
+            goto end;
+        }
+    }
+    else {
+        PyErr_SetString(PyExc_TypeError,
+                        "isqrt() argument must be an integer");
+        return NULL;
+    }
     if (x->negative) {
         PyErr_SetString(PyExc_ValueError,
                         "isqrt() argument must be nonnegative");
@@ -1755,9 +1836,7 @@ gmp_isqrt(PyObject *self, PyObject *other)
     else if (!x->size) {
         return (PyObject*)MPZ_FromDigitSign(0, 0);
     }
-
-    MPZ_Object *res = MPZ_new((x->size + 1)/2, 0);
-
+    res = MPZ_new((x->size + 1)/2, 0);
     if (!res) {
         return NULL;
     }
@@ -1766,8 +1845,11 @@ gmp_isqrt(PyObject *self, PyObject *other)
     }
     else {
         Py_DECREF(res);
+        Py_DECREF(x);
         return PyErr_NoMemory();
     }
+end:
+    Py_DECREF(x);
     return (PyObject*)res;
 }
 
