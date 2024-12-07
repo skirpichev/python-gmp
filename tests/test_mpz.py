@@ -300,22 +300,38 @@ def test_digits(x, base):
     assert mx.digits(base) == res
 
 
-@given(integers(), integers(min_value=2, max_value=62))
-def test_digits_frombase(x, base):
+@given(integers(), integers(min_value=2, max_value=36))
+def test_digits_frombase_low(x, base):
     mx = mpz(x)
     smx = mx.digits(base)
     assert mpz(smx, base) == mx
-    if base <= 36:
-        assert mpz(smx.upper(), base) == mx
-        assert int(smx, base) == mx
-        smaller_base = (base + 2)//2 + 1
-        try:
-            i = int(smx, smaller_base)
-        except ValueError:
-            with pytest.raises(ValueError):
-                mpz(smx, smaller_base)
-        else:
-            assert mpz(smx, smaller_base) == i
+    assert mpz(smx.upper(), base) == mx
+    assert int(smx, base) == mx
+    smaller_base = (base + 2)//2 + 1
+    try:
+        i = int(smx, smaller_base)
+    except ValueError:
+        with pytest.raises(ValueError):
+            mpz(smx, smaller_base)
+    else:
+        assert mpz(smx, smaller_base) == i
+
+
+@given(integers(), integers(min_value=37, max_value=62))
+def test_digits_frombase_high(x, base):
+    gmpy2 = pytest.importorskip('gmpy2')
+    mx = mpz(x)
+    smx = mx.digits(base)
+    assert mpz(smx, base) == mx
+    assert int(gmpy2.mpz(smx, base)) == mx
+    smaller_base = (base + 2)//2 + 1
+    try:
+        g = gmpy2.mpz(smx, smaller_base)
+    except ValueError:
+        with pytest.raises(ValueError):
+            mpz(smx, smaller_base)
+    else:
+        assert mpz(smx, smaller_base) == int(g)
 
 
 @given(integers())
