@@ -1517,7 +1517,7 @@ __sizeof__(PyObject *self, PyObject *Py_UNUSED(ignored))
 static PyObject *
 is_integer(PyObject *a)
 {
-    return PyBool_FromLong(1);
+    Py_RETURN_TRUE;
 }
 
 
