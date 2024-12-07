@@ -364,7 +364,7 @@ def test_pickle(protocol, x):
 
 
 @pytest.mark.skipif(platform.python_implementation() == 'PyPy',
-                    reason="FIXME: how to do this on PyPy?")
+                    reason="FIXME: https://github.com/pypy/pypy/issues/5147")
 def test_outofmemory():
     resource.setrlimit(resource.RLIMIT_AS, (1024*32*1024, -1))
     total = 20
