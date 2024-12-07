@@ -128,7 +128,7 @@ MPZ_FromDigitSign(mp_limb_t digit, uint8_t negative)
 
 
 static PyObject *
-MPZ_to_str(MPZ_Object *self, int base)
+MPZ_to_str(MPZ_Object *self, int base, int repr)
 {
     if (base < 2 || base > 62) {
         PyErr_SetString(PyExc_ValueError,
@@ -137,38 +137,44 @@ MPZ_to_str(MPZ_Object *self, int base)
     }
 
     Py_ssize_t len = mpn_sizeinbase(self->digits, self->size, base);
-    unsigned char *buf = PyMem_Malloc(len + 1), *p = buf;
+    Py_ssize_t prefix = repr ? 4 : 0;
+    unsigned char *buf = PyMem_Malloc(len + prefix + repr + self->negative);
 
-    if (buf == NULL) {
+    if (!buf) {
         return PyErr_NoMemory();
     }
-    buf[0] = '-';
+    if (prefix) {
+        strcpy((char*)buf, "mpz(");
+    }
+    if (self->negative) {
+        buf[prefix] = '-';
+    }
+    repr += prefix;
+    prefix += self->negative;
 
-    const char *num_to_text = ("0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ"
-                               "abcdefghijklmnopqrstuvwxyz");
-    mp_size_t actual_len = 0;
+    const char *num_to_text = (base > 36 ?
+                               ("0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+                                "abcdefghijklmnopqrstuvwxyz") :
+                               "0123456789abcdefghijklmnopqrstuvwxyz");
 
     if (setjmp(gmp_env) != 1) {
-        actual_len = mpn_get_str(buf + 1, base,
-                                 self->digits, self->size);
+        len -= (mpn_get_str(buf + prefix, base,
+                            self->digits, self->size) != (size_t)len);
     }
     else {
         PyMem_Free(buf);
         return PyErr_NoMemory();
     }
-    len += (actual_len == len);
-    if (base <= 36) {
-        num_to_text = "0123456789abcdefghijklmnopqrstuvwxyz";
-    }
-    for (mp_size_t i = 1; i < actual_len + 1; i++) {
+    for (mp_size_t i = prefix; i < len + prefix; i++)
+    {
         buf[i] = num_to_text[buf[i]];
     }
-    if (!self->negative) {
-        p++;
-        len--;
+    if (repr) {
+        buf[prefix + len] = ')';
     }
 
-    PyObject *res = PyUnicode_FromStringAndSize((char*)p, len);
+    PyObject *res = PyUnicode_FromStringAndSize((char*)buf,
+                                                len + repr + self->negative);
 
     PyMem_Free(buf);
     return res;
@@ -352,7 +358,7 @@ absolute(MPZ_Object *a)
 static PyObject *
 to_int(MPZ_Object *self)
 {
-    PyObject *str = MPZ_to_str(self, 16);
+    PyObject *str = MPZ_to_str(self, 16, 0);
 
     if (!str) {
         return NULL;
@@ -1264,7 +1270,14 @@ static PyNumberMethods as_number = {
 static PyObject *
 repr(MPZ_Object *self)
 {
-    return MPZ_to_str(self, 10);
+    return MPZ_to_str(self, 10, 1);
+}
+
+
+static PyObject *
+str(MPZ_Object *self)
+{
+    return MPZ_to_str(self, 10, 0);
 }
 
 
@@ -1482,7 +1495,7 @@ __round__(PyObject *self, PyObject *const *args, Py_ssize_t nargs)
 static PyObject *
 __getnewargs__(PyObject *self, PyObject *Py_UNUSED(ignored))
 {
-    return Py_BuildValue("(Ni)", MPZ_to_str((MPZ_Object*)self, 16), 16);
+    return Py_BuildValue("(Ni)", MPZ_to_str((MPZ_Object*)self, 16, 0), 16);
 }
 
 static PyObject *
@@ -1567,7 +1580,7 @@ digits(PyObject *self, PyObject *const *args, Py_ssize_t nargs,
         }
     }
 
-    return MPZ_to_str((MPZ_Object*)self, base);
+    return MPZ_to_str((MPZ_Object*)self, base, 0);
 }
 
 PyDoc_STRVAR(to_bytes__doc__,
@@ -1657,6 +1670,7 @@ PyTypeObject MPZ_Type = {
     .tp_new = new,
     .tp_dealloc = (destructor) dealloc,
     .tp_repr = (reprfunc) repr,
+    .tp_str = (reprfunc) str,
     .tp_as_number = &as_number,
     .tp_richcompare = richcompare,
     .tp_hash = (hashfunc) hash,

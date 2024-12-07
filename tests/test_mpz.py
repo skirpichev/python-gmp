@@ -39,6 +39,13 @@ def test_mpz_from_to_int(x):
     assert int(mx) == x
 
 
+@given(integers())
+def test_repr(x):
+    mx = mpz(x)
+    sx = str(x)
+    assert repr(mx) == f"mpz({x!s})"
+
+
 @given(integers(), integers())
 def test_richcompare(x, y):
     mx = mpz(x)
