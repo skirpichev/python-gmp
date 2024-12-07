@@ -1686,42 +1686,77 @@ gmp_gcd(PyObject *self, PyObject * const *args, Py_ssize_t nargs)
         return (PyObject*)MPZ_FromDigitSign(0, 0);
     }
 
-    Py_ssize_t i = 0;
     mp_bitcnt_t nzeros_res = 0;
-    MPZ_Object *res, *arg = (MPZ_Object*)args[i];
+    MPZ_Object *res, *arg, *tmp;
 
-    for (; i < nargs; i++) {
-        arg = (MPZ_Object*)args[i];
-        if (arg->size) {
-            i++;
-            break;
+    if (MPZ_CheckExact(args[0])) {
+        arg = (MPZ_Object*)args[0];
+        Py_INCREF(arg);
+    }
+    else if (PyLong_Check(args[0])) {
+        arg = from_int(args[0]);
+        if (!arg) {
+            return NULL;
         }
     }
+    else {
+        PyErr_SetString(PyExc_TypeError,
+                        "gcd() arguments must be integers");
+        return NULL;
+    }
     res = (MPZ_Object*)absolute(arg);
+    Py_DECREF(arg);
     if (!res) {
         return NULL;
     }
-    for (; i < nargs; i++) {
+    for (Py_ssize_t i = 1; i < nargs; i++) {
         if (res->size != 1 || res->negative || res->digits[0] != 1)
         {
+            if (MPZ_CheckExact(args[i])) {
+                arg = (MPZ_Object*)absolute((MPZ_Object*)args[i]);
+            }
+            else if (PyLong_Check(args[i])) {
+                tmp = from_int(args[i]);
+                if (!tmp) {
+                    Py_DECREF(res);
+                    return NULL;
+                }
+                arg = (MPZ_Object*)absolute(tmp);
+                if (!arg) {
+                    Py_DECREF(tmp);
+                    Py_DECREF(res);
+                    return NULL;
+                }
+            }
+            else {
+                Py_DECREF(res);
+                PyErr_SetString(PyExc_TypeError,
+                                "gcd() arguments must be integers");
+                return NULL;
+            }
+            if (!res->size) {
+                Py_DECREF(res);
+                res = (MPZ_Object*)absolute(arg);
+                Py_DECREF(arg);
+                continue;
+            }
             nzeros_res = mpn_scan1(res->digits, 0);
             if (nzeros_res) {
                 mpn_rshift(res->digits, res->digits,
                            res->size, nzeros_res);
             }
-            arg = (MPZ_Object*)args[i];
             if (!arg->size) {
+                Py_DECREF(arg);
                 continue;
             }
             nzeros_res = Py_MIN(nzeros_res, mpn_scan1(arg->digits, 0));
             if (nzeros_res) {
                 mpn_rshift(arg->digits, arg->digits, arg->size, nzeros_res);
             }
-
-            MPZ_Object *tmp = (MPZ_Object*)plus((MPZ_Object*)res);
-
+            tmp = (MPZ_Object*)plus((MPZ_Object*)res);
             if (!tmp) {
                 Py_DECREF(res);
+                Py_DECREF(arg);
                 return NULL;
             }
 
@@ -1735,6 +1770,7 @@ gmp_gcd(PyObject *self, PyObject * const *args, Py_ssize_t nargs)
                 else {
                     Py_DECREF(tmp);
                     Py_DECREF(res);
+                    Py_DECREF(arg);
                     return PyErr_NoMemory();
                 }
             }
@@ -1746,9 +1782,11 @@ gmp_gcd(PyObject *self, PyObject * const *args, Py_ssize_t nargs)
                 else {
                     Py_DECREF(tmp);
                     Py_DECREF(res);
+                    Py_DECREF(arg);
                     return PyErr_NoMemory();
                 }
             }
+            Py_DECREF(arg);
             Py_DECREF(tmp);
             if (newsize != res->size) {
                 mp_limb_t *tmp_limbs = res->digits;

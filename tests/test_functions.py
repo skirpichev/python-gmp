@@ -16,4 +16,7 @@ def test_isqrt(x):
 def test_gcd(x, y):
     mx = mpz(x)
     my = mpz(y)
-    assert gcd(mx, my) == math.gcd(x, y)
+    r = math.gcd(x, y)
+    assert gcd(mx, my) == r
+    assert gcd(x, my) == r
+    assert gcd(mx, y) == r
