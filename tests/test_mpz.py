@@ -40,7 +40,7 @@ def test_mpz_from_to_int(x):
 
 
 @given(integers(), integers())
-def test_mpz_richcompare(x, y):
+def test_richcompare(x, y):
     mx = mpz(x)
     my = mpz(y)
     for op in [operator.eq, operator.ne, operator.lt, operator.le,
