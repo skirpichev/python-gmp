@@ -7,7 +7,7 @@
 #include <gmp.h>
 
 
-static const char python_gmp_version[] = "0.1.1";
+static const char python_gmp_version[] = "0.1.2";
 
 
 static jmp_buf gmp_env;
