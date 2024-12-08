@@ -1911,5 +1911,37 @@ PyInit_gmp(void)
     }
     mp_set_memory_functions(gmp_allocate_function, NULL,
                             gmp_free_function);
+
+    PyObject *numbers = PyImport_ImportModule("numbers");
+
+    if (!numbers) {
+        return NULL;
+    }
+
+    char* register_str = "numbers.Integral.register(gmp.mpz)\n";
+    PyObject *ns = PyDict_New();
+
+    if (!ns) {
+        Py_DECREF(numbers);
+        return NULL;
+    }
+    if ((PyDict_SetItemString(ns, "numbers", numbers) < 0)
+        || (PyDict_SetItemString(ns, "gmp", m) < 0))
+    {
+        Py_DECREF(numbers);
+        Py_DECREF(ns);
+        return NULL;
+    }
+
+    PyObject *res = PyRun_String(register_str, Py_file_input, ns, ns);
+
+    if (!res) {
+        Py_DECREF(numbers);
+        Py_DECREF(ns);
+        return NULL;
+    }
+    Py_DECREF(ns);
+    Py_XDECREF(res);
+    Py_DECREF(numbers);
     return m;
 }
