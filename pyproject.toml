@@ -49,6 +49,7 @@ ext-modules = [{name = "gmp", sources = ["main.c"], libraries = ["gmp"]}]
 [project.optional-dependencies]
 tests = ["pytest", "hypothesis",
          "gmpy2; platform_python_implementation!='PyPy'"]
+develop = ["python-gmp[tests]", "ruff"]
 
 [tool.pytest.ini_options]
 addopts = "--durations=7"

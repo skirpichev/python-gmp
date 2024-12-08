@@ -35,14 +35,13 @@ def test_mpz_from_to_str(x):
 def test_mpz_from_to_int(x):
     sx = str(x)
     mx = mpz(x)
-    assert mpz(mx) == mx == x
+    assert mpz(sx) == mpz(mx) == mx == x
     assert int(mx) == x
 
 
 @given(integers())
 def test_repr(x):
     mx = mpz(x)
-    sx = str(x)
     assert repr(mx) == f"mpz({x!s})"
 
 
@@ -224,7 +223,7 @@ def test_to_bytes(x, length, byteorder, signed):
     try:
         rx = x.to_bytes(length, byteorder, signed=signed)
     except OverflowError:
-        with raises(OverflowError):
+        with pytest.raises(OverflowError):
             mpz(x).to_bytes(length, byteorder, signed=signed)
     else:
         assert rx == mpz(x).to_bytes(length, byteorder, signed=signed)
