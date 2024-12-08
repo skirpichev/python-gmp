@@ -12,6 +12,7 @@ static const char python_gmp_version[] = "0.1.2";
 
 static jmp_buf gmp_env;
 #define GMP_TRACKER_SIZE_INCR 16
+#define CHECK_NO_MEM_LEAK (setjmp(gmp_env) != 1)
 static struct {
     size_t size;
     size_t alloc;
@@ -157,7 +158,7 @@ MPZ_to_str(MPZ_Object *self, int base, int repr)
                                 "abcdefghijklmnopqrstuvwxyz") :
                                "0123456789abcdefghijklmnopqrstuvwxyz");
 
-    if (setjmp(gmp_env) != 1) {
+    if (CHECK_NO_MEM_LEAK) {
         len -= (mpn_get_str(buf + prefix, base,
                             self->digits, self->size) != (size_t)len);
     }
@@ -291,7 +292,7 @@ MPZ_from_str(PyObject *s, int base)
 
     MPZ_Object *res = MPZ_new(1 + len/2, negative);
 
-    if (setjmp(gmp_env) != 1) {
+    if (CHECK_NO_MEM_LEAK) {
         res->size = mpn_set_str(res->digits, p, len, base);
     }
     else {
@@ -535,7 +536,7 @@ MPZ_mul(MPZ_Object *v, MPZ_Object *u)
         SWAP(MPZ_Object*, u, v);
     }
     if (u == v) {
-        if (setjmp(gmp_env) != 1) {
+        if (CHECK_NO_MEM_LEAK) {
             mpn_sqr(res->digits, u->digits, u->size);
         }
         else {
@@ -544,7 +545,7 @@ MPZ_mul(MPZ_Object *v, MPZ_Object *u)
         }
     }
     else {
-        if (setjmp(gmp_env) != 1) {
+        if (CHECK_NO_MEM_LEAK) {
             mpn_mul(res->digits, u->digits, u->size,
                     v->digits, v->size);
         }
@@ -605,7 +606,7 @@ MPZ_DivMod(MPZ_Object *a, MPZ_Object *b, MPZ_Object **q, MPZ_Object **r)
             Py_DECREF(*q);
             return -1;
         }
-        if (setjmp(gmp_env) != 1) {
+        if (CHECK_NO_MEM_LEAK) {
             mpn_tdiv_qr((*q)->digits, (*r)->digits, 0,
                         a->digits, a->size,
                         b->digits, b->size);
@@ -1206,7 +1207,7 @@ power(PyObject *a, PyObject *b, PyObject *m)
                 Py_DECREF(v);
                 return PyErr_NoMemory();
             }
-            if (setjmp(gmp_env) != 1) {
+            if (CHECK_NO_MEM_LEAK) {
                 res->size = mpn_pow_1(res->digits, u->digits, u->size,
                                       v->digits[0], tmp);
             }
@@ -1779,7 +1780,7 @@ gmp_gcd(PyObject *self, PyObject * const *args, Py_ssize_t nargs)
             mp_size_t newsize;
 
             if (tmp->size >= arg->size) {
-                if (setjmp(gmp_env) != 1) {
+                if (CHECK_NO_MEM_LEAK) {
                     newsize = mpn_gcd(res->digits, tmp->digits, tmp->size,
                                       arg->digits, arg->size);
                 }
@@ -1791,7 +1792,7 @@ gmp_gcd(PyObject *self, PyObject * const *args, Py_ssize_t nargs)
                 }
             }
             else {
-                if (setjmp(gmp_env) != 1) {
+                if (CHECK_NO_MEM_LEAK) {
                     newsize = mpn_gcd(res->digits, arg->digits, arg->size,
                                       tmp->digits, tmp->size);
                 }
@@ -1856,7 +1857,7 @@ gmp_isqrt(PyObject *self, PyObject *other)
     if (!res) {
         return NULL;
     }
-    if (setjmp(gmp_env) != 1) {
+    if (CHECK_NO_MEM_LEAK) {
         mpn_sqrtrem(res->digits, NULL, x->digits, x->size);
     }
     else {
