@@ -1856,9 +1856,12 @@ end:
 
 static PyMethodDef functions [] =
 {
-    {"gcd", (PyCFunction)gmp_gcd, METH_FASTCALL, "Greatest Common Divisor."},
+    {"gcd", (PyCFunction)gmp_gcd, METH_FASTCALL,
+     ("gcd($module, /, *integers)\n--\n\n"
+      "Greatest Common Divisor.")},
     {"isqrt", gmp_isqrt, METH_O,
-     "Return the integer part of the square root of the input."},
+     ("isqrt($module, n, /)\n--\n\n"
+      "Return the integer part of the square root of the input.")},
     {NULL}  /* sentinel */
 };
 
