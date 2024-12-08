@@ -39,6 +39,7 @@ content-type = 'text/x-rst'
 Homepage = 'https://github.com/diofant/python-gmp'
 'Source Code' = 'https://github.com/diofant/python-gmp'
 'Bug Tracker' = 'https://github.com/diofant/python-gmp/issues'
+Documentation = 'https://python-gmp.readthedocs.io/'
 
 [tool.setuptools]
 ext-modules = [{name = "gmp", sources = ["main.c"], libraries = ["gmp"]}]
@@ -53,6 +54,7 @@ ext-modules = [{name = "gmp", sources = ["main.c"], libraries = ["gmp"]}]
 tests = ["pytest", "hypothesis",
          "gmpy2; platform_python_implementation!='PyPy'"]
 develop = ["python-gmp[tests]", "ruff"]
+docs = ['sphinx']
 
 [tool.pytest.ini_options]
 addopts = "--durations=7"

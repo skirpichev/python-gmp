@@ -18,7 +18,25 @@ jobs:
           allow-prereleases: true
       - run: sudo apt-get update
       - run: sudo apt-get install libgmp-dev
+      - run: sudo apt-get install texlive texlive-latex-extra latexmk
+        if: matrix.python-version == 3.13
       - run: pip install --upgrade pip
       - run: pip --verbose install --editable .[develop]
+        if: matrix.python-version != 3.13
+      - run: pip --verbose install --editable .[develop,docs]
+        if: matrix.python-version == 3.13
       - run: ruff check
       - run: pytest
+      - name: Building docs
+        if: matrix.python-version == 3.13
+        run: |
+          sphinx-build --color -W --keep-going -b html docs build/sphinx/html
+          sphinx-build --color -W --keep-going -b latex docs build/sphinx/latex
+          make -C build/sphinx/latex all-pdf
+      - name: Archive build artifacts
+        uses: actions/upload-artifact@v4
+        if: matrix.python-version == 3.13
+        with:
+          path: |
+            build/sphinx/html/
+            build/sphinx/latex/python-gmp.pdf
