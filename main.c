@@ -1663,6 +1663,21 @@ static PyMethodDef methods[] = {
 };
 
 
+PyDoc_STRVAR(mpz_doc,
+"mpz(x, /)\n\
+mpz(x, /, base=10)\n\
+\n\
+Convert a number or string to an integer, or return 0 if no arguments\n\
+are given.  If x is a number, return x.__int__().  For floating-point\n\
+numbers, this truncates towards zero.\n\
+\n\
+If x is not a number or if base is given, then x must be a string,\n\
+bytes, or bytearray instance representing an integer literal in the\n\
+given base.  The literal can be preceded by '+' or '-' and be surrounded\n\
+by whitespace.  The base defaults to 10.  Valid bases are 0 and 2-36.\n\
+Base 0 means to interpret the base from the string as an integer literal.");
+
+
 PyTypeObject MPZ_Type = {
     PyVarObject_HEAD_INIT(NULL, 0)
     .tp_name = "gmp.mpz",
@@ -1676,6 +1691,7 @@ PyTypeObject MPZ_Type = {
     .tp_hash = (hashfunc) hash,
     .tp_getset = getsetters,
     .tp_methods = methods,
+    .tp_doc = mpz_doc,
 };
 
 
