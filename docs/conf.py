@@ -14,7 +14,7 @@ import packaging.version
 
 # Add any Sphinx extension module names here, as strings. They can be
 # extensions coming with Sphinx (named 'sphinx.ext.*') or your custom ones.
-extensions = ["sphinx.ext.autodoc"]
+extensions = ["sphinx.ext.autodoc", "sphinx.ext.doctest"]
 
 # The name of a reST role (builtin or Sphinx extension) to use as the
 # default role, that is, for text marked up `like this`.
@@ -51,3 +51,11 @@ release = gmp.__version__
 # file, target name, title, author, documentclass [howto/manual]).
 latex_documents = [("index", "python-gmp.tex", "python-gmp Documentation",
                     "Sergey B Kirpichev", "manual")]
+
+# Python code that is treated like it were put in a testsetup directive for
+# every file that is tested, and for every group.
+doctest_global_setup = """
+from fractions import Decimal
+
+from gmp import mpq
+"""

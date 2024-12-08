@@ -2871,22 +2871,65 @@ PyInit_gmp(void)
         return NULL;
     }
 
-    PyObject *numbers = PyImport_ImportModule("numbers");
-
-    if (!numbers) {
-        return NULL;
-    }
-
-    const char *str = "numbers.Integral.register(gmp.mpz)\n";
     PyObject *ns = PyDict_New();
 
     if (!ns) {
-        Py_DECREF(numbers);
         return NULL;
     }
-    if ((PyDict_SetItemString(ns, "numbers", numbers) < 0)
-        || (PyDict_SetItemString(ns, "gmp", m) < 0))
-    {
+    if (PyDict_SetItemString(ns, "gmp", m) < 0) {
+        Py_DECREF(ns);
+        return NULL;
+    }
+
+    PyObject *gmp_fractions = PyImport_ImportModule("gmp_fractions");
+
+    if (!gmp_fractions) {
+        Py_DECREF(ns);
+        return NULL;
+    }
+
+    PyObject *mpq = PyObject_GetAttrString(gmp_fractions, "mpq");
+
+    if (!mpq) {
+        Py_DECREF(ns);
+        Py_DECREF(gmp_fractions);
+        return NULL;
+    }
+
+    PyObject *mname = PyUnicode_FromString("gmp");
+
+    if (!mname) {
+        Py_DECREF(ns);
+        Py_DECREF(gmp_fractions);
+        Py_DECREF(mpq);
+    }
+    if (PyObject_SetAttrString(mpq, "__module__", mname) < 0) {
+        Py_DECREF(ns);
+        Py_DECREF(gmp_fractions);
+        Py_DECREF(mpq);
+        Py_DECREF(mname);
+    }
+    Py_DECREF(mname);
+    if (PyModule_AddType(m, (PyTypeObject *)mpq) < 0) {
+        Py_DECREF(ns);
+        Py_DECREF(gmp_fractions);
+        Py_DECREF(mpq);
+        return NULL;
+    }
+    Py_DECREF(gmp_fractions);
+    Py_DECREF(mpq);
+
+    PyObject *numbers = PyImport_ImportModule("numbers");
+
+    if (!numbers) {
+        Py_DECREF(ns);
+        return NULL;
+    }
+
+    const char *str = ("numbers.Integral.register(gmp.mpz)\n"
+                       "numbers.Rational.register(gmp.mpq)\n");
+
+    if (PyDict_SetItemString(ns, "numbers", numbers) < 0) {
         Py_DECREF(numbers);
         Py_DECREF(ns);
         return NULL;

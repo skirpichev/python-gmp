@@ -34,6 +34,7 @@ jobs:
       - name: Building docs
         if: matrix.python-version == 3.13
         run: |
+          sphinx-build --color -W --keep-going -b doctest docs build/sphinx/doctest
           sphinx-build --color -W --keep-going -b html docs build/sphinx/html
           sphinx-build --color -W --keep-going -b latex docs build/sphinx/latex
           make -C build/sphinx/latex all-pdf

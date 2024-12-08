@@ -61,7 +61,7 @@ norecursedirs = ["build", ".eggs", ".git", ".venv"]
 xfail_strict = true
 
 [tool.ruff]
-exclude = [".venv"]
+exclude = [".venv", "gmp_fractions.py"]
 line-length = 79
 
 [tool.ruff.lint]
