@@ -1870,6 +1870,14 @@ end:
 }
 
 
+static PyObject *
+gmp_factorial(PyObject *self, PyObject *other)
+{
+    PyErr_SetString(PyExc_NotImplementedError, "factorial");
+    return NULL;
+}
+
+
 static PyMethodDef functions [] =
 {
     {"gcd", (PyCFunction)gmp_gcd, METH_FASTCALL,
@@ -1878,6 +1886,9 @@ static PyMethodDef functions [] =
     {"isqrt", gmp_isqrt, METH_O,
      ("isqrt($module, n, /)\n--\n\n"
       "Return the integer part of the square root of the input.")},
+    {"factorial", gmp_factorial, METH_O,
+     ("factorial($module, n, /)\n--\n\n"
+      "Find n!.\n\nRaise a ValueError if x is negative or non-integral.")},
     {NULL}  /* sentinel */
 };
 
