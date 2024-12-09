@@ -363,7 +363,8 @@ def test_pickle(protocol, x):
 
 
 def test_outofmemory():
-    resource.setrlimit(resource.RLIMIT_AS, (1024*32*1024, -1))
+    soft, hard = resource.getrlimit(resource.RLIMIT_AS)
+    resource.setrlimit(resource.RLIMIT_AS, (1024*32*1024, hard))
     total = 20
     for n in range(total):
         a = random.randint(49846727467293, 249846727467293)
@@ -377,4 +378,4 @@ def test_outofmemory():
                 break
             i += 1
     assert n + 1 == total
-    resource.setrlimit(resource.RLIMIT_AS, (-1, -1))
+    resource.setrlimit(resource.RLIMIT_AS, (soft, hard))
