@@ -3,6 +3,7 @@
 #define PY_SSIZE_T_CLEAN
 #include <Python.h>
 
+#include <float.h>
 #include <setjmp.h>
 #include <gmp.h>
 
@@ -399,16 +400,105 @@ to_int(MPZ_Object *self)
 }
 
 
+static mp_limb_t
+MPZ_AsManAndExp(MPZ_Object *a, Py_ssize_t *e)
+{
+    mp_limb_t high = 1ULL<<DBL_MANT_DIG;
+    mp_limb_t r = 0, carry, left;
+    mp_size_t as, i, bits=0;
+
+    if (!a->size) {
+        *e = 0;
+        return 0;
+    }
+    as = a->size;
+    r = a->digits[as - 1];
+    if (r >= high) {
+        while ((r >> bits) >= high) {
+            bits++;
+        }
+        left = 1ULL << (bits - 1);
+        carry = r & (2*left - 1);
+        r >>= bits;
+        i = as - 1;
+        *e = (as - 1)*GMP_NUMB_BITS + DBL_MANT_DIG + bits;
+    }
+    else {
+        while (!((r << 1) & high)) {
+            r <<= 1;
+            bits++;
+        }
+        i = as - 1;
+        *e = (as - 1)*GMP_NUMB_BITS + DBL_MANT_DIG - bits;
+        for (i = as - 1;i && bits >= GMP_NUMB_BITS;) {
+            bits -= GMP_NUMB_BITS;
+            r += a->digits[--i] << bits;
+        }
+        if (i == 0) {
+            return r;
+        }
+        if (bits) {
+            bits = GMP_NUMB_BITS - bits;
+            left = 1ULL << (bits - 1);
+            r += a->digits[i - 1] >> bits;
+            carry = a->digits[i-1] & (2*left - 1);
+            i--;
+        }
+        else {
+            left = 1ULL<<(GMP_NUMB_BITS - 1);
+            carry = a->digits[i-1];
+            i--;
+        }
+    }
+    if (carry > left) {
+        r++;
+    }
+    else if (carry == left) {
+        if (r%2 == 1) {
+            r++;
+        }
+        else {
+            mp_size_t j;
+
+            for (j = 0; j < i; j++) {
+                if (a->digits[j]) {
+                    break;
+                }
+            }
+            if (i != j) {
+                r++;
+            }
+        }
+    }
+    return r;
+}
+
+
+static double
+MPZ_AsDoubleAndExp(MPZ_Object *a, Py_ssize_t *e)
+{
+    mp_limb_t man = MPZ_AsManAndExp(a, e);
+    double d = ldexp(man, -DBL_MANT_DIG);
+
+    if (a->negative) {
+        d = -d;
+    }
+    return d;
+}
+
+
 static PyObject *
 to_float(MPZ_Object *self)
 {
-    __mpz_struct tmp;
+    Py_ssize_t exp;
+    double d = MPZ_AsDoubleAndExp(self, &exp);
 
-    tmp._mp_d = self->digits;
-    tmp._mp_size = (self->negative ? -1 : 1)*self->size;
-
-    double d = mpz_get_d(&tmp);
-
+	if (exp > DBL_MAX_EXP) {
+        PyErr_SetString(PyExc_OverflowError,
+                        "integer too large to convert to float");
+        return NULL;
+    }
+    d = ldexp(d, exp);
     if (isinf(d)) {
         PyErr_SetString(PyExc_OverflowError,
                         "integer too large to convert to float");
