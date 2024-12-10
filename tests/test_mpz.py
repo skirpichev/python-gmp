@@ -311,7 +311,6 @@ def test_from_bytes(x, length, byteorder, signed):
         assert rx == mpz.from_bytes(list(bytes), byteorder, signed=signed)
 
 
-@pytest.mark.xfail(reason="https://github.com/diofant/python-gmp/issues/2")
 @given(integers())
 @example(117529601297931785)
 def test___float__(x):
