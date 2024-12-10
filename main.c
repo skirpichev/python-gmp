@@ -774,11 +774,77 @@ lshift(PyObject *a, PyObject *b)
 }
 
 
+static MPZ_Object *
+MPZ_rshift(MPZ_Object *u, MPZ_Object *v)
+{
+    if (v->negative) {
+        PyErr_SetString(PyExc_ValueError, "negative shift count");
+        return NULL;
+    }
+    if (!u->size) {
+        return MPZ_FromDigitSign(0, 0);
+    }
+    if (!v->size) {
+        return (MPZ_Object*)plus(u);
+    }
+    if (v->size > 1) {
+        if (u->negative) {
+            return MPZ_FromDigitSign(1, 1);
+        }
+        else {
+            return MPZ_FromDigitSign(0, 0);
+        }
+    }
+
+    mp_size_t whole = v->digits[0] / GMP_NUMB_BITS;
+    mp_size_t rshift = v->digits[0] % GMP_NUMB_BITS;
+    mp_size_t size = u->size;
+
+    if (whole >= size) {
+        return MPZ_FromDigitSign(u->negative, u->negative);
+    }
+    size -= whole;
+
+    MPZ_Object *res = MPZ_new(size + 1, u->negative);
+
+    if (!res) {
+        return NULL;
+    }
+    res->digits[size] = 0;
+
+    int carry = 0;
+
+    if (rshift) {
+        if (mpn_rshift(res->digits, u->digits + whole, size, rshift)) {
+            carry = u->negative;
+        }
+    }
+    else {
+        mpn_copyi(res->digits, u->digits + whole, size);
+    }
+    if (carry) {
+        if (mpn_add_1(res->digits, res->digits, size, 1)) {
+            res->digits[size] = 1;
+        }
+    }
+    MPZ_normalize(res);
+    return res;
+}
+
+
 static PyObject *
 rshift(PyObject *a, PyObject *b)
 {
-    PyErr_SetString(PyExc_NotImplementedError, "mpz.__rshift__");
-    return NULL;
+    PyObject *res = NULL;
+
+    CHECK_OP(u, a);
+    CHECK_OP(v, b);
+
+    res = (PyObject*)MPZ_rshift(u, v);
+end:
+    Py_XDECREF(u);
+    Py_XDECREF(v);
+    return (PyObject*)res;
 }
 
 
