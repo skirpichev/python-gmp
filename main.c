@@ -766,11 +766,74 @@ invert(MPZ_Object *self)
 }
 
 
+static MPZ_Object *
+MPZ_lshift(MPZ_Object *u, MPZ_Object *v)
+{
+    if (v->negative) {
+        PyErr_SetString(PyExc_ValueError, "negative shift count");
+        return NULL;
+    }
+    if (!u->size) {
+        return MPZ_FromDigitSign(0, 0);
+    }
+    if (!v->size) {
+        return (MPZ_Object*)plus(u);
+    }
+    if (v->size > 1) {
+        PyErr_SetString(PyExc_OverflowError,
+                        "too many digits in integer");
+        return NULL;
+    }
+
+    mp_limb_t lshift = v->digits[0];
+    mp_size_t whole = lshift/GMP_NUMB_BITS;
+    mp_size_t size = u->size + whole;
+
+    lshift %= GMP_NUMB_BITS;
+    if (lshift) {
+        size++;
+    }
+    if (u->size == 1 && !whole) {
+        mp_limb_t t = u->digits[0] << lshift;
+
+        if (t >> lshift == u->digits[0]) {
+            return MPZ_FromDigitSign(t, u->negative);
+        }
+    }
+
+    MPZ_Object *res = MPZ_new(size, u->negative);
+
+    if (!res) {
+        return NULL;
+    }
+    if (whole) {
+        mpn_zero(res->digits, whole);
+    }
+
+    mp_limb_t carry = mpn_lshift(res->digits + whole, u->digits,
+                                 u->size, lshift);
+
+    if (lshift) {
+        res->digits[size - 1] = carry;
+    }
+    MPZ_normalize(res);
+    return res;
+}
+
+
 static PyObject *
 lshift(PyObject *a, PyObject *b)
 {
-    PyErr_SetString(PyExc_NotImplementedError, "mpz.__lshift__");
-    return NULL;
+    PyObject *res = NULL;
+
+    CHECK_OP(u, a);
+    CHECK_OP(v, b);
+
+    res = (PyObject*)MPZ_lshift(u, v);
+end:
+    Py_XDECREF(u);
+    Py_XDECREF(v);
+    return (PyObject*)res;
 }
 
 

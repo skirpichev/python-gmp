@@ -173,6 +173,32 @@ def test_xor(x, y):
     assert x ^ my == r
 
 
+@given(integers(), integers(max_value=12345))
+def test_lshift(x, y):
+    mx = mpz(x)
+    my = mpz(y)
+    try:
+        r = x << y
+    except OverflowError:
+        with pytest.raises(OverflowError):
+            mx << my
+        with pytest.raises(OverflowError):
+            x << my
+        with pytest.raises(OverflowError):
+            mx << y
+    except ValueError:
+        with pytest.raises(ValueError):
+            mx << my
+        with pytest.raises(ValueError):
+            x << my
+        with pytest.raises(ValueError):
+            mx << y
+    else:
+        assert mx << my == r
+        assert mx << y == r
+        assert x << my == r
+
+
 @given(integers(), integers())
 def test_rshift(x, y):
     mx = mpz(x)
