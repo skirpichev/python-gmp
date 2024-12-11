@@ -7,9 +7,6 @@
 #include <gmp.h>
 
 
-static const char python_gmp_version[] = "0.1.2";
-
-
 static jmp_buf gmp_env;
 #define GMP_TRACKER_SIZE_INCR 16
 #define CHECK_NO_MEM_LEAK (setjmp(gmp_env) != 1)
@@ -2040,11 +2037,6 @@ PyInit_gmp(void)
     if (PyModule_AddType(m, &MPZ_Type) < 0) {
         return NULL;
     }
-    if (PyModule_AddStringConstant(m, "__version__",
-                                   python_gmp_version) < 0)
-    {
-        return NULL;
-    }
     if (PyModule_Add(m, "_limb_size",
                      PyLong_FromSize_t(sizeof(mp_limb_t))) < 0)
     {
@@ -2059,7 +2051,7 @@ PyInit_gmp(void)
         return NULL;
     }
 
-    char* register_str = "numbers.Integral.register(gmp.mpz)\n";
+    const char* str = "numbers.Integral.register(gmp.mpz)\n";
     PyObject *ns = PyDict_New();
 
     if (!ns) {
@@ -2074,15 +2066,35 @@ PyInit_gmp(void)
         return NULL;
     }
 
-    PyObject *res = PyRun_String(register_str, Py_file_input, ns, ns);
+    PyObject *res = PyRun_String(str, Py_file_input, ns, ns);
 
     if (!res) {
         Py_DECREF(numbers);
         Py_DECREF(ns);
         return NULL;
     }
+    Py_DECREF(res);
+
+    PyObject *importlib = PyImport_ImportModule("importlib.metadata");
+
+    if (!importlib) {
+        Py_DECREF(ns);
+        return NULL;
+    }
+    if (PyDict_SetItemString(ns, "importlib", importlib) < 0) {
+        Py_DECREF(ns);
+        Py_DECREF(importlib);
+        return NULL;
+    }
+    str = "gmp.__version__ = importlib.version('python-gmp')\n";
+    res = PyRun_String(str, Py_file_input, ns, ns);
+    if (!res) {
+        Py_DECREF(ns);
+        Py_DECREF(importlib);
+        return NULL;
+    }
     Py_DECREF(ns);
-    Py_XDECREF(res);
-    Py_DECREF(numbers);
+    Py_DECREF(importlib);
+    Py_DECREF(res);
     return m;
 }
