@@ -389,14 +389,9 @@ def test_digits_frombase_high(x, base):
 def test_frombase_auto(x):
     mx = mpz(x)
     smx10 = mx.digits(10)
-    if mx >= 0:
-        smx2 = '0b' + mx.digits(2)
-        smx8 = '0o' + mx.digits(8)
-        smx16 = '0x' + mx.digits(16)
-    else:
-        smx2 = '-0b' + mx.digits(2)[1:]
-        smx8 = '-0o' + mx.digits(8)[1:]
-        smx16 = '-0x' + mx.digits(16)[1:]
+    smx2 = mx.digits(2, prefix=True)
+    smx8 = mx.digits(8, prefix=True)
+    smx16 = mx.digits(16, prefix=True)
     assert mpz(smx10, 0) == mx
     assert mpz(smx2, 0) == mx
     assert mpz(smx8, 0) == mx
