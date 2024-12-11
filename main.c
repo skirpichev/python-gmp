@@ -126,17 +126,28 @@ MPZ_FromDigitSign(mp_limb_t digit, uint8_t negative)
 
 
 static PyObject *
-MPZ_to_str(MPZ_Object *self, int base, int repr)
+MPZ_to_str(MPZ_Object *self, int base, int repr, int auto_prefix)
 {
     if (base < 2 || base > 62) {
         PyErr_SetString(PyExc_ValueError,
                         "base must be in the interval [2, 62]");
         return NULL;
     }
+    if (auto_prefix) {
+        repr = 0;
+    }
 
     Py_ssize_t len = mpn_sizeinbase(self->digits, self->size, base);
     Py_ssize_t prefix = repr ? 4 : 0;
-    unsigned char *buf = PyMem_Malloc(len + prefix + repr + self->negative);
+
+    if (auto_prefix && (base == 2 || base == 8 || base == 16)) {
+        auto_prefix = 2;
+    }
+    else {
+        auto_prefix = 0;
+    }
+
+    unsigned char *buf = PyMem_Malloc(len + auto_prefix + prefix + repr + self->negative);
 
     if (!buf) {
         return PyErr_NoMemory();
@@ -149,6 +160,17 @@ MPZ_to_str(MPZ_Object *self, int base, int repr)
     }
     repr += prefix;
     prefix += self->negative;
+    if (auto_prefix) {
+        if (base == 2) {
+            memcpy(buf + prefix, "0b", 2);
+        }
+        else if (base == 8) {
+            memcpy(buf + prefix, "0o", 2);
+        }
+        else {
+            memcpy(buf + prefix, "0x", 2);
+        }
+    }
 
     const char *num_to_text = (base > 36 ?
                                ("0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ"
@@ -156,14 +178,14 @@ MPZ_to_str(MPZ_Object *self, int base, int repr)
                                "0123456789abcdefghijklmnopqrstuvwxyz");
 
     if (CHECK_NO_MEM_LEAK) {
-        len -= (mpn_get_str(buf + prefix, base,
+        len -= (mpn_get_str(buf + auto_prefix + prefix, base,
                             self->digits, self->size) != (size_t)len);
     }
     else {
         PyMem_Free(buf);
         return PyErr_NoMemory();
     }
-    for (mp_size_t i = prefix; i < len + prefix; i++)
+    for (mp_size_t i = prefix + auto_prefix; i < len + prefix + auto_prefix; i++)
     {
         buf[i] = num_to_text[buf[i]];
     }
@@ -172,7 +194,7 @@ MPZ_to_str(MPZ_Object *self, int base, int repr)
     }
 
     PyObject *res = PyUnicode_FromStringAndSize((char*)buf,
-                                                len + repr + self->negative);
+                                                len + repr + self->negative + auto_prefix);
 
     PyMem_Free(buf);
     return res;
@@ -356,7 +378,7 @@ absolute(MPZ_Object *a)
 static PyObject *
 to_int(MPZ_Object *self)
 {
-    PyObject *str = MPZ_to_str(self, 16, 0);
+    PyObject *str = MPZ_to_str(self, 16, 0, 0);
 
     if (!str) {
         return NULL;
@@ -1397,14 +1419,14 @@ static PyNumberMethods as_number = {
 static PyObject *
 repr(MPZ_Object *self)
 {
-    return MPZ_to_str(self, 10, 1);
+    return MPZ_to_str(self, 10, 1, 0);
 }
 
 
 static PyObject *
 str(MPZ_Object *self)
 {
-    return MPZ_to_str(self, 10, 0);
+    return MPZ_to_str(self, 10, 0, 0);
 }
 
 
@@ -1622,7 +1644,7 @@ __round__(PyObject *self, PyObject *const *args, Py_ssize_t nargs)
 static PyObject *
 __getnewargs__(PyObject *self, PyObject *Py_UNUSED(ignored))
 {
-    return Py_BuildValue("(Ni)", MPZ_to_str((MPZ_Object*)self, 16, 0), 16);
+    return Py_BuildValue("(Ni)", MPZ_to_str((MPZ_Object*)self, 16, 0, 0), 16);
 }
 
 static PyObject *
@@ -1659,17 +1681,20 @@ digits(PyObject *self, PyObject *const *args, Py_ssize_t nargs,
     }
 
     Py_ssize_t nkws = 0;
-    int base = 10, argidx[1] = {-1};
+    int base = 10, prefix = 0, argidx[2] = {-1, -1};
 
-    if (nargs == 1) {
+    if (nargs >= 1) {
         argidx[0] = 0;
+    }
+    if (nargs == 2) {
+        argidx[1] = 1;
     }
     if (kwnames) {
         nkws = PyTuple_GET_SIZE(kwnames);
     }
-    if (nkws > 1) {
+    if (nkws > 2) {
         PyErr_SetString(PyExc_TypeError,
-                        "digits() takes at most one keyword argument");
+                        "digits() takes at most two keyword argument");
         return NULL;
     }
     for (Py_ssize_t i = 0; i < nkws; i++) {
@@ -1682,6 +1707,16 @@ digits(PyObject *self, PyObject *const *args, Py_ssize_t nargs,
             else {
                 PyErr_SetString(PyExc_TypeError,
                                 "argument for digits() given by name ('base') and position (1)");
+                return NULL;
+            }
+        }
+        else if (strcmp(kwname, "prefix") == 0) {
+            if (nargs <= 1) {
+                argidx[1] = (int)(nargs + i);
+            }
+            else {
+                PyErr_SetString(PyExc_TypeError,
+                                "argument for digits() given by name ('prefix') and position (2)");
                 return NULL;
             }
         }
@@ -1706,8 +1741,10 @@ digits(PyObject *self, PyObject *const *args, Py_ssize_t nargs,
             return NULL;
         }
     }
-
-    return MPZ_to_str((MPZ_Object*)self, base, 0);
+    if (argidx[1] != -1) {
+        prefix = PyObject_IsTrue(args[argidx[1]]);
+    }
+    return MPZ_to_str((MPZ_Object*)self, base, 0, prefix);
 }
 
 PyDoc_STRVAR(to_bytes__doc__,
