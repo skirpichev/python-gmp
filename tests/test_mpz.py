@@ -445,7 +445,7 @@ def test_frombase_auto(x):
 
 
 @pytest.mark.parametrize('protocol',
-                         range(2, pickle.HIGHEST_PROTOCOL + 1))
+                         range(pickle.HIGHEST_PROTOCOL + 1))
 @given(integers())
 def test_pickle(protocol, x):
     mx = mpz(x)

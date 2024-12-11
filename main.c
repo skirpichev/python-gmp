@@ -1828,9 +1828,11 @@ __round__(PyObject *self, PyObject *const *args, Py_ssize_t nargs)
 
 
 static PyObject *
-__getnewargs__(PyObject *self, PyObject *Py_UNUSED(ignored))
+__reduce__(PyObject *self, PyObject *Py_UNUSED(ignored))
 {
-    return Py_BuildValue("(Ni)", MPZ_to_str((MPZ_Object*)self, 16, 0, 0), 16);
+    return Py_BuildValue("O(Ni)", Py_TYPE(self),
+                         MPZ_to_str((MPZ_Object*)self, 16, 0, 0),
+                         16);
 }
 
 static PyObject *
@@ -1996,7 +1998,7 @@ static PyMethodDef methods[] = {
       "Rounding an Integral returns itself.\n\n"
       "Rounding with an ndigits argument also returns an integer.")
     },
-    {"__getnewargs__", (PyCFunction)__getnewargs__, METH_NOARGS, NULL},
+    {"__reduce__", (PyCFunction)__reduce__, METH_NOARGS, NULL},
     {"__format__", (PyCFunction)__format__, METH_O,
      ("__format__($self, format_spec, /)\n--\n\n"
       "Convert to a string according to format_spec.")},
