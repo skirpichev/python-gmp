@@ -8,7 +8,8 @@ import sys
 
 import pytest
 from hypothesis import assume, example, given
-from hypothesis.strategies import booleans, integers, sampled_from
+from hypothesis.strategies import (booleans, characters, integers,
+                                   sampled_from, text)
 
 from gmp import mpz
 from gmp import _limb_size as limb_size
@@ -24,6 +25,19 @@ def test_mpz_from_to_str(x):
     sx = str(x)
     mx = mpz(sx)
     assert str(mx) == sx
+
+
+@pytest.mark.xfail(reason="https://github.com/diofant/python-gmp/issues/46")
+@given(text(alphabet=characters(min_codepoint=48, max_codepoint=57,
+                                include_characters=['_'])))
+def test_mpz_underscores(s):
+    try:
+        i = int(s)
+    except ValueError:
+        with pytest.raises(ValueError):
+            mpz(s)
+    else:
+        assert mpz(s) == i
 
 
 @given(integers())
