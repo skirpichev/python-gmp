@@ -134,8 +134,7 @@ def test_divmod(x, y):
     assert divmod(mx, my) == r
 
 
-@given(integers(min_value=-1000000, max_value=1000000),
-       integers(min_value=0, max_value=100000))
+@given(integers(), integers(max_value=100000))
 @example(123, 0)
 @example(-321, 0)
 @example(1, 123)
@@ -143,12 +142,22 @@ def test_divmod(x, y):
 @example(123, 321)
 @example(-56, 321)
 def test_power(x, y):
+    if y > 0 and abs(x) > 1000000:
+        return
     mx = mpz(x)
     my = mpz(y)
-    r = x**y
-    assert mx**my == r
-    assert mx**y == r
-    assert x**my == r
+    try:
+        r = x**y
+    except OverflowError:
+        with pytest.raises(OverflowError):
+            mx**my
+    except ZeroDivisionError:
+        with pytest.raises(ZeroDivisionError):
+            mx**my
+    else:
+        assert mx**my == r
+        assert mx**y == r
+        assert x**my == r
 
 
 @given(integers())

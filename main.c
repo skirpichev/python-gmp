@@ -1325,17 +1325,33 @@ power(PyObject *a, PyObject *b, PyObject *m)
     CHECK_OP(u, a);
     CHECK_OP(v, b);
     if (Py_IsNone(m)) {
+        if (v->negative) {
+            /* FIXME: use to_float() */
+            PyObject *ui, *vi, *resf;
+
+            ui = to_int(u);
+            Py_DECREF(u);
+            if (!ui) {
+                Py_DECREF(v);
+                return NULL;
+            }
+            vi = to_int(v);
+            Py_DECREF(v);
+            if (!vi) {
+                Py_DECREF(ui);
+                goto end;
+            }
+            resf = PyLong_Type.tp_as_number->nb_power(ui, vi, Py_None);
+            Py_DECREF(ui);
+            Py_DECREF(vi);
+            return resf;
+        }
         if (!v->size) {
             res = MPZ_FromDigitSign(1, 0);
             goto end;
         }
         if (!u->size) {
             res = MPZ_FromDigitSign(0, 0);
-            goto end;
-        }
-        if (v->negative) {
-            PyErr_SetString(PyExc_NotImplementedError,
-                            "mpz.__pow__: float arg");
             goto end;
         }
         if (u->size == 1 && u->digits[0] == 1) {
