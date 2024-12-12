@@ -1948,11 +1948,19 @@ __reduce__(PyObject *self, PyObject *Py_UNUSED(ignored))
                          16);
 }
 
+
 static PyObject *
 __format__(PyObject *self, PyObject *format_spec)
 {
-    PyErr_SetString(PyExc_NotImplementedError, "mpz.__format__");
-    return NULL;
+    /* FIXME: replace this stub */
+    PyObject *integer = to_int((MPZ_Object*)self), *res;
+
+    if (!integer) {
+        return NULL;
+    }
+    res = PyObject_CallMethod(integer, "__format__", "O", format_spec);
+    Py_DECREF(integer);
+    return res;
 }
 
 
