@@ -27,7 +27,7 @@ def test_mpz_from_to_str(x):
     assert str(mx) == sx
 
 
-@pytest.mark.xfail(reason="https://github.com/diofant/python-gmp/issues/46")
+@pytest.mark.xfail(reason="diofant/python-gmp#46")
 @given(text(alphabet=characters(min_codepoint=48, max_codepoint=57,
                                 include_characters=['_'])))
 def test_mpz_underscores(s):
@@ -263,7 +263,7 @@ def test_methods(x):
     assert math.ceil(mx) == math.ceil(x)
 
 
-@pytest.mark.xfail(reason="https://github.com/diofant/python-gmp/issues/3")
+@pytest.mark.xfail(reason="diofant/python-gmp#3")
 @given(integers(), integers(min_value=0, max_value=10000),
        sampled_from(['big', 'little']), booleans())
 @example(0, 0, 'big', False)
@@ -354,7 +354,7 @@ def test_mpz_from_bytes_interface():
     assert mpz.from_bytes(b'\x01') == mpz.from_bytes(b'\x01', signed=False)
 
 
-@pytest.mark.xfail(reason="https://github.com/diofant/python-gmp/issues/2")
+@pytest.mark.xfail(reason="diofant/python-gmp#2")
 @given(integers())
 @example(117529601297931785)
 def test___float__(x):
@@ -367,7 +367,7 @@ def test___float__(x):
         assert float(mx) == fx
 
 
-@pytest.mark.xfail(reason="https://github.com/diofant/python-gmp/issues/4")
+@pytest.mark.xfail(reason="diofant/python-gmp#4")
 @given(integers(), integers(min_value=-20, max_value=30))
 def test___round__(x, n):
     mx = mpz(x)
