@@ -1815,7 +1815,7 @@ from_bytes(PyTypeObject *type, PyObject *const *args,
         }
         res->digits[res->size - 1] = ~res->digits[res->size - 1];
 
-        mp_size_t shift = GMP_LIMB_BITS*res->size - 8*length;
+        mp_size_t shift = GMP_NUMB_BITS*res->size - 8*length;
 
         res->digits[res->size - 1] <<= shift;
         res->digits[res->size - 1] >>= shift;
