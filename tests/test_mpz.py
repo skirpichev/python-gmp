@@ -134,6 +134,19 @@ def test_divmod(x, y):
     assert divmod(mx, my) == r
 
 
+@pytest.mark.xfail(reason="diofant/python-gmp#6")
+@given(integers(), integers())
+def test_truediv(x, y):
+    if not y:
+        return
+    mx = mpz(x)
+    my = mpz(y)
+    r = x / y
+    assert mx / my == r
+    assert mx / y == r
+    assert x / my == r
+
+
 @given(integers(), integers(max_value=100000))
 @example(123, 0)
 @example(-321, 0)
@@ -158,6 +171,24 @@ def test_power(x, y):
         assert mx**my == r
         assert mx**y == r
         assert x**my == r
+
+
+@pytest.mark.xfail(reason="diofant/python-gmp#8")
+@given(integers(), integers(max_value=1000000), integers())
+def test_power_mod(x, y, z):
+    mx = mpz(x)
+    my = mpz(y)
+    mz = mpz(z)
+    try:
+        r = pow(x, y, z)
+    except ValueError:
+        with pytest.raises(ValueError):
+            pow(mx, my, mz)
+    else:
+        assert pow(mx, my, mz) == r
+        assert pow(mx, my, z) == r
+        assert pow(mx, y, mz) == r
+        assert pow(x, my, mz) == r
 
 
 @given(integers())
