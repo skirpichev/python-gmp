@@ -21,7 +21,7 @@ from gmp import _limb_size as limb_size
 @example(75424656551107706)
 @example(1284673497348563845623546741523784516734143215346712)
 @example(65869376547959985897597359)
-def test_mpz_from_to_str(x):
+def test_from_to_str(x):
     sx = str(x)
     mx = mpz(sx)
     assert str(mx) == sx
@@ -30,7 +30,7 @@ def test_mpz_from_to_str(x):
 @pytest.mark.xfail(reason="diofant/python-gmp#46")
 @given(text(alphabet=characters(min_codepoint=48, max_codepoint=57,
                                 include_characters=['_'])))
-def test_mpz_underscores(s):
+def test_underscores(s):
     try:
         i = int(s)
     except ValueError:
@@ -100,7 +100,7 @@ def test___format__(x, fmt):
 @example(75424656551107706)
 @example(1284673497348563845623546741523784516734143215346712)
 @example(65869376547959985897597359)
-def test_mpz_from_to_int(x):
+def test_from_to_int(x):
     sx = str(x)
     mx = mpz(x)
     assert mpz(sx) == mpz(mx) == mx == x
@@ -127,7 +127,7 @@ def test_richcompare(x, y):
 @example(0)
 @example(-1)
 @example(-2)
-def test_mpz_hash(x):
+def test_hash(x):
     mx = mpz(x)
     assert hash(mx) == hash(x)
 
@@ -138,7 +138,7 @@ def test_mpz_hash(x):
 @example(75424656551107706)
 @example(1284673497348563845623546741523784516734143215346712)
 @example(65869376547959985897597359)
-def test_mpz_plus_minus_abs(x):
+def test_plus_minus_abs(x):
     mx = mpz(x)
     assert +mx == x
     assert -mx == -x
@@ -420,7 +420,7 @@ def test_from_bytes(x, length, byteorder, signed):
         assert rx == mpz.from_bytes(list(bytes), byteorder, signed=signed)
 
 
-def test_mpz_from_bytes_interface():
+def test_from_bytes_interface():
     with pytest.raises(TypeError):
         mpz.from_bytes()
     with pytest.raises(TypeError):
