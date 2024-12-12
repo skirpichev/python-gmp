@@ -1416,24 +1416,23 @@ power(PyObject *a, PyObject *b, PyObject *m)
     CHECK_OP(v, b);
     if (Py_IsNone(m)) {
         if (v->negative) {
-            /* FIXME: use to_float() */
-            PyObject *ui, *vi, *resf;
+            PyObject *uf, *vf, *resf;
 
-            ui = to_int(u);
+            uf = to_float(u);
             Py_DECREF(u);
-            if (!ui) {
+            if (!uf) {
                 Py_DECREF(v);
                 return NULL;
             }
-            vi = to_int(v);
+            vf = to_float(v);
             Py_DECREF(v);
-            if (!vi) {
-                Py_DECREF(ui);
+            if (!vf) {
+                Py_DECREF(uf);
                 goto end;
             }
-            resf = PyLong_Type.tp_as_number->nb_power(ui, vi, Py_None);
-            Py_DECREF(ui);
-            Py_DECREF(vi);
+            resf = PyFloat_Type.tp_as_number->nb_power(uf, vf, Py_None);
+            Py_DECREF(uf);
+            Py_DECREF(vf);
             return resf;
         }
         if (!v->size) {
