@@ -363,7 +363,6 @@ def test_mpz_from_bytes_interface():
     assert mpz.from_bytes(b'\x01') == mpz.from_bytes(b'\x01', signed=False)
 
 
-@pytest.mark.xfail(reason="diofant/python-gmp#2")
 @given(integers())
 @example(117529601297931785)
 def test___float__(x):
