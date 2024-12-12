@@ -74,6 +74,7 @@ typedef struct _mpzobject {
     PyObject_HEAD
     uint8_t negative;
     mp_size_t size;
+    /* XXX: add alloc field? */
     mp_limb_t *digits;
 } MPZ_Object;
 
@@ -311,6 +312,10 @@ MPZ_from_str(PyObject *s, int base)
 
     MPZ_Object *res = MPZ_new(1 + len/2, negative);
 
+    if (!res) {
+        PyMem_Free(buf);
+        return NULL;
+    }
     if (CHECK_NO_MEM_LEAK) {
         res->size = mpn_set_str(res->digits, p, len, base);
     }
@@ -342,6 +347,9 @@ plus(MPZ_Object *a)
 
     MPZ_Object *res = MPZ_new(a->size, a->negative);
 
+    if (!res) {
+        return NULL;
+    }
     mpn_copyi(res->digits, a->digits, a->size);
     return (PyObject*)res;
 }
@@ -2095,6 +2103,7 @@ gmp_gcd(PyObject *self, PyObject * const *args, Py_ssize_t nargs)
                     Py_DECREF(res);
                     return NULL;
                 }
+                Py_DECREF(tmp);
             }
             else {
                 Py_DECREF(res);
@@ -2105,6 +2114,10 @@ gmp_gcd(PyObject *self, PyObject * const *args, Py_ssize_t nargs)
             if (!res->size) {
                 Py_DECREF(res);
                 res = (MPZ_Object*)absolute(arg);
+                if (!res) {
+                    Py_DECREF(arg);
+                    return NULL;
+                }
                 Py_DECREF(arg);
                 continue;
             }
