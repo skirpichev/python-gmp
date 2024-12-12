@@ -8,7 +8,7 @@ import sys
 
 import pytest
 from hypothesis import assume, example, given
-from hypothesis.strategies import (booleans, characters, integers,
+from hypothesis.strategies import (booleans, characters, composite, integers,
                                    sampled_from, text)
 
 from gmp import mpz
@@ -38,6 +38,60 @@ def test_mpz_underscores(s):
             mpz(s)
     else:
         assert mpz(s) == i
+
+
+@composite
+def fmt_str(draw, types='bdoxX'):
+    res = ''
+    type = draw(sampled_from(types))
+
+    # fill_char and align
+    fill_char = draw(sampled_from(['']*3 + list('z;clxvjqwer')))
+    if fill_char:
+        skip_0_padding = True
+        align = draw(sampled_from(list('<^>=')))
+        res += fill_char + align
+    else:
+        align = draw(sampled_from([''] + list('<^>=')))
+        if align:
+            skip_0_padding = True
+            res += align
+        else:
+            skip_0_padding = False
+
+    # sign character
+    res += draw(sampled_from([''] + list('-+ ')))
+
+    # alternate mode
+    res += draw(sampled_from(['', '#']))
+
+    # pad with 0s
+    pad0 = draw(sampled_from(['', '0']))
+    skip_thousand_separators = False
+    if pad0 and not skip_0_padding:
+        res += pad0
+        skip_thousand_separators = True
+
+    # Width
+    res += draw(sampled_from(['']*7 + list(map(str, range(1, 40)))))
+
+    # grouping character (thousand_separators)
+    gchar = draw(sampled_from([''] + list(',_')))
+    if (gchar and not skip_thousand_separators
+            and not (gchar == ',' and type in ['b', 'o', 'x', 'X'])):
+        res += gchar
+
+    # Type
+    res += type
+
+    return res
+
+
+@given(integers(), fmt_str())
+def test___format__(x, fmt):
+    mx = mpz(x)
+    r = format(x, fmt)
+    assert format(mx, fmt) == r
 
 
 @given(integers())
