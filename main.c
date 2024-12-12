@@ -74,6 +74,7 @@ typedef struct _mpzobject {
     PyObject_HEAD
     uint8_t negative;
     mp_size_t size;
+    /* XXX: add alloc field? */
     mp_limb_t *digits;
 } MPZ_Object;
 
@@ -311,6 +312,10 @@ MPZ_from_str(PyObject *s, int base)
 
     MPZ_Object *res = MPZ_new(1 + len/2, negative);
 
+    if (!res) {
+        PyMem_Free(buf);
+        return NULL;
+    }
     if (CHECK_NO_MEM_LEAK) {
         res->size = mpn_set_str(res->digits, p, len, base);
     }
@@ -342,6 +347,9 @@ plus(MPZ_Object *a)
 
     MPZ_Object *res = MPZ_new(a->size, a->negative);
 
+    if (!res) {
+        return NULL;
+    }
     mpn_copyi(res->digits, a->digits, a->size);
     return (PyObject*)res;
 }
@@ -1317,17 +1325,33 @@ power(PyObject *a, PyObject *b, PyObject *m)
     CHECK_OP(u, a);
     CHECK_OP(v, b);
     if (Py_IsNone(m)) {
+        if (v->negative) {
+            /* FIXME: use to_float() */
+            PyObject *ui, *vi, *resf;
+
+            ui = to_int(u);
+            Py_DECREF(u);
+            if (!ui) {
+                Py_DECREF(v);
+                return NULL;
+            }
+            vi = to_int(v);
+            Py_DECREF(v);
+            if (!vi) {
+                Py_DECREF(ui);
+                goto end;
+            }
+            resf = PyLong_Type.tp_as_number->nb_power(ui, vi, Py_None);
+            Py_DECREF(ui);
+            Py_DECREF(vi);
+            return resf;
+        }
         if (!v->size) {
             res = MPZ_FromDigitSign(1, 0);
             goto end;
         }
         if (!u->size) {
             res = MPZ_FromDigitSign(0, 0);
-            goto end;
-        }
-        if (v->negative) {
-            PyErr_SetString(PyExc_NotImplementedError,
-                            "mpz.__pow__: float arg");
             goto end;
         }
         if (u->size == 1 && u->digits[0] == 1) {
@@ -1791,7 +1815,7 @@ from_bytes(PyTypeObject *type, PyObject *const *args,
         }
         res->digits[res->size - 1] = ~res->digits[res->size - 1];
 
-        mp_size_t shift = GMP_LIMB_BITS*res->size - 8*length;
+        mp_size_t shift = GMP_NUMB_BITS*res->size - 8*length;
 
         res->digits[res->size - 1] <<= shift;
         res->digits[res->size - 1] >>= shift;
@@ -1828,9 +1852,11 @@ __round__(PyObject *self, PyObject *const *args, Py_ssize_t nargs)
 
 
 static PyObject *
-__getnewargs__(PyObject *self, PyObject *Py_UNUSED(ignored))
+__reduce__(PyObject *self, PyObject *Py_UNUSED(ignored))
 {
-    return Py_BuildValue("(Ni)", MPZ_to_str((MPZ_Object*)self, 16, 0, 0), 16);
+    return Py_BuildValue("O(Ni)", Py_TYPE(self),
+                         MPZ_to_str((MPZ_Object*)self, 16, 0, 0),
+                         16);
 }
 
 static PyObject *
@@ -1996,7 +2022,7 @@ static PyMethodDef methods[] = {
       "Rounding an Integral returns itself.\n\n"
       "Rounding with an ndigits argument also returns an integer.")
     },
-    {"__getnewargs__", (PyCFunction)__getnewargs__, METH_NOARGS, NULL},
+    {"__reduce__", (PyCFunction)__reduce__, METH_NOARGS, NULL},
     {"__format__", (PyCFunction)__format__, METH_O,
      ("__format__($self, format_spec, /)\n--\n\n"
       "Convert to a string according to format_spec.")},
@@ -2093,6 +2119,7 @@ gmp_gcd(PyObject *self, PyObject * const *args, Py_ssize_t nargs)
                     Py_DECREF(res);
                     return NULL;
                 }
+                Py_DECREF(tmp);
             }
             else {
                 Py_DECREF(res);
@@ -2103,6 +2130,10 @@ gmp_gcd(PyObject *self, PyObject * const *args, Py_ssize_t nargs)
             if (!res->size) {
                 Py_DECREF(res);
                 res = (MPZ_Object*)absolute(arg);
+                if (!res) {
+                    Py_DECREF(arg);
+                    return NULL;
+                }
                 Py_DECREF(arg);
                 continue;
             }

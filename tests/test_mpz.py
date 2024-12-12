@@ -27,7 +27,7 @@ def test_mpz_from_to_str(x):
     assert str(mx) == sx
 
 
-@pytest.mark.xfail(reason="https://github.com/diofant/python-gmp/issues/46")
+@pytest.mark.xfail(reason="diofant/python-gmp#46")
 @given(text(alphabet=characters(min_codepoint=48, max_codepoint=57,
                                 include_characters=['_'])))
 def test_mpz_underscores(s):
@@ -134,8 +134,7 @@ def test_divmod(x, y):
     assert divmod(mx, my) == r
 
 
-@given(integers(min_value=-1000000, max_value=1000000),
-       integers(min_value=0, max_value=100000))
+@given(integers(), integers(max_value=100000))
 @example(123, 0)
 @example(-321, 0)
 @example(1, 123)
@@ -143,12 +142,22 @@ def test_divmod(x, y):
 @example(123, 321)
 @example(-56, 321)
 def test_power(x, y):
+    if y > 0 and abs(x) > 1000000:
+        return
     mx = mpz(x)
     my = mpz(y)
-    r = x**y
-    assert mx**my == r
-    assert mx**y == r
-    assert x**my == r
+    try:
+        r = x**y
+    except OverflowError:
+        with pytest.raises(OverflowError):
+            mx**my
+    except ZeroDivisionError:
+        with pytest.raises(ZeroDivisionError):
+            mx**my
+    else:
+        assert mx**my == r
+        assert mx**y == r
+        assert x**my == r
 
 
 @given(integers())
@@ -263,7 +272,7 @@ def test_methods(x):
     assert math.ceil(mx) == math.ceil(x)
 
 
-@pytest.mark.xfail(reason="https://github.com/diofant/python-gmp/issues/3")
+@pytest.mark.xfail(reason="diofant/python-gmp#3")
 @given(integers(), integers(min_value=0, max_value=10000),
        sampled_from(['big', 'little']), booleans())
 @example(0, 0, 'big', False)
@@ -354,7 +363,7 @@ def test_mpz_from_bytes_interface():
     assert mpz.from_bytes(b'\x01') == mpz.from_bytes(b'\x01', signed=False)
 
 
-@pytest.mark.xfail(reason="https://github.com/diofant/python-gmp/issues/2")
+@pytest.mark.xfail(reason="diofant/python-gmp#2")
 @given(integers())
 @example(117529601297931785)
 def test___float__(x):
@@ -367,7 +376,7 @@ def test___float__(x):
         assert float(mx) == fx
 
 
-@pytest.mark.xfail(reason="https://github.com/diofant/python-gmp/issues/4")
+@pytest.mark.xfail(reason="diofant/python-gmp#4")
 @given(integers(), integers(min_value=-20, max_value=30))
 def test___round__(x, n):
     mx = mpz(x)
@@ -445,7 +454,7 @@ def test_frombase_auto(x):
 
 
 @pytest.mark.parametrize('protocol',
-                         range(2, pickle.HIGHEST_PROTOCOL + 1))
+                         range(pickle.HIGHEST_PROTOCOL + 1))
 @given(integers())
 def test_pickle(protocol, x):
     mx = mpz(x)
