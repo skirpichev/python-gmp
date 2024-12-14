@@ -71,6 +71,7 @@ select = [
     "I",  # isort
     "PT", # flake8-pytest-style
     "W",  # pycodestyle warnings
+    "Q000",
 ]
 ignore = [
     "PT011",
