@@ -40,6 +40,21 @@ def test_underscores(s):
         assert mpz(s) == i
 
 
+@pytest.mark.xfail(reason="diofant/python-gmp#46")
+@given(text(alphabet=characters(min_codepoint=48, max_codepoint=57,
+                                include_characters=['_', 'a', 'b',
+                                                    'c', 'd', 'e', 'f'])))
+def test_underscores_auto(s):
+    s = '0x' + s
+    try:
+        i = int(s, base=0)
+    except ValueError:
+        with pytest.raises(ValueError):
+            mpz(s, base=0)
+    else:
+        assert mpz(s, base=0) == i
+
+
 @composite
 def fmt_str(draw, types='bdoxX'):
     res = ''
