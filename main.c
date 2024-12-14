@@ -1723,6 +1723,70 @@ revstr(char* s, size_t l, size_t r)
 
 
 static PyObject *
+MPZ_to_bytes(MPZ_Object *x, Py_ssize_t length, int is_little, int is_signed)
+{
+    MPZ_Object *tmp = NULL;
+    int is_negative = x->negative;
+
+    if (is_negative) {
+        if (!is_signed) {
+            PyErr_SetString(PyExc_OverflowError,
+                            "can't convert negative mpz to unsigned");
+            return NULL;
+        }
+        tmp = MPZ_new((8*length)/GMP_NUMB_BITS + 1, 0);
+        if (!tmp) {
+            return NULL;
+        }
+        mpn_zero(tmp->digits, tmp->size);
+        tmp->digits[tmp->size - 1] = 1;
+        tmp->digits[tmp->size - 1] <<= (8*length) % (GMP_NUMB_BITS*tmp->size);
+        mpn_sub(tmp->digits, tmp->digits, tmp->size, x->digits, x->size);
+        MPZ_normalize(tmp);
+        x = tmp;
+    }
+
+    Py_ssize_t nbits = x->size ? mpn_sizeinbase(x->digits, x->size, 2) : 0;
+
+    if (nbits > 8*length
+        || (is_signed && nbits
+            && (nbits == 8*length ? !is_negative : is_negative)))
+    {
+        PyErr_SetString(PyExc_OverflowError, "int too big to convert");
+        return NULL;
+    }
+
+    char* buffer = PyMem_Malloc(length);
+    Py_ssize_t gap = length - (nbits + GMP_NUMB_BITS/8 - 1)/(GMP_NUMB_BITS/8);
+
+    if (!buffer) {
+        Py_XDECREF(tmp);
+        return PyErr_NoMemory();
+    }
+    memset(buffer, is_negative ? 0xFF : 0, gap);
+    if (x->size) {
+        if (CHECK_NO_MEM_LEAK) {
+            mpn_get_str((unsigned char*)(buffer + gap), 256,
+                        x->digits, x->size);
+        }
+        else {
+            Py_XDECREF(tmp);
+            return PyErr_NoMemory();
+        }
+    }
+    Py_XDECREF(tmp);
+    if (is_little && length) {
+        revstr(buffer, 0, length - 1);
+    }
+
+    PyObject *bytes = PyBytes_FromStringAndSize(buffer, length);
+
+    PyMem_Free(buffer);
+    return bytes;
+}
+
+
+static PyObject *
 to_bytes(PyObject *self, PyObject *const *args, Py_ssize_t nargs,
          PyObject *kwnames)
 {
@@ -1830,63 +1894,100 @@ to_bytes(PyObject *self, PyObject *const *args, Py_ssize_t nargs,
     if (argidx[2] >= 0) {
         is_signed = PyObject_IsTrue(args[argidx[2]]);
     }
+    return MPZ_to_bytes((MPZ_Object*)self, length, is_little, is_signed);
+}
 
-    MPZ_Object *x = (MPZ_Object*)self, *tmp = NULL;
-    int is_negative = x->negative;
 
-    if (is_negative) {
-        if (!is_signed) {
-            PyErr_SetString(PyExc_OverflowError,
-                            "can't convert negative mpz to unsigned");
-            return NULL;
-        }
-        tmp = MPZ_new((8*length)/GMP_NUMB_BITS + 1, 0);
-        if (!tmp) {
-            return NULL;
-        }
-        mpn_zero(tmp->digits, tmp->size);
-        tmp->digits[tmp->size - 1] = 1;
-        tmp->digits[tmp->size - 1] <<= (8*length) % (GMP_NUMB_BITS*tmp->size);
-        mpn_sub(tmp->digits, tmp->digits, tmp->size, x->digits, x->size);
-        MPZ_normalize(tmp);
-        x = tmp;
-    }
-
-    Py_ssize_t nbits = x->size ? mpn_sizeinbase(x->digits, x->size, 2) : 0;
-
-    if (nbits > 8*length
-        || (is_signed && nbits
-            && (nbits == 8*length ? !is_negative : is_negative)))
-    {
-        PyErr_SetString(PyExc_OverflowError, "int too big to convert");
-        return NULL;
-    }
-
-    PyObject *bytes = PyBytes_FromStringAndSize(NULL, length);
+static MPZ_Object *
+MPZ_from_bytes(PyObject *arg, int is_little, int is_signed)
+{
+    PyObject *bytes = PyObject_Bytes(arg);
+    char *buffer;
+    Py_ssize_t length;
 
     if (bytes == NULL) {
         return NULL;
     }
-
-    char* buffer = PyBytes_AS_STRING(bytes);
-    Py_ssize_t gap = length - (nbits + GMP_NUMB_BITS/8 - 1)/(GMP_NUMB_BITS/8);
-
-    memset(buffer, is_negative ? 0xFF : 0, gap);
-    if (x->size) {
-        if (CHECK_NO_MEM_LEAK) {
-            mpn_get_str((unsigned char*)(buffer + gap), 256,
-                        x->digits, x->size);
-        }
-        else {
-            Py_DECREF(bytes);
-            return PyErr_NoMemory();
-        }
+    if (PyBytes_AsStringAndSize(bytes, &buffer, &length) == -1) {
+        return NULL;
     }
-    if (is_little && length) {
+    if (!length) {
+        Py_DECREF(bytes);
+        return MPZ_FromDigitSign(0, 0);
+    }
+
+    MPZ_Object *res = MPZ_new(1 + length/2, 0);
+
+    if (!res) {
+        Py_DECREF(bytes);
+        return NULL;
+    }
+    if (is_little) {
+        char *tmp = PyMem_Malloc(length);
+
+        if (!tmp) {
+            Py_DECREF(bytes);
+            return (MPZ_Object*)PyErr_NoMemory();
+        }
+        memcpy(tmp, buffer, length);
+        buffer = tmp;
         revstr(buffer, 0, length - 1);
     }
-    Py_XDECREF(tmp);
-    return bytes;
+    if (CHECK_NO_MEM_LEAK) {
+        res->size = mpn_set_str(res->digits, (unsigned char*)buffer,
+                                length, 256);
+    }
+    else {
+        Py_DECREF(res);
+        PyMem_Free(bytes);
+        if (is_little) {
+            PyMem_Free(buffer);
+        }
+        return (MPZ_Object*)PyErr_NoMemory();
+    }
+    Py_DECREF(bytes);
+    if (is_little) {
+        PyMem_Free(buffer);
+    }
+
+    mp_limb_t *tmp = res->digits;
+
+    res->digits = PyMem_Resize(tmp, mp_limb_t, res->size);
+    if (!res->digits) {
+        res->digits = tmp;
+        Py_DECREF(res);
+        return (MPZ_Object*)PyErr_NoMemory();
+    }
+    MPZ_normalize(res);
+    if (is_signed && mpn_sizeinbase(res->digits, res->size,
+                                    2) == 8*(size_t)length)
+    {
+        if (res->size > 1) {
+            if (mpn_sub_1(res->digits, res->digits, res->size, 1)) {
+                res->digits[res->size - 1] -= 1;
+            }
+            mpn_com(res->digits, res->digits, res->size - 1);
+        }
+        else {
+            res->digits[res->size - 1] -= 1;
+        }
+        res->digits[res->size - 1] = ~res->digits[res->size - 1];
+
+        mp_size_t shift = GMP_NUMB_BITS*res->size - 8*length;
+
+        res->digits[res->size - 1] <<= shift;
+        res->digits[res->size - 1] >>= shift;
+        res->negative = 1;
+        MPZ_normalize(res);
+    }
+    return res;
+}
+
+
+static PyObject *
+_from_bytes(PyObject *module, PyObject *arg)
+{
+    return (PyObject*)MPZ_from_bytes(arg, 0, 1);
 }
 
 
@@ -1990,87 +2091,7 @@ from_bytes(PyTypeObject *type, PyObject *const *args,
     if (argidx[2] >= 0) {
         is_signed = PyObject_IsTrue(args[argidx[2]]);
     }
-
-    PyObject *bytes = PyObject_Bytes(args[argidx[0]]);
-    char *buffer;
-    Py_ssize_t length;
-
-    if (bytes == NULL) {
-        return NULL;
-    }
-    if (PyBytes_AsStringAndSize(bytes, &buffer, &length) == -1) {
-        return NULL;
-    }
-    if (!length) {
-        Py_DECREF(bytes);
-        return (PyObject*)MPZ_FromDigitSign(0, 0);
-    }
-
-    MPZ_Object *res = MPZ_new(1 + length/2, 0);
-
-    if (!res) {
-        Py_DECREF(bytes);
-        return NULL;
-    }
-    if (is_little) {
-        char *tmp = PyMem_Malloc(length);
-
-        if (!tmp) {
-            Py_DECREF(bytes);
-            return PyErr_NoMemory();
-        }
-        memcpy(tmp, buffer, length);
-        buffer = tmp;
-        revstr(buffer, 0, length - 1);
-    }
-    if (CHECK_NO_MEM_LEAK) {
-        res->size = mpn_set_str(res->digits, (unsigned char*)buffer,
-                                length, 256);
-    }
-    else {
-        Py_DECREF(res);
-        PyMem_Free(bytes);
-        if (is_little) {
-            PyMem_Free(buffer);
-        }
-        return PyErr_NoMemory();
-    }
-    Py_DECREF(bytes);
-    if (is_little) {
-        PyMem_Free(buffer);
-    }
-
-    mp_limb_t *tmp = res->digits;
-
-    res->digits = PyMem_Resize(tmp, mp_limb_t, res->size);
-    if (!res->digits) {
-        res->digits = tmp;
-        Py_DECREF(res);
-        return PyErr_NoMemory();
-    }
-    MPZ_normalize(res);
-    if (is_signed && mpn_sizeinbase(res->digits, res->size,
-                                    2) == 8*(size_t)length)
-    {
-        if (res->size > 1) {
-            if (mpn_sub_1(res->digits, res->digits, res->size, 1)) {
-                res->digits[res->size - 1] -= 1;
-            }
-            mpn_com(res->digits, res->digits, res->size - 1);
-        }
-        else {
-            res->digits[res->size - 1] -= 1;
-        }
-        res->digits[res->size - 1] = ~res->digits[res->size - 1];
-
-        mp_size_t shift = GMP_NUMB_BITS*res->size - 8*length;
-
-        res->digits[res->size - 1] <<= shift;
-        res->digits[res->size - 1] >>= shift;
-        res->negative = 1;
-        MPZ_normalize(res);
-    }
-    return (PyObject*)res;
+    return (PyObject*)MPZ_from_bytes(args[argidx[0]], is_little, is_signed);
 }
 
 
@@ -2091,6 +2112,7 @@ as_integer_ratio(PyObject *a)
     return ratio_tuple;
 }
 
+
 static PyObject *
 __round__(PyObject *self, PyObject *const *args, Py_ssize_t nargs)
 {
@@ -2099,12 +2121,17 @@ __round__(PyObject *self, PyObject *const *args, Py_ssize_t nargs)
 }
 
 
+static PyObject *from_bytes_func;
+
+
 static PyObject *
 __reduce__(PyObject *self, PyObject *Py_UNUSED(ignored))
 {
-    return Py_BuildValue("O(Ni)", Py_TYPE(self),
-                         MPZ_to_str((MPZ_Object*)self, 16, 0, 0),
-                         16);
+    MPZ_Object *x = (MPZ_Object*)self;
+    Py_ssize_t len = x->size ? mpn_sizeinbase(x->digits, x->size, 2) : 1;
+
+    return Py_BuildValue("O(N)", from_bytes_func,
+                         MPZ_to_bytes(x, (len + 7)/8 + 1, 0, 1));
 }
 
 
@@ -2526,6 +2553,7 @@ static PyMethodDef functions [] =
     {"factorial", gmp_factorial, METH_O,
      ("factorial($module, n, /)\n--\n\n"
       "Find n!.\n\nRaise a ValueError if x is negative or non-integral.")},
+    {"_from_bytes", _from_bytes, METH_O, NULL},
     {NULL}  /* sentinel */
 };
 
@@ -2606,5 +2634,7 @@ PyInit_gmp(void)
     Py_DECREF(ns);
     Py_DECREF(importlib);
     Py_DECREF(res);
+    from_bytes_func = PyObject_GetAttrString(m, "_from_bytes");
+    Py_INCREF(from_bytes_func);
     return m;
 }
