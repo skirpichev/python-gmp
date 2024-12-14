@@ -208,7 +208,6 @@ def test_divmod(x, y):
     assert divmod(mx, my) == r
 
 
-@pytest.mark.xfail(reason="diofant/python-gmp#6")
 @given(integers(), integers())
 def test_truediv(x, y):
     if not y:
