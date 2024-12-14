@@ -1,6 +1,5 @@
 import math
 
-import pytest
 from gmp import factorial, gcd, isqrt, mpz
 from hypothesis import given
 from hypothesis.strategies import integers
@@ -13,7 +12,6 @@ def test_isqrt(x):
     assert isqrt(mx) == isqrt(x) == r
 
 
-@pytest.mark.xfail(reason="diofant/python-gmp#12")
 @given(integers(min_value=0, max_value=12345))
 def test_factorial(x):
     mx = mpz(x)
