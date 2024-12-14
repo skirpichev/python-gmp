@@ -1,50 +1,50 @@
 [build-system]
-requires = ["setuptools>=74.1", 'setuptools_scm[toml]>=6.0']
+requires = ["setuptools>=74.1", "setuptools_scm[toml]>=6.0"]
 build-backend = "setuptools.build_meta"
 
 [project]
 name = "python-gmp"
 dynamic = ["version"]
 description = "Safe bindings to the GNU GMP library"
-keywords = ['gmp', 'multiple-precision', 'arbitrary-precision', 'bignum']
+keywords = ["gmp", "multiple-precision", "arbitrary-precision", "bignum"]
 license = {text = "MIT"}
 authors = [{name = "Sergey B Kirpichev", email = "skirpichev@gmail.com"}]
 maintainers = [{name = "Sergey B Kirpichev", email = "skirpichev@gmail.com"}]
-classifiers = ['Development Status :: 1 - Planning',
-               'Intended Audience :: Developers',
-               'Intended Audience :: Science/Research',
-               'License :: OSI Approved :: MIT License',
-               'Natural Language :: English',
-               'Operating System :: POSIX',
-               'Programming Language :: C',
-               'Programming Language :: Python :: 3',
-               'Programming Language :: Python :: 3 :: Only',
-               'Programming Language :: Python :: 3.9',
-               'Programming Language :: Python :: 3.10',
-               'Programming Language :: Python :: 3.11',
-               'Programming Language :: Python :: 3.12',
-               'Programming Language :: Python :: 3.13',
-               'Programming Language :: Python :: Implementation :: CPython',
-               'Programming Language :: Python :: Implementation :: PyPy',
-               'Topic :: Scientific/Engineering :: Mathematics',
-               'Topic :: Software Development :: Libraries :: Python Modules']
+classifiers = ["Development Status :: 1 - Planning",
+               "Intended Audience :: Developers",
+               "Intended Audience :: Science/Research",
+               "License :: OSI Approved :: MIT License",
+               "Natural Language :: English",
+               "Operating System :: POSIX",
+               "Programming Language :: C",
+               "Programming Language :: Python :: 3",
+               "Programming Language :: Python :: 3 :: Only",
+               "Programming Language :: Python :: 3.9",
+               "Programming Language :: Python :: 3.10",
+               "Programming Language :: Python :: 3.11",
+               "Programming Language :: Python :: 3.12",
+               "Programming Language :: Python :: 3.13",
+               "Programming Language :: Python :: Implementation :: CPython",
+               "Programming Language :: Python :: Implementation :: PyPy",
+               "Topic :: Scientific/Engineering :: Mathematics",
+               "Topic :: Software Development :: Libraries :: Python Modules"]
 requires-python = ">= 3.9"
 
 [project.readme]
-file = 'README.rst'
-content-type = 'text/x-rst'
+file = "README.rst"
+content-type = "text/x-rst"
 
 [project.urls]
-Homepage = 'https://github.com/diofant/python-gmp'
-'Source Code' = 'https://github.com/diofant/python-gmp'
-'Bug Tracker' = 'https://github.com/diofant/python-gmp/issues'
-Documentation = 'https://python-gmp.readthedocs.io/'
+Homepage = "https://github.com/diofant/python-gmp"
+"Source Code" = "https://github.com/diofant/python-gmp"
+"Bug Tracker" = "https://github.com/diofant/python-gmp/issues"
+Documentation = "https://python-gmp.readthedocs.io/"
 
 [tool.setuptools]
 ext-modules = [{name = "gmp", sources = ["main.c"], libraries = ["gmp"]}]
 
 [tool.setuptools.dynamic]
-version = {attr = 'setuptools_scm.get_version'}
+version = {attr = "setuptools_scm.get_version"}
 
 [tool.setuptools.package-data]
 "*" = ["*.h"]
@@ -52,10 +52,30 @@ version = {attr = 'setuptools_scm.get_version'}
 [project.optional-dependencies]
 tests = ["pytest", "hypothesis",
          "gmpy2; platform_python_implementation!='PyPy'"]
-develop = ["python-gmp[tests]", "ruff"]
-docs = ['sphinx']
+docs = ["sphinx"]
+develop = ["python-gmp[tests,docs]", "pre-commit"]
 
 [tool.pytest.ini_options]
 addopts = "--durations=7"
-norecursedirs = ['build', '.eggs', '.git']
+norecursedirs = ["build", ".eggs", ".git", ".venv"]
 xfail_strict = true
+
+[tool.ruff]
+exclude = [".venv"]
+line-length = 79
+
+[tool.ruff.lint]
+select = [
+    "E",  # pycodestyle errors
+    "F",  # pyflakes
+    "I",  # isort
+    "PT", # flake8-pytest-style
+    "W",  # pycodestyle warnings
+    "Q000",
+]
+ignore = [
+    "PT011",
+]
+
+[tool.ruff.lint.isort]
+lines-after-imports = 2

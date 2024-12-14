@@ -1,7 +1,11 @@
 name: test
 on: [push, pull_request]
 jobs:
+  linter:
+    uses: ./.github/workflows/linter.yml
   linux:
+    needs:
+      - linter
     strategy:
       fail-fast: false
       matrix:
@@ -22,11 +26,10 @@ jobs:
       - run: sudo apt-get install texlive texlive-latex-extra latexmk
         if: matrix.python-version == 3.13
       - run: pip install --upgrade pip
-      - run: pip --verbose install --editable .[develop]
+      - run: pip --verbose install --editable .[tests]
         if: matrix.python-version != 3.13
-      - run: pip --verbose install --editable .[develop,docs]
+      - run: pip --verbose install --editable .[tests,docs]
         if: matrix.python-version == 3.13
-      - run: ruff check
       - run: pytest
       - name: Building docs
         if: matrix.python-version == 3.13

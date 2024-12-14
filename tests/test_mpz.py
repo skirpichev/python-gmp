@@ -7,12 +7,17 @@ import resource
 import sys
 
 import pytest
-from hypothesis import assume, example, given
-from hypothesis.strategies import (booleans, characters, composite, integers,
-                                   sampled_from, text)
-
-from gmp import mpz
 from gmp import _limb_size as limb_size
+from gmp import mpz
+from hypothesis import assume, example, given
+from hypothesis.strategies import (
+    booleans,
+    characters,
+    composite,
+    integers,
+    sampled_from,
+    text,
+)
 
 
 @given(integers())
@@ -29,7 +34,7 @@ def test_from_to_str(x):
 
 @pytest.mark.xfail(reason="diofant/python-gmp#46")
 @given(text(alphabet=characters(min_codepoint=48, max_codepoint=57,
-                                include_characters=['_'])))
+                                include_characters=["_"])))
 def test_underscores(s):
     try:
         i = int(s)
@@ -42,10 +47,10 @@ def test_underscores(s):
 
 @pytest.mark.xfail(reason="diofant/python-gmp#46")
 @given(text(alphabet=characters(min_codepoint=48, max_codepoint=57,
-                                include_characters=['_', 'a', 'b',
-                                                    'c', 'd', 'e', 'f'])))
+                                include_characters=["_", "a", "b",
+                                                    "c", "d", "e", "f"])))
 def test_underscores_auto(s):
-    s = '0x' + s
+    s = "0x" + s
     try:
         i = int(s, base=0)
     except ValueError:
@@ -56,18 +61,18 @@ def test_underscores_auto(s):
 
 
 @composite
-def fmt_str(draw, types='bdoxX'):
-    res = ''
+def fmt_str(draw, types="bdoxX"):
+    res = ""
     type = draw(sampled_from(types))
 
     # fill_char and align
-    fill_char = draw(sampled_from(['']*3 + list('z;clxvjqwer')))
+    fill_char = draw(sampled_from([""]*3 + list("z;clxvjqwer")))
     if fill_char:
         skip_0_padding = True
-        align = draw(sampled_from(list('<^>=')))
+        align = draw(sampled_from(list("<^>=")))
         res += fill_char + align
     else:
-        align = draw(sampled_from([''] + list('<^>=')))
+        align = draw(sampled_from([""] + list("<^>=")))
         if align:
             skip_0_padding = True
             res += align
@@ -75,25 +80,25 @@ def fmt_str(draw, types='bdoxX'):
             skip_0_padding = False
 
     # sign character
-    res += draw(sampled_from([''] + list('-+ ')))
+    res += draw(sampled_from([""] + list("-+ ")))
 
     # alternate mode
-    res += draw(sampled_from(['', '#']))
+    res += draw(sampled_from(["", "#"]))
 
     # pad with 0s
-    pad0 = draw(sampled_from(['', '0']))
+    pad0 = draw(sampled_from(["", "0"]))
     skip_thousand_separators = False
     if pad0 and not skip_0_padding:
         res += pad0
         skip_thousand_separators = True
 
     # Width
-    res += draw(sampled_from(['']*7 + list(map(str, range(1, 40)))))
+    res += draw(sampled_from([""]*7 + list(map(str, range(1, 40)))))
 
     # grouping character (thousand_separators)
-    gchar = draw(sampled_from([''] + list(',_')))
+    gchar = draw(sampled_from([""] + list(",_")))
     if (gchar and not skip_thousand_separators
-            and not (gchar == ',' and type in ['b', 'o', 'x', 'X'])):
+            and not (gchar == "," and type in ["b", "o", "x", "X"])):
         res += gchar
 
     # Type
@@ -373,26 +378,26 @@ def test_methods(x):
 
 
 @given(integers(), integers(min_value=0, max_value=10000),
-       sampled_from(['big', 'little']), booleans())
-@example(0, 0, 'big', False)
-@example(0, 0, 'little', False)
-@example(0, 1, 'big', False)
-@example(128, 1, 'big', True)
-@example(128, 1, 'little', True)
-@example(-129, 1, 'big', True)
-@example(-129, 1, 'little', True)
-@example(-1, 0, 'big', True)
-@example(-2, 0, 'big', True)
-@example(-2, 0, 'little', True)
-@example(42, 1, 'big', False)
-@example(42, 1, 'little', False)
-@example(42, 3, 'big', False)
-@example(42, 3, 'little', False)
-@example(1000, 2, 'big', False)
-@example(1000, 4, 'big', False)
-@example(-2049, 1, 'big', True)
-@example(-65281, 3, 'big', True)
-@example(-65281, 3, 'little', True)
+       sampled_from(["big", "little"]), booleans())
+@example(0, 0, "big", False)
+@example(0, 0, "little", False)
+@example(0, 1, "big", False)
+@example(128, 1, "big", True)
+@example(128, 1, "little", True)
+@example(-129, 1, "big", True)
+@example(-129, 1, "little", True)
+@example(-1, 0, "big", True)
+@example(-2, 0, "big", True)
+@example(-2, 0, "little", True)
+@example(42, 1, "big", False)
+@example(42, 1, "little", False)
+@example(42, 3, "big", False)
+@example(42, 3, "little", False)
+@example(1000, 2, "big", False)
+@example(1000, 4, "big", False)
+@example(-2049, 1, "big", True)
+@example(-65281, 3, "big", True)
+@example(-65281, 3, "little", True)
 def test_to_bytes(x, length, byteorder, signed):
     try:
         rx = x.to_bytes(length, byteorder, signed=signed)
@@ -410,46 +415,46 @@ def test_to_bytes_interface():
     with pytest.raises(TypeError):
         x.to_bytes(1, 2)
     with pytest.raises(TypeError):
-        x.to_bytes('spam')
+        x.to_bytes("spam")
     with pytest.raises(TypeError):
         x.to_bytes(a=1, b=2, c=3, d=4)
     with pytest.raises(TypeError):
         x.to_bytes(2, length=2)
     with pytest.raises(TypeError):
-        x.to_bytes(2, 'big', byteorder='big')
+        x.to_bytes(2, "big", byteorder="big")
     with pytest.raises(TypeError):
         x.to_bytes(spam=1)
 
     with pytest.raises(ValueError):
-        x.to_bytes(2, 'spam')
+        x.to_bytes(2, "spam")
     with pytest.raises(ValueError):
         x.to_bytes(-1)
 
     assert x.to_bytes(2) == x.to_bytes(length=2)
-    assert x.to_bytes(2, byteorder='little') == x.to_bytes(2, 'little')
+    assert x.to_bytes(2, byteorder="little") == x.to_bytes(2, "little")
 
     assert x.to_bytes() == x.to_bytes(1)
-    assert x.to_bytes() == x.to_bytes(1, 'big')
+    assert x.to_bytes() == x.to_bytes(1, "big")
     assert x.to_bytes() == x.to_bytes(signed=False)
 
 
 @given(integers(), integers(min_value=0, max_value=10000),
-       sampled_from(['big', 'little']), booleans())
-@example(0, 0, 'big', False)
-@example(0, 0, 'little', False)
-@example(0, 1, 'big', False)
-@example(128, 1, 'big', True)
-@example(128, 1, 'little', True)
-@example(-129, 1, 'big', True)
-@example(-129, 1, 'little', True)
-@example(-1, 0, 'big', True)
-@example(-1, 1, 'big', True)
-@example(-1, 1, 'little', True)
-@example(-2, 0, 'big', True)
-@example(-2, 0, 'little', True)
-@example(-1, 3, 'big', True)
-@example(-2, 3, 'big', True)
-@example(-2, 5, 'little', True)
+       sampled_from(["big", "little"]), booleans())
+@example(0, 0, "big", False)
+@example(0, 0, "little", False)
+@example(0, 1, "big", False)
+@example(128, 1, "big", True)
+@example(128, 1, "little", True)
+@example(-129, 1, "big", True)
+@example(-129, 1, "little", True)
+@example(-1, 0, "big", True)
+@example(-1, 1, "big", True)
+@example(-1, 1, "little", True)
+@example(-2, 0, "big", True)
+@example(-2, 0, "little", True)
+@example(-1, 3, "big", True)
+@example(-2, 3, "big", True)
+@example(-2, 5, "little", True)
 def test_from_bytes(x, length, byteorder, signed):
     try:
         bytes = x.to_bytes(length, byteorder, signed=signed)
@@ -459,7 +464,7 @@ def test_from_bytes(x, length, byteorder, signed):
         rx = int.from_bytes(bytes, byteorder, signed=signed)
         assert rx == mpz.from_bytes(bytes, byteorder, signed=signed)
         assert rx == mpz.from_bytes(bytearray(bytes), byteorder, signed=signed)
-        if platform.python_implementation() == 'PyPy':  # FIXME
+        if platform.python_implementation() == "PyPy":  # FIXME
             return
         assert rx == mpz.from_bytes(list(bytes), byteorder, signed=signed)
 
@@ -470,26 +475,27 @@ def test_from_bytes_interface():
     with pytest.raises(TypeError):
         mpz.from_bytes(1, 2, 3)
     with pytest.raises(TypeError):
-        mpz.from_bytes(b'', 2)
+        mpz.from_bytes(b"", 2)
     with pytest.raises(TypeError):
         mpz.from_bytes(1)
     with pytest.raises(TypeError):
-        mpz.from_bytes(b'', bytes=b'')
+        mpz.from_bytes(b"", bytes=b"")
     with pytest.raises(TypeError):
-        mpz.from_bytes(b'', 'big', byteorder='big')
+        mpz.from_bytes(b"", "big", byteorder="big")
     with pytest.raises(TypeError):
-        mpz.from_bytes(b'', spam=1)
+        mpz.from_bytes(b"", spam=1)
     with pytest.raises(TypeError):
         mpz.from_bytes(a=1, b=2, c=3, d=4)
 
     with pytest.raises(ValueError):
-        mpz.from_bytes(b'', 'spam')
+        mpz.from_bytes(b"", "spam")
 
-    assert mpz.from_bytes(b'\x01', byteorder='little') == mpz.from_bytes(b'\x01', 'little')
+    assert (mpz.from_bytes(b"\x01", byteorder="little")
+            == mpz.from_bytes(b"\x01", "little"))
 
-    assert mpz.from_bytes(b'\x01') == mpz.from_bytes(bytes=b'\x01')
-    assert mpz.from_bytes(b'\x01') == mpz.from_bytes(b'\x01', 'big')
-    assert mpz.from_bytes(b'\x01') == mpz.from_bytes(b'\x01', signed=False)
+    assert mpz.from_bytes(b"\x01") == mpz.from_bytes(bytes=b"\x01")
+    assert mpz.from_bytes(b"\x01") == mpz.from_bytes(b"\x01", "big")
+    assert mpz.from_bytes(b"\x01") == mpz.from_bytes(b"\x01", signed=False)
 
 
 @given(integers())
@@ -513,7 +519,7 @@ def test___round__(x, n):
         assert round(mx) == round(x)
 
 
-@pytest.mark.skipif(platform.python_implementation() == 'PyPy',
+@pytest.mark.skipif(platform.python_implementation() == "PyPy",
                     reason="sys.getsizeof raises TypeError")
 def test___sizeof__():
     ms = [mpz(1<<i*(8*limb_size)) for i in range(3)]
@@ -523,7 +529,7 @@ def test___sizeof__():
 
 @given(integers(), integers(min_value=2, max_value=62))
 def test_digits(x, base):
-    gmpy2 = pytest.importorskip('gmpy2')
+    gmpy2 = pytest.importorskip("gmpy2")
     mx = mpz(x)
     gx = gmpy2.mpz(x)
     res = gx.digits(base)
@@ -549,7 +555,7 @@ def test_digits_frombase_low(x, base):
 
 @given(integers(), integers(min_value=37, max_value=62))
 def test_digits_frombase_high(x, base):
-    gmpy2 = pytest.importorskip('gmpy2')
+    gmpy2 = pytest.importorskip("gmpy2")
     mx = mpz(x)
     smx = mx.digits(base)
     assert mpz(smx, base) == mx
@@ -580,7 +586,7 @@ def test_frombase_auto(x):
     assert mpz(smx16.upper(), 0) == mx
 
 
-@pytest.mark.parametrize('protocol',
+@pytest.mark.parametrize("protocol",
                          range(pickle.HIGHEST_PROTOCOL + 1))
 @given(integers())
 def test_pickle(protocol, x):
