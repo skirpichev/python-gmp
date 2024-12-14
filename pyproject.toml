@@ -59,3 +59,22 @@ develop = ["python-gmp[tests,docs]", "pre-commit"]
 addopts = "--durations=7"
 norecursedirs = ["build", ".eggs", ".git", ".venv"]
 xfail_strict = true
+
+[tool.ruff]
+exclude = [".venv"]
+line-length = 79
+
+[tool.ruff.lint]
+select = [
+    "E",  # pycodestyle errors
+    "F",  # pyflakes
+    "I",  # isort
+    "PT", # flake8-pytest-style
+    "W",  # pycodestyle warnings
+]
+ignore = [
+    "PT011",
+]
+
+[tool.ruff.lint.isort]
+lines-after-imports = 2

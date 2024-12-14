@@ -7,12 +7,17 @@ import resource
 import sys
 
 import pytest
-from hypothesis import assume, example, given
-from hypothesis.strategies import (booleans, characters, composite, integers,
-                                   sampled_from, text)
-
-from gmp import mpz
 from gmp import _limb_size as limb_size
+from gmp import mpz
+from hypothesis import assume, example, given
+from hypothesis.strategies import (
+    booleans,
+    characters,
+    composite,
+    integers,
+    sampled_from,
+    text,
+)
 
 
 @given(integers())
@@ -485,7 +490,8 @@ def test_from_bytes_interface():
     with pytest.raises(ValueError):
         mpz.from_bytes(b'', 'spam')
 
-    assert mpz.from_bytes(b'\x01', byteorder='little') == mpz.from_bytes(b'\x01', 'little')
+    assert (mpz.from_bytes(b'\x01', byteorder='little')
+            == mpz.from_bytes(b'\x01', 'little'))
 
     assert mpz.from_bytes(b'\x01') == mpz.from_bytes(bytes=b'\x01')
     assert mpz.from_bytes(b'\x01') == mpz.from_bytes(b'\x01', 'big')

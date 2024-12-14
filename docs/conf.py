@@ -8,12 +8,12 @@ that aren't pickleable (module imports are okay, they're removed
 automatically).
 """
 
+import gmp
 import packaging.version
 
-import gmp
 
-# Add any Sphinx extension module names here, as strings. They can be extensions
-# coming with Sphinx (named 'sphinx.ext.*') or your custom ones.
+# Add any Sphinx extension module names here, as strings. They can be
+# extensions coming with Sphinx (named 'sphinx.ext.*') or your custom ones.
 extensions = ['sphinx.ext.autodoc']
 
 # The name of a reST role (builtin or Sphinx extension) to use as the
@@ -47,7 +47,7 @@ version = f"{gmp_version.major}.{gmp_version.minor}"
 # The full version, including alpha/beta/rc tags.
 release = gmp.__version__
 
-# Grouping the document tree into LaTeX files. List of tuples
-# (source start file, target name, title, author, documentclass [howto/manual]).
+# Grouping the document tree into LaTeX files. List of tuples (source start
+# file, target name, title, author, documentclass [howto/manual]).
 latex_documents = [('index', 'python-gmp.tex', 'python-gmp Documentation',
                     'Sergey B Kirpichev', 'manual')]

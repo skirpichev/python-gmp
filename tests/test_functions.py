@@ -1,10 +1,9 @@
 import math
 
 import pytest
+from gmp import factorial, gcd, isqrt, mpz
 from hypothesis import given
 from hypothesis.strategies import integers
-
-from gmp import mpz, factorial, gcd, isqrt
 
 
 @given(integers(min_value=0))
