@@ -13,7 +13,7 @@ jobs:
         os: [ubuntu-22.04]
     runs-on: ${{ matrix.os }}
     env:
-      CFLAGS: -Wpedantic -Werror
+      CFLAGS: -Wpedantic -Werror -std=c17
       PYTEST_ADDOPTS: --verbose
     steps:
       - uses: actions/checkout@v4
