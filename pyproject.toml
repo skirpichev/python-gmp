@@ -38,7 +38,7 @@ content-type = "text/x-rst"
 Homepage = "https://github.com/diofant/python-gmp"
 "Source Code" = "https://github.com/diofant/python-gmp"
 "Bug Tracker" = "https://github.com/diofant/python-gmp/issues"
-Documentation = "https://python-gmp.readthedocs.io/"
+Documentation = "https://python-gmp.readthedocs.io/en/latest/"
 
 [tool.setuptools]
 ext-modules = [{name = "gmp", sources = ["main.c"], libraries = ["gmp"]}]
