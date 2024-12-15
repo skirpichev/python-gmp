@@ -2537,7 +2537,7 @@ PyTypeObject MPZ_Type = {
 };
 
 static PyObject *
-gmp_gcd(PyObject *self, PyObject *const *args, Py_ssize_t nargs)
+gmp_gcd(PyObject *Py_UNUSED(module), PyObject *const *args, Py_ssize_t nargs)
 {
     if (!nargs) {
         return (PyObject *)MPZ_FromDigitSign(0, 0);
@@ -2667,16 +2667,16 @@ gmp_gcd(PyObject *self, PyObject *const *args, Py_ssize_t nargs)
 }
 
 static PyObject *
-gmp_isqrt(PyObject *self, PyObject *other)
+gmp_isqrt(PyObject *Py_UNUSED(module), PyObject *arg)
 {
     static MPZ_Object *x, *res = NULL;
 
-    if (MPZ_CheckExact(other)) {
-        x = (MPZ_Object *)other;
+    if (MPZ_CheckExact(arg)) {
+        x = (MPZ_Object *)arg;
         Py_INCREF(x);
     }
-    else if (PyLong_Check(other)) {
-        x = from_int(other);
+    else if (PyLong_Check(arg)) {
+        x = from_int(arg);
         if (!x) {
             goto end;
         }
@@ -2713,16 +2713,16 @@ end:
 }
 
 static PyObject *
-gmp_factorial(PyObject *self, PyObject *other)
+gmp_factorial(PyObject *Py_UNUSED(module), PyObject *arg)
 {
     static MPZ_Object *x, *res = NULL;
 
-    if (MPZ_CheckExact(other)) {
-        x = (MPZ_Object *)other;
+    if (MPZ_CheckExact(arg)) {
+        x = (MPZ_Object *)arg;
         Py_INCREF(x);
     }
-    else if (PyLong_Check(other)) {
-        x = from_int(other);
+    else if (PyLong_Check(arg)) {
+        x = from_int(arg);
         if (!x) {
             goto end;
         }
