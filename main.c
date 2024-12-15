@@ -1849,20 +1849,19 @@ static PyGetSetDef getsetters[] = {
 };
 
 static PyObject *
-bit_length(PyObject *a)
+bit_length(PyObject *self, PyObject *Py_UNUSED(args))
 {
-    MPZ_Object *self = (MPZ_Object *)a;
-    mp_limb_t digit = mpn_sizeinbase(self->digits, self->size, 2);
+    MPZ_Object *u = (MPZ_Object *)self;
+    mp_limb_t digit = u->size ? mpn_sizeinbase(u->digits, u->size, 2) : 0;
 
-    return (PyObject *)MPZ_FromDigitSign(self->size ? digit : 0, 0);
+    return (PyObject *)MPZ_FromDigitSign(digit, 0);
 }
 
 static PyObject *
-bit_count(PyObject *a)
+bit_count(PyObject *self, PyObject *Py_UNUSED(args))
 {
-    MPZ_Object *self = (MPZ_Object *)a;
-    mp_bitcnt_t count = self->size ? mpn_popcount(self->digits,
-                                                  self->size) : 0;
+    MPZ_Object *u = (MPZ_Object *)self;
+    mp_bitcnt_t count = u->size ? mpn_popcount(u->digits, u->size) : 0;
 
     return (PyObject *)MPZ_FromDigitSign(count, 0);
 }
@@ -2137,14 +2136,14 @@ MPZ_from_bytes(PyObject *arg, int is_little, int is_signed)
 }
 
 static PyObject *
-_from_bytes(PyObject *module, PyObject *arg)
+_from_bytes(PyObject *Py_UNUSED(module), PyObject *arg)
 {
     return (PyObject *)MPZ_from_bytes(arg, 0, 1);
 }
 
 static PyObject *
-from_bytes(PyTypeObject *type, PyObject *const *args, Py_ssize_t nargs,
-           PyObject *kwnames)
+from_bytes(PyTypeObject *Py_UNUSED(type), PyObject *const *args,
+           Py_ssize_t nargs, PyObject *kwnames)
 {
     if (nargs > 2) {
         PyErr_SetString(PyExc_TypeError, ("from_bytes() takes at most 2"
@@ -2245,7 +2244,7 @@ from_bytes(PyTypeObject *type, PyObject *const *args, Py_ssize_t nargs,
 }
 
 static PyObject *
-as_integer_ratio(PyObject *a)
+as_integer_ratio(PyObject *self, PyObject *Py_UNUSED(args))
 {
     PyObject *one = (PyObject *)MPZ_FromDigitSign(1, 0);
 
@@ -2253,10 +2252,10 @@ as_integer_ratio(PyObject *a)
         return NULL;
     }
 
-    PyObject *clone = Py_NewRef(a);
-    PyObject *ratio_tuple = PyTuple_Pack(2, clone, one);
+    PyObject *u = Py_NewRef(self);
+    PyObject *ratio_tuple = PyTuple_Pack(2, u, one);
 
-    Py_DECREF(clone);
+    Py_DECREF(u);
     Py_DECREF(one);
     return ratio_tuple;
 }
@@ -2269,15 +2268,18 @@ __round__(PyObject *self, PyObject *const *args, Py_ssize_t nargs)
                      "__round__ expected at most 1 argument, got %zu");
         return NULL;
     }
+
+    MPZ_Object *u = (MPZ_Object *)self;
+
     if (!nargs) {
-        return plus((MPZ_Object *)self);
+        return plus(u);
     }
 
     MPZ_Object *res = NULL, *p = NULL, *ten = NULL;
 
     CHECK_OP(ndigits, args[0]);
     if (!ndigits->negative) {
-        res = (MPZ_Object *)plus((MPZ_Object *)self);
+        res = (MPZ_Object *)plus(u);
         goto end;
     }
     else if (ndigits->size > 1 || ndigits->digits[0] >= SIZE_MAX) {
@@ -2289,21 +2291,19 @@ __round__(PyObject *self, PyObject *const *args, Py_ssize_t nargs)
         goto end;
     }
     p = MPZ_pow1(ten, ndigits->digits[0]);
-    Py_DECREF(ten);
-    ten = NULL;
+    Py_CLEAR(ten);
     if (!p) {
         goto end;
     }
 
-    MPZ_Object *x = (MPZ_Object *)self, *q, *r;
+    MPZ_Object *q, *r;
 
-    if (MPZ_DivModNear(x, p, &q, &r) == -1) {
+    if (MPZ_DivModNear(u, p, &q, &r) == -1) {
         goto end;
     }
-    Py_DECREF(p);
-    p = NULL;
-    Py_DECREF(q);
-    res = (MPZ_Object *)MPZ_add(x, r, 1);
+    Py_CLEAR(p);
+    Py_CLEAR(q);
+    res = (MPZ_Object *)MPZ_add(u, r, 1);
     Py_DECREF(r);
 end:
     Py_XDECREF(ndigits);
@@ -2315,25 +2315,29 @@ end:
 static PyObject *from_bytes_func;
 
 static PyObject *
-__reduce__(PyObject *self, PyObject *Py_UNUSED(ignored))
+__reduce__(PyObject *self, PyObject *Py_UNUSED(args))
 {
-    MPZ_Object *x = (MPZ_Object *)self;
-    Py_ssize_t len = x->size ? mpn_sizeinbase(x->digits, x->size, 2) : 1;
+    MPZ_Object *u = (MPZ_Object *)self;
+    Py_ssize_t len = u->size ? mpn_sizeinbase(u->digits, u->size, 2) : 1;
 
     return Py_BuildValue("O(N)", from_bytes_func,
-                         MPZ_to_bytes(x, (len + 7)/8 + 1, 0, 1));
+                         MPZ_to_bytes(u, (len + 7)/8 + 1, 0, 1));
 }
 
+/* FIXME: replace this stub */
 static PyObject *
 __format__(PyObject *self, PyObject *format_spec)
 {
-    /* FIXME: replace this stub */
-    PyObject *integer = to_int((MPZ_Object *)self), *res;
+    MPZ_Object *u = (MPZ_Object *)self;
+    PyObject *integer = to_int(u);
 
     if (!integer) {
         return NULL;
     }
-    res = PyObject_CallMethod(integer, "__format__", "O", format_spec);
+
+    PyObject *res = PyObject_CallMethod(integer, "__format__", "O",
+                                        format_spec);
+
     Py_DECREF(integer);
     return res;
 }
@@ -2341,12 +2345,13 @@ __format__(PyObject *self, PyObject *format_spec)
 static PyObject *
 __sizeof__(PyObject *self, PyObject *Py_UNUSED(ignored))
 {
-    return PyLong_FromSize_t(sizeof(MPZ_Object) +
-                             ((MPZ_Object *)self)->size*sizeof(mp_limb_t));
+    MPZ_Object *u = (MPZ_Object *)self;
+
+    return PyLong_FromSize_t(sizeof(MPZ_Object) + u->size*sizeof(mp_limb_t));
 }
 
 static PyObject *
-is_integer(PyObject *a)
+is_integer(PyObject *Py_UNUSED(self), PyObject *Py_UNUSED(args))
 {
     Py_RETURN_TRUE;
 }
@@ -2467,16 +2472,16 @@ PyDoc_STRVAR(from_bytes__doc__,
 static PyMethodDef methods[] = {
     {"conjugate", (PyCFunction)plus, METH_NOARGS,
      "Returns self, the complex conjugate of any int."},
-    {"bit_length", (PyCFunction)bit_length, METH_NOARGS,
+    {"bit_length", bit_length, METH_NOARGS,
      "Number of bits necessary to represent self in binary."},
-    {"bit_count", (PyCFunction)bit_count, METH_NOARGS,
+    {"bit_count", bit_count, METH_NOARGS,
      ("Number of ones in the binary representation of the "
       "absolute value of self.")},
     {"to_bytes", (PyCFunction)to_bytes, METH_FASTCALL | METH_KEYWORDS,
      to_bytes__doc__},
     {"from_bytes", (PyCFunction)from_bytes,
      METH_FASTCALL | METH_KEYWORDS | METH_CLASS, from_bytes__doc__},
-    {"as_integer_ratio", (PyCFunction)as_integer_ratio, METH_NOARGS,
+    {"as_integer_ratio", as_integer_ratio, METH_NOARGS,
      ("Return a pair of integers, whose ratio is equal to "
       "the original int.\n\nThe ratio is in lowest terms "
       "and has a positive denominator.")},
@@ -2490,13 +2495,13 @@ static PyMethodDef methods[] = {
      ("__round__($self, ndigits=None, /)\n--\n\n"
       "Rounding an Integral returns itself.\n\n"
       "Rounding with an ndigits argument also returns an integer.")},
-    {"__reduce__", (PyCFunction)__reduce__, METH_NOARGS, NULL},
-    {"__format__", (PyCFunction)__format__, METH_O,
+    {"__reduce__", __reduce__, METH_NOARGS, NULL},
+    {"__format__", __format__, METH_O,
      ("__format__($self, format_spec, /)\n--\n\n"
       "Convert to a string according to format_spec.")},
-    {"__sizeof__", (PyCFunction)__sizeof__, METH_NOARGS,
+    {"__sizeof__", __sizeof__, METH_NOARGS,
      "Returns size in memory, in bytes."},
-    {"is_integer", (PyCFunction)is_integer, METH_NOARGS,
+    {"is_integer", is_integer, METH_NOARGS,
      ("Returns True.  Exists for duck type compatibility "
       "with float.is_integer.")},
     {"digits", (PyCFunction)digits, METH_FASTCALL | METH_KEYWORDS,
