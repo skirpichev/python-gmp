@@ -5,9 +5,9 @@ Python extension module providing safe bindings to the GNU GMP.  This module
 shouldn't crash the interpreter!
 
 It can be used as a gmpy2/python-flint replacement to provide
-CPython-compatible integer (mpz) and rational (not ready yet) types.  The
-module includes also few functions (factorial, gcd and isqrt), compatible with
-stdlib's module math.
+CPython-compatible integer (mpz) and rational (mpq) types.  The module includes
+also few functions (factorial, gcd and isqrt), compatible with the stdlib's
+module math.
 
 
 Motivation
