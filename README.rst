@@ -1,14 +1,3 @@
-|python versions| |supported implementations| |CI status| |latest docs|
-
-.. |python versions| image:: https://img.shields.io/pypi/pyversions/python-gmp
-   :alt: PyPI - Python Version
-.. |supported implementations| image:: https://img.shields.io/pypi/implementation/python-gmp
-   :alt: PyPI - Implementation
-.. |CI status| image:: https://img.shields.io/github/actions/workflow/status/diofant/python-gmp/.github%2Fworkflows%2Ftest.yml
-   :alt: GitHub Actions Workflow Status
-.. |latest docs| image:: https://img.shields.io/readthedocs/python-gmp/latest
-   :alt: Read the Docs (version)
-
 Python-GMP
 ==========
 
