@@ -2275,41 +2275,52 @@ __round__(PyObject *self, PyObject *const *args, Py_ssize_t nargs)
         return plus(u);
     }
 
-    MPZ_Object *res = NULL, *p = NULL, *ten = NULL;
+    PyObject *ndigits = PyNumber_Index(args[0]);
 
-    CHECK_OP(ndigits, args[0]);
-    if (!ndigits->negative) {
-        res = (MPZ_Object *)plus(u);
-        goto end;
+    if (!ndigits) {
+        return NULL;
     }
-    else if (ndigits->size > 1 || ndigits->digits[0] >= SIZE_MAX) {
-        res = MPZ_FromDigitSign(0, 0);
-        goto end;
+    if (!PyLong_IsNegative(ndigits)) {
+        Py_DECREF(ndigits);
+        return plus(u);
     }
-    ten = MPZ_FromDigitSign(10, 0);
+
+    PyObject *tmp = PyNumber_Negative(ndigits);
+
+    if (!tmp) {
+        Py_DECREF(ndigits);
+        return NULL;
+    }
+    Py_SETREF(ndigits, tmp);
+
+    PyObject *ten = (PyObject *)MPZ_FromDigitSign(10, 0);
+
     if (!ten) {
-        goto end;
+        Py_DECREF(ndigits);
+        return NULL;
     }
-    p = MPZ_pow1(ten, ndigits->digits[0]);
-    Py_CLEAR(ten);
+
+    PyObject *p = power(ten, ndigits, Py_None);
+
+    Py_DECREF(ten);
+    Py_DECREF(ndigits);
     if (!p) {
-        goto end;
+        return NULL;
     }
 
     MPZ_Object *q, *r;
 
-    if (MPZ_DivModNear(u, p, &q, &r) == -1) {
-        goto end;
+    if (MPZ_DivModNear(u, (MPZ_Object *)p, &q, &r) == -1) {
+        Py_DECREF(p);
+        return NULL;
     }
-    Py_CLEAR(p);
-    Py_CLEAR(q);
-    res = (MPZ_Object *)MPZ_add(u, r, 1);
+    Py_DECREF(p);
+    Py_DECREF(q);
+
+    PyObject *res = MPZ_add(u, r, 1);
+
     Py_DECREF(r);
-end:
-    Py_XDECREF(ndigits);
-    Py_XDECREF(ten);
-    Py_XDECREF(p);
-    return (PyObject *)res;
+    return res;
 }
 
 static PyObject *from_bytes_func;
