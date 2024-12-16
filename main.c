@@ -513,51 +513,53 @@ hash(PyObject *self)
 }
 
 static PyObject *
-plus(MPZ_Object *a)
+plus(PyObject *self)
 {
-    if (!a->size) {
+    MPZ_Object *u = (MPZ_Object *)self;
+
+    if (!u->size) {
         return (PyObject *)MPZ_FromDigitSign(0, 0);
     }
 
-    MPZ_Object *res = MPZ_new(a->size, a->negative);
+    MPZ_Object *res = MPZ_new(u->size, u->negative);
 
     if (!res) {
         return NULL;
     }
-    mpn_copyi(res->digits, a->digits, a->size);
+    mpn_copyi(res->digits, u->digits, u->size);
     return (PyObject *)res;
 }
 
 static PyObject *
-minus(MPZ_Object *a)
+minus(PyObject *self)
 {
-    PyObject *res = plus(a);
+    MPZ_Object *res = (MPZ_Object *)plus(self), *u = (MPZ_Object *)self;
 
     if (!res) {
         return NULL;
     }
-    if (a->size) {
-        ((MPZ_Object *)res)->negative = !a->negative;
+    if (u->size) {
+        res->negative = !u->negative;
     }
-    return res;
+    return (PyObject *)res;
 }
 
 static PyObject *
-absolute(MPZ_Object *a)
+absolute(PyObject *self)
 {
-    PyObject *res = plus(a);
+    MPZ_Object *res = (MPZ_Object *)plus(self);
 
     if (!res) {
         return NULL;
     }
-    ((MPZ_Object *)res)->negative = 0;
-    return res;
+    res->negative = 0;
+    return (PyObject *)res;
 }
 
 static PyObject *
-to_int(MPZ_Object *self)
+to_int(PyObject *self)
 {
-    PyObject *str = MPZ_to_str(self, 16, 0, 0);
+    PyObject *str = MPZ_to_str((MPZ_Object *)self, 16, 0, 0);
 
     if (!str) {
         return NULL;
@@ -655,10 +657,11 @@ MPZ_AsDoubleAndExp(MPZ_Object *a, Py_ssize_t *e)
 }
 
 static PyObject *
-to_float(MPZ_Object *self)
+to_float(PyObject *self)
 {
     Py_ssize_t exp;
-    double d = MPZ_AsDoubleAndExp(self, &exp);
+    MPZ_Object *u = (MPZ_Object *)self;
+    double d = MPZ_AsDoubleAndExp(u, &exp);
 
     if (exp > DBL_MAX_EXP) {
         PyErr_SetString(PyExc_OverflowError,
@@ -675,9 +678,9 @@ to_float(MPZ_Object *self)
 }
 
 static int
-to_bool(MPZ_Object *a)
+to_bool(PyObject *self)
 {
-    return a->size != 0;
+    return ((MPZ_Object *)self)->size != 0;
 }
 
 #define SWAP(T, a, b)  \
@@ -730,12 +733,12 @@ MPZ_add(MPZ_Object *u, MPZ_Object *v, int subtract)
 }
 
 static PyObject *
-add(PyObject *a, PyObject *b)
+add(PyObject *self, PyObject *other)
 {
     PyObject *res = NULL;
 
-    CHECK_OP(u, a);
-    CHECK_OP(v, b);
+    CHECK_OP(u, self);
+    CHECK_OP(v, other);
 
     res = MPZ_add(u, v, 0);
 end:
@@ -745,12 +748,12 @@ end:
 }
 
 static PyObject *
-sub(PyObject *a, PyObject *b)
+sub(PyObject *self, PyObject *other)
 {
     PyObject *res = NULL;
 
-    CHECK_OP(u, a);
-    CHECK_OP(v, b);
+    CHECK_OP(u, self);
+    CHECK_OP(v, other);
 
     res = MPZ_add(u, v, 1);
 end:
@@ -797,12 +800,12 @@ MPZ_mul(MPZ_Object *v, MPZ_Object *u)
 }
 
 static PyObject *
-mul(PyObject *a, PyObject *b)
+mul(PyObject *self, PyObject *other)
 {
     PyObject *res = NULL;
 
-    CHECK_OP(u, a);
-    CHECK_OP(v, b);
+    CHECK_OP(u, self);
+    CHECK_OP(v, other);
 
     res = MPZ_mul(u, v);
 end:
@@ -829,7 +832,7 @@ MPZ_DivMod(MPZ_Object *a, MPZ_Object *b, MPZ_Object **q, MPZ_Object **r)
         }
         else {
             *q = MPZ_FromDigitSign(0, 0);
-            *r = (MPZ_Object *)plus(a);
+            *r = (MPZ_Object *)plus((PyObject *)a);
         }
     }
     else {
@@ -956,15 +959,15 @@ MPZ_DivModNear(MPZ_Object *a, MPZ_Object *b, MPZ_Object **q, MPZ_Object **r)
 }
 
 static PyObject *
-divmod(PyObject *a, PyObject *b)
+divmod(PyObject *self, PyObject *other)
 {
     PyObject *res = PyTuple_New(2);
 
     if (!res) {
         return NULL;
     }
-    CHECK_OP(u, a);
-    CHECK_OP(v, b);
+    CHECK_OP(u, self);
+    CHECK_OP(v, other);
 
     MPZ_Object *q, *r;
 
@@ -982,12 +985,12 @@ end:
 }
 
 static PyObject *
-floordiv(PyObject *a, PyObject *b)
+floordiv(PyObject *self, PyObject *other)
 {
     MPZ_Object *q, *r;
 
-    CHECK_OP(u, a);
-    CHECK_OP(v, b);
+    CHECK_OP(u, self);
+    CHECK_OP(v, other);
     if (MPZ_DivMod(u, v, &q, &r) == -1) {
         goto end;
     }
@@ -1061,7 +1064,7 @@ MPZ_truediv(MPZ_Object *u, MPZ_Object *v)
         a = MPZ_lshift1(u, shift, 0);
     }
     else {
-        a = (MPZ_Object *)absolute(u);
+        a = (MPZ_Object *)absolute((PyObject *)u);
     }
     if (!a) {
         return NULL;
@@ -1070,7 +1073,7 @@ MPZ_truediv(MPZ_Object *u, MPZ_Object *v)
         b = MPZ_lshift1(v, -shift, 0);
     }
     else {
-        b = (MPZ_Object *)absolute(v);
+        b = (MPZ_Object *)absolute((PyObject *)v);
     }
     if (!b) {
         Py_DECREF(a);
@@ -1112,12 +1115,12 @@ MPZ_truediv(MPZ_Object *u, MPZ_Object *v)
 }
 
 static PyObject *
-truediv(PyObject *a, PyObject *b)
+truediv(PyObject *self, PyObject *other)
 {
     PyObject *res = NULL;
 
-    CHECK_OP(u, a);
-    CHECK_OP(v, b);
+    CHECK_OP(u, self);
+    CHECK_OP(v, other);
     res = MPZ_truediv(u, v);
 end:
     Py_XDECREF(u);
@@ -1126,12 +1129,12 @@ end:
 }
 
 static PyObject *
-rem(PyObject *a, PyObject *b)
+rem(PyObject *self, PyObject *other)
 {
     MPZ_Object *q, *r;
 
-    CHECK_OP(u, a);
-    CHECK_OP(v, b);
+    CHECK_OP(u, self);
+    CHECK_OP(v, other);
     if (MPZ_DivMod(u, v, &q, &r) == -1) {
         return NULL;
     }
@@ -1144,33 +1147,30 @@ end:
 }
 
 static PyObject *
-invert(MPZ_Object *self)
+invert(PyObject *self)
 {
-    if (self->negative) {
-        MPZ_Object *res = MPZ_new(self->size, 0);
+    MPZ_Object *u = (MPZ_Object *)self, *res;
 
+    if (u->negative) {
+        res = MPZ_new(u->size, 0);
         if (!res) {
             return NULL;
         }
-        mpn_sub_1(res->digits, self->digits, self->size, 1);
-        res->size -= res->digits[self->size - 1] == 0;
-        return (PyObject *)res;
+        mpn_sub_1(res->digits, u->digits, u->size, 1);
+        res->size -= res->digits[u->size - 1] == 0;
     }
-    else if (!self->size) {
+    else if (!u->size) {
         return (PyObject *)MPZ_FromDigitSign(1, 1);
     }
     else {
-        MPZ_Object *res = MPZ_new(self->size + 1, 1);
-
+        res = MPZ_new(u->size + 1, 1);
         if (!res) {
             return NULL;
         }
-        res->digits[self->size] = mpn_add_1(res->digits, self->digits,
-                                            self->size, 1);
-        self->size += res->digits[self->size];
+        res->digits[u->size] = mpn_add_1(res->digits, u->digits, u->size, 1);
         MPZ_normalize(res);
-        return (PyObject *)res;
     }
+    return (PyObject *)res;
 }
 
 static MPZ_Object *
@@ -1221,7 +1221,7 @@ MPZ_lshift(MPZ_Object *u, MPZ_Object *v)
         return MPZ_FromDigitSign(0, 0);
     }
     if (!v->size) {
-        return (MPZ_Object *)plus(u);
+        return (MPZ_Object *)plus((PyObject *)u);
     }
     if (v->size > 1) {
         PyErr_SetString(PyExc_OverflowError, "too many digits in integer");
@@ -1231,12 +1231,12 @@ MPZ_lshift(MPZ_Object *u, MPZ_Object *v)
 }
 
 static PyObject *
-lshift(PyObject *a, PyObject *b)
+lshift(PyObject *self, PyObject *other)
 {
     PyObject *res = NULL;
 
-    CHECK_OP(u, a);
-    CHECK_OP(v, b);
+    CHECK_OP(u, self);
+    CHECK_OP(v, other);
 
     res = (PyObject *)MPZ_lshift(u, v);
 end:
@@ -1295,7 +1295,7 @@ MPZ_rshift(MPZ_Object *u, MPZ_Object *v)
         return MPZ_FromDigitSign(0, 0);
     }
     if (!v->size) {
-        return (MPZ_Object *)plus(u);
+        return (MPZ_Object *)plus((PyObject *)u);
     }
     if (v->size > 1) {
         if (u->negative) {
@@ -1309,12 +1309,12 @@ MPZ_rshift(MPZ_Object *u, MPZ_Object *v)
 }
 
 static PyObject *
-rshift(PyObject *a, PyObject *b)
+rshift(PyObject *self, PyObject *other)
 {
     PyObject *res = NULL;
 
-    CHECK_OP(u, a);
-    CHECK_OP(v, b);
+    CHECK_OP(u, self);
+    CHECK_OP(v, other);
 
     res = (PyObject *)MPZ_rshift(u, v);
 end:
@@ -1334,7 +1334,7 @@ MPZ_and(MPZ_Object *u, MPZ_Object *v)
 
     if (u->negative || v->negative) {
         if (u->negative) {
-            u = (MPZ_Object *)invert(u);
+            u = (MPZ_Object *)invert((PyObject *)u);
             if (!u) {
                 return NULL;
             }
@@ -1344,7 +1344,7 @@ MPZ_and(MPZ_Object *u, MPZ_Object *v)
             Py_INCREF(u);
         }
         if (v->negative) {
-            v = (MPZ_Object *)invert(v);
+            v = (MPZ_Object *)invert((PyObject *)v);
             if (!v) {
                 Py_DECREF(u);
                 return NULL;
@@ -1425,12 +1425,12 @@ MPZ_and(MPZ_Object *u, MPZ_Object *v)
 }
 
 static PyObject *
-bitwise_and(PyObject *a, PyObject *b)
+bitwise_and(PyObject *self, PyObject *other)
 {
     PyObject *res = NULL;
 
-    CHECK_OP(u, a);
-    CHECK_OP(v, b);
+    CHECK_OP(u, self);
+    CHECK_OP(v, other);
 
     res = (PyObject *)MPZ_and(u, v);
 end:
@@ -1443,17 +1443,17 @@ static MPZ_Object *
 MPZ_or(MPZ_Object *u, MPZ_Object *v)
 {
     if (!u->size) {
-        return (MPZ_Object *)plus(v);
+        return (MPZ_Object *)plus((PyObject *)v);
     }
     if (!v->size) {
-        return (MPZ_Object *)plus(u);
+        return (MPZ_Object *)plus((PyObject *)u);
     }
 
     MPZ_Object *res;
 
     if (u->negative || v->negative) {
         if (u->negative) {
-            u = (MPZ_Object *)invert(u);
+            u = (MPZ_Object *)invert((PyObject *)u);
             if (!u) {
                 return NULL;
             }
@@ -1463,7 +1463,7 @@ MPZ_or(MPZ_Object *u, MPZ_Object *v)
             Py_INCREF(u);
         }
         if (v->negative) {
-            v = (MPZ_Object *)invert(v);
+            v = (MPZ_Object *)invert((PyObject *)v);
             if (!v) {
                 Py_DECREF(u);
                 return NULL;
@@ -1553,12 +1553,12 @@ MPZ_or(MPZ_Object *u, MPZ_Object *v)
 }
 
 static PyObject *
-bitwise_or(PyObject *a, PyObject *b)
+bitwise_or(PyObject *self, PyObject *other)
 {
     PyObject *res = NULL;
 
-    CHECK_OP(u, a);
-    CHECK_OP(v, b);
+    CHECK_OP(u, self);
+    CHECK_OP(v, other);
 
     res = (PyObject *)MPZ_or(u, v);
 end:
@@ -1571,17 +1571,17 @@ static MPZ_Object *
 MPZ_xor(MPZ_Object *u, MPZ_Object *v)
 {
     if (!u->size) {
-        return (MPZ_Object *)plus(v);
+        return (MPZ_Object *)plus((PyObject *)v);
     }
     if (!v->size) {
-        return (MPZ_Object *)plus(u);
+        return (MPZ_Object *)plus((PyObject *)u);
     }
 
     MPZ_Object *res;
 
     if (u->negative || v->negative) {
         if (u->negative) {
-            u = (MPZ_Object *)invert(u);
+            u = (MPZ_Object *)invert((PyObject *)u);
             if (!u) {
                 return NULL;
             }
@@ -1591,7 +1591,7 @@ MPZ_xor(MPZ_Object *u, MPZ_Object *v)
             Py_INCREF(u);
         }
         if (v->negative) {
-            v = (MPZ_Object *)invert(v);
+            v = (MPZ_Object *)invert((PyObject *)v);
             if (!v) {
                 Py_DECREF(u);
                 return NULL;
@@ -1682,12 +1682,12 @@ MPZ_xor(MPZ_Object *u, MPZ_Object *v)
 }
 
 static PyObject *
-bitwise_xor(PyObject *a, PyObject *b)
+bitwise_xor(PyObject *self, PyObject *other)
 {
     PyObject *res = NULL;
 
-    CHECK_OP(u, a);
-    CHECK_OP(v, b);
+    CHECK_OP(u, self);
+    CHECK_OP(v, other);
 
     res = (PyObject *)MPZ_xor(u, v);
 end:
@@ -1731,23 +1731,23 @@ MPZ_pow1(MPZ_Object *u, mp_limb_t e)
 }
 
 static PyObject *
-power(PyObject *a, PyObject *b, PyObject *m)
+power(PyObject *self, PyObject *other, PyObject *module)
 {
     MPZ_Object *res = NULL;
 
-    CHECK_OP(u, a);
-    CHECK_OP(v, b);
-    if (Py_IsNone(m)) {
+    CHECK_OP(u, self);
+    CHECK_OP(v, other);
+    if (Py_IsNone(module)) {
         if (v->negative) {
             PyObject *uf, *vf, *resf;
 
-            uf = to_float(u);
+            uf = to_float((PyObject *)u);
             Py_DECREF(u);
             if (!uf) {
                 Py_DECREF(v);
                 return NULL;
             }
-            vf = to_float(v);
+            vf = to_float((PyObject *)v);
             Py_DECREF(v);
             if (!vf) {
                 Py_DECREF(uf);
@@ -1803,19 +1803,19 @@ static PyNumberMethods as_number = {
     .nb_true_divide = truediv,
     .nb_remainder = rem,
     .nb_power = power,
-    .nb_positive = (unaryfunc)plus,
-    .nb_negative = (unaryfunc)minus,
-    .nb_absolute = (unaryfunc)absolute,
-    .nb_invert = (unaryfunc)invert,
+    .nb_positive = plus,
+    .nb_negative = minus,
+    .nb_absolute = absolute,
+    .nb_invert = invert,
     .nb_lshift = lshift,
     .nb_rshift = rshift,
     .nb_and = bitwise_and,
     .nb_or = bitwise_or,
     .nb_xor = bitwise_xor,
-    .nb_int = (unaryfunc)to_int,
-    .nb_float = (unaryfunc)to_float,
-    .nb_index = (unaryfunc)to_int,
-    .nb_bool = (inquiry)to_bool,
+    .nb_int = to_int,
+    .nb_float = to_float,
+    .nb_index = to_int,
+    .nb_bool = to_bool,
 };
 
 static PyObject *
@@ -2272,7 +2272,7 @@ __round__(PyObject *self, PyObject *const *args, Py_ssize_t nargs)
     MPZ_Object *u = (MPZ_Object *)self;
 
     if (!nargs) {
-        return plus(u);
+        return plus(self);
     }
 
     PyObject *ndigits = PyNumber_Index(args[0]);
@@ -2282,7 +2282,7 @@ __round__(PyObject *self, PyObject *const *args, Py_ssize_t nargs)
     }
     if (!PyLong_IsNegative(ndigits)) {
         Py_DECREF(ndigits);
-        return plus(u);
+        return plus(self);
     }
 
     PyObject *tmp = PyNumber_Negative(ndigits);
@@ -2339,8 +2339,7 @@ __reduce__(PyObject *self, PyObject *Py_UNUSED(args))
 static PyObject *
 __format__(PyObject *self, PyObject *format_spec)
 {
-    MPZ_Object *u = (MPZ_Object *)self;
-    PyObject *integer = to_int(u);
+    PyObject *integer = to_int(self);
 
     if (!integer) {
         return NULL;
@@ -2576,7 +2575,7 @@ gmp_gcd(PyObject *Py_UNUSED(module), PyObject *const *args, Py_ssize_t nargs)
         PyErr_SetString(PyExc_TypeError, "gcd() arguments must be integers");
         return NULL;
     }
-    res = (MPZ_Object *)absolute(arg);
+    res = (MPZ_Object *)absolute((PyObject *)arg);
     Py_DECREF(arg);
     if (!res) {
         return NULL;
@@ -2584,7 +2583,7 @@ gmp_gcd(PyObject *Py_UNUSED(module), PyObject *const *args, Py_ssize_t nargs)
     for (Py_ssize_t i = 1; i < nargs; i++) {
         if (res->size != 1 || res->negative || res->digits[0] != 1) {
             if (MPZ_CheckExact(args[i])) {
-                arg = (MPZ_Object *)absolute((MPZ_Object *)args[i]);
+                arg = (MPZ_Object *)absolute((PyObject *)args[i]);
             }
             else if (PyLong_Check(args[i])) {
                 tmp = MPZ_from_int(args[i]);
@@ -2592,7 +2591,7 @@ gmp_gcd(PyObject *Py_UNUSED(module), PyObject *const *args, Py_ssize_t nargs)
                     Py_DECREF(res);
                     return NULL;
                 }
-                arg = (MPZ_Object *)absolute(tmp);
+                arg = (MPZ_Object *)absolute((PyObject *)tmp);
                 if (!arg) {
                     Py_DECREF(tmp);
                     Py_DECREF(res);
@@ -2608,7 +2607,7 @@ gmp_gcd(PyObject *Py_UNUSED(module), PyObject *const *args, Py_ssize_t nargs)
             }
             if (!res->size) {
                 Py_DECREF(res);
-                res = (MPZ_Object *)absolute(arg);
+                res = (MPZ_Object *)absolute((PyObject *)arg);
                 if (!res) {
                     Py_DECREF(arg);
                     return NULL;
@@ -2628,7 +2627,7 @@ gmp_gcd(PyObject *Py_UNUSED(module), PyObject *const *args, Py_ssize_t nargs)
             if (nzeros_res) {
                 mpn_rshift(arg->digits, arg->digits, arg->size, nzeros_res);
             }
-            tmp = (MPZ_Object *)plus((MPZ_Object *)res);
+            tmp = (MPZ_Object *)plus((PyObject *)res);
             if (!tmp) {
                 Py_DECREF(res);
                 Py_DECREF(arg);
