@@ -172,76 +172,71 @@ MPZ_abs(MPZ_Object *u)
     return res;
 }
 
+/* Maps 1-byte integer to digit character for bases up to 36 and
+   from 37 up to 62, respectively. */
+static const char *num_to_text36 = "0123456789abcdefghijklmnopqrstuvwxyz";
+static const char *num_to_text62 = ("0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+                                    "abcdefghijklmnopqrstuvwxyz");
+
+static const char *mpz_tag = "mpz(";
+static int OPT_TAG = 0x1;
+static int OPT_PREFIX = 0x2;
+
 static PyObject *
-MPZ_to_str(MPZ_Object *u, int base, int repr, int auto_prefix)
+MPZ_to_str(MPZ_Object *u, int base, int options)
 {
     if (base < 2 || base > 62) {
         PyErr_SetString(PyExc_ValueError,
                         "base must be in the interval [2, 62]");
         return NULL;
     }
-    if (auto_prefix) {
-        repr = 0;
-    }
 
-    Py_ssize_t len = mpn_sizeinbase(u->digits, u->size, base);
-    Py_ssize_t prefix = repr ? 4 : 0;
+    size_t len = mpn_sizeinbase(u->digits, u->size, base);
 
-    if (auto_prefix && (base == 2 || base == 8 || base == 16)) {
-        auto_prefix = 2;
-    }
-    else {
-        auto_prefix = 0;
-    }
+    /*                                tag sign prefix        )   \0 */
+    unsigned char *buf = PyMem_Malloc(4 + 1   + 2    + len + 1 + 1), *p = buf;
 
-    unsigned char *buf = PyMem_Malloc(len + auto_prefix + prefix + repr + u->negative);
-
-    if (!buf) {
-        return PyErr_NoMemory();
-    }
-    if (prefix) {
-        strcpy((char *)buf, "mpz(");
+    if (options & OPT_TAG) {
+        strcpy((char *)buf, mpz_tag);
+        p += strlen(mpz_tag);
     }
     if (u->negative) {
-        buf[prefix] = '-';
+        *(p++) = '-';
     }
-    repr += prefix;
-    prefix += u->negative;
-    if (auto_prefix) {
+    if (options & OPT_PREFIX) {
         if (base == 2) {
-            memcpy(buf + prefix, "0b", 2);
+            *(p++) = '0';
+            *(p++) = 'b';
         }
         else if (base == 8) {
-            memcpy(buf + prefix, "0o", 2);
+            *(p++) = '0';
+            *(p++) = 'o';
         }
-        else {
-            memcpy(buf + prefix, "0x", 2);
+        else if (base == 16) {
+            *(p++) = '0';
+            *(p++) = 'x';
         }
     }
-
-    const char *num_to_text = (base > 36 ?
-                               ("0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ"
-                                "abcdefghijklmnopqrstuvwxyz") :
-                               "0123456789abcdefghijklmnopqrstuvwxyz");
-
     if (CHECK_NO_MEM_LEAK) {
-        len -= (mpn_get_str(buf + auto_prefix + prefix, base,
-                            u->digits, u->size) != (size_t)len);
+        len -= (mpn_get_str(p, base, u->digits, u->size) != len);
     }
     else {
         PyMem_Free(buf);
         return PyErr_NoMemory();
     }
-    for (mp_size_t i = prefix + auto_prefix; i < len + prefix + auto_prefix; i++)
-    {
-        buf[i] = num_to_text[buf[i]];
-    }
-    if (repr) {
-        buf[prefix + len] = ')';
-    }
 
-    PyObject *res = PyUnicode_FromStringAndSize((char *)buf,
-                                                len + repr + u->negative + auto_prefix);
+    const char *num_to_text = base > 36 ? num_to_text62 : num_to_text36;
+
+    for (size_t i = 0; i < len; i++) {
+        *p = num_to_text[*p];
+        p++;
+    }
+    if (options & OPT_TAG) {
+        *(p++) = ')';
+    }
+    *(p++) = '\0';
+
+    PyObject *res = PyUnicode_FromString((char *)buf);
 
     PyMem_Free(buf);
     return res;
@@ -1555,13 +1550,13 @@ dealloc(PyObject *self)
 static PyObject *
 repr(PyObject *self)
 {
-    return MPZ_to_str((MPZ_Object *)self, 10, 1, 0);
+    return MPZ_to_str((MPZ_Object *)self, 10, OPT_TAG);
 }
 
 static PyObject *
 str(PyObject *self)
 {
-    return MPZ_to_str((MPZ_Object *)self, 10, 0, 0);
+    return MPZ_to_str((MPZ_Object *)self, 10, 0);
 }
 
 #define CHECK_OP(u, a)              \
@@ -1656,7 +1651,7 @@ absolute(PyObject *self)
 static PyObject *
 to_int(PyObject *self)
 {
-    PyObject *str = MPZ_to_str((MPZ_Object *)self, 16, 0, 0);
+    PyObject *str = MPZ_to_str((MPZ_Object *)self, 16, 0);
 
     if (!str) {
         return NULL;
@@ -2451,7 +2446,7 @@ digits(PyObject *self, PyObject *const *args, Py_ssize_t nargs,
     if (argidx[1] != -1) {
         prefix = PyObject_IsTrue(args[argidx[1]]);
     }
-    return MPZ_to_str((MPZ_Object *)self, base, 0, prefix);
+    return MPZ_to_str((MPZ_Object *)self, base, prefix ? OPT_PREFIX : 0);
 }
 
 PyDoc_STRVAR(to_bytes__doc__,
