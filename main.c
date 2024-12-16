@@ -1819,19 +1819,19 @@ hash(MPZ_Object *self)
 }
 
 static PyObject *
-get_copy(MPZ_Object *a, void *closure)
+get_copy(PyObject *self, void *Py_UNUSED(closure))
 {
-    return Py_NewRef(a);
+    return Py_NewRef(self);
 }
 
 static PyObject *
-get_one(MPZ_Object *a, void *closure)
+get_one(PyObject *Py_UNUSED(self), void *Py_UNUSED(closure))
 {
     return (PyObject *)MPZ_FromDigitSign(1, 0);
 }
 
 static PyObject *
-get_zero(MPZ_Object *a, void *closure)
+get_zero(PyObject *Py_UNUSED(self), void *Py_UNUSED(closure))
 {
     return (PyObject *)MPZ_FromDigitSign(0, 0);
 }
