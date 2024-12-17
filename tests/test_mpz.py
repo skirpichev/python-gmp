@@ -7,8 +7,7 @@ import resource
 import sys
 
 import pytest
-from gmp import _limb_size as limb_size
-from gmp import mpz
+from gmp import gmp_info, mpz
 from hypothesis import assume, example, given
 from hypothesis.strategies import (
     booleans,
@@ -521,6 +520,7 @@ def test___round__(x, n):
 @pytest.mark.skipif(platform.python_implementation() == "PyPy",
                     reason="sys.getsizeof raises TypeError")
 def test___sizeof__():
+    limb_size = gmp_info[2]
     ms = [mpz(1<<i*(8*limb_size)) for i in range(3)]
     sz = sys.getsizeof(ms[1]) - sys.getsizeof(ms[0])
     assert sys.getsizeof(ms[2]) - sys.getsizeof(ms[1]) == sz
