@@ -461,7 +461,7 @@ MPZ_AsManAndExp(MPZ_Object *u, Py_ssize_t *e)
             i--;
         }
         else {
-            left = 1ULL<<(GMP_NUMB_BITS - 1);
+            left = 1ULL << (GMP_NUMB_BITS - 1);
             carry = u->digits[i - 1];
             i--;
         }
