@@ -396,6 +396,21 @@ MPZ_from_int(PyObject *obj)
     return res;
 }
 
+static PyObject *
+MPZ_to_int(MPZ_Object *u)
+{
+    PyObject *str = MPZ_to_str(u, 16, 0);
+
+    if (!str) {
+        return NULL;
+    }
+
+    PyObject *res = PyLong_FromUnicodeObject(str, 16);
+
+    Py_DECREF(str);
+    return res;
+}
+
 static int
 MPZ_compare(MPZ_Object *u, MPZ_Object *v)
 {
@@ -1651,16 +1666,7 @@ absolute(PyObject *self)
 static PyObject *
 to_int(PyObject *self)
 {
-    PyObject *str = MPZ_to_str((MPZ_Object *)self, 16, 0);
-
-    if (!str) {
-        return NULL;
-    }
-
-    PyObject *res = PyLong_FromUnicodeObject(str, 16);
-
-    Py_DECREF(str);
-    return res;
+    return MPZ_to_int((MPZ_Object *)self);
 }
 
 static PyObject *
