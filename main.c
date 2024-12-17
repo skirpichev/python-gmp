@@ -2811,21 +2811,65 @@ static struct PyModuleDef gmp_module = {
     functions,
 };
 
+PyDoc_STRVAR(gmp_info__doc__,
+"gmp.gmplib_info\n\
+\n\
+A named tuple that holds information about GNU GMP\n\
+and it's internal representation of integers.\n\
+The attributes are read only.");
+
+static PyStructSequence_Field gmp_info_fields[] = {
+    {"bits_per_limb", "size of a limb in bits"},
+    {"nail_bits", "number of bits left unused at the top of each limb"},
+    {"sizeof_limb", "size in bytes of the C type used to represent a limb"},
+    {"version", "the GNU GMP version"},
+    {NULL}
+};
+
+static PyStructSequence_Desc gmp_info_desc = {
+    "gmp.gmplib_info",
+    gmp_info__doc__,
+    gmp_info_fields,
+    4
+};
+
 PyMODINIT_FUNC
 PyInit_gmp(void)
 {
+    mp_set_memory_functions(gmp_allocate_function, gmp_reallocate_function,
+                            gmp_free_function);
+
     PyObject *m = PyModule_Create(&gmp_module);
 
     if (PyModule_AddType(m, &MPZ_Type) < 0) {
         return NULL;
     }
-    if (PyModule_Add(m, "_limb_size",
-                     PyLong_FromSize_t(sizeof(mp_limb_t))) < 0)
-    {
+
+    PyTypeObject *GMP_InfoType = PyStructSequence_NewType(&gmp_info_desc);
+
+    if (!GMP_InfoType) {
+        Py_DECREF(GMP_InfoType);
         return NULL;
     }
-    mp_set_memory_functions(gmp_allocate_function, gmp_reallocate_function,
-                            gmp_free_function);
+
+    PyObject* gmp_info = PyStructSequence_New(GMP_InfoType);
+
+    if (gmp_info == NULL) {
+        return NULL;
+    }
+    Py_DECREF(GMP_InfoType);
+    PyStructSequence_SET_ITEM(gmp_info, 0, PyLong_FromLong(GMP_LIMB_BITS));
+    PyStructSequence_SET_ITEM(gmp_info, 1, PyLong_FromLong(GMP_NAIL_BITS));
+    PyStructSequence_SET_ITEM(gmp_info, 2, PyLong_FromLong(sizeof(mp_limb_t)));
+    PyStructSequence_SET_ITEM(gmp_info, 3, PyUnicode_FromString(gmp_version));
+    if (PyErr_Occurred()) {
+        Py_DECREF(gmp_info);
+        return NULL;
+    }
+    if (PyModule_AddObject(m, "gmp_info", gmp_info) < 0) {
+        Py_DECREF(gmp_info);
+        return NULL;
+    }
 
     PyObject *numbers = PyImport_ImportModule("numbers");
 
