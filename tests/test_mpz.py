@@ -535,6 +535,25 @@ def test_digits(x, base):
     assert mx.digits(base) == res
 
 
+def test_digits_interface():
+    x = mpz(123)
+    with pytest.raises(TypeError):
+        x.digits(1, 2, 3)
+    with pytest.raises(TypeError):
+        x.digits("", 2)
+    with pytest.raises(TypeError):
+        x.digits(10, base=16)
+    with pytest.raises(TypeError):
+        x.digits(1, True, prefix=True)
+    with pytest.raises(TypeError):
+        x.digits(spam=1)
+    with pytest.raises(TypeError):
+        x.digits(a=1, b=2, c=3)
+    assert x.digits(10) == x.digits(base=10) == x.digits()
+    assert x.digits(16, prefix=True) == x.digits(16, True)
+    assert x.digits(16, prefix=False) == x.digits(16, False) == x.digits(16)
+
+
 @given(integers(), integers(min_value=2, max_value=36))
 def test_digits_frombase_low(x, base):
     mx = mpz(x)

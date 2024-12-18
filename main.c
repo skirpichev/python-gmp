@@ -2034,67 +2034,104 @@ bit_count(PyObject *self, PyObject *Py_UNUSED(args))
     return (PyObject *)MPZ_FromDigitSign(count, 0);
 }
 
+typedef struct gmp_pyargs {
+    Py_ssize_t minpos;
+    Py_ssize_t maxpos;
+    Py_ssize_t minargs;
+    Py_ssize_t maxargs;
+    const char *fname;
+    const char * const *keywords;
+} gmp_pyargs;
+
+static int
+gmp_parse_pyargs(const gmp_pyargs *fnargs, int argidx[],
+                 PyObject *const *args, Py_ssize_t nargs,
+                 PyObject *kwnames)
+{
+    if (nargs > fnargs->maxpos) {
+        PyErr_Format(PyExc_TypeError,
+                     "%s() takes at most %zu positional arguments",
+                     fnargs->fname, fnargs->maxpos);
+        return -1;
+    }
+    if (nargs < fnargs->minpos) {
+        PyErr_Format(PyExc_TypeError,
+                     "%s() takes at least %zu positional arguments",
+                     fnargs->fname, fnargs->minpos);
+    }
+    for (Py_ssize_t i = 0; i < nargs; i++) {
+        argidx[i] = i;
+    }
+
+    Py_ssize_t nkws = 0;
+
+    if (kwnames) {
+        nkws = PyTuple_GET_SIZE(kwnames);
+    }
+    if (nkws > fnargs->maxpos - fnargs->minpos) {
+        PyErr_Format(PyExc_TypeError,
+                     "%s() takes at most %zu keyword arguments",
+                     fnargs->fname, fnargs->maxargs - fnargs->minpos);
+        return -1;
+    }
+    if (nkws + nargs < fnargs->minargs) {
+        PyErr_Format(PyExc_TypeError,
+                     ("%s() takes at least %zu positional or "
+                      "keyword arguments"), fnargs->fname, fnargs->minargs);
+        return -1;
+    }
+    for (Py_ssize_t i = 0; i < nkws; i++) {
+        const char *kwname = PyUnicode_AsUTF8(PyTuple_GET_ITEM(kwnames, i));
+        Py_ssize_t j = fnargs->minpos;
+
+        for (; j < fnargs->maxargs; j++) {
+            if (strcmp(kwname, fnargs->keywords[j]) == 0) {
+                if (j > fnargs->maxpos || nargs <= j) {
+                    argidx[j] = (int)(nargs + i);
+                    break;
+                }
+                else {
+                    PyErr_Format(PyExc_TypeError,
+                                 ("argument for %s() given by name "
+                                  "('%s') and position (%zu)"), fnargs->fname,
+                                 fnargs->keywords[j], j + 1);
+                    return -1;
+                }
+            }
+        }
+        if (j == fnargs->maxargs) {
+            PyErr_Format(PyExc_TypeError,
+                    ("%s() got an unexpected keyword argument"
+                     " '%s'"), fnargs->fname, kwname);
+            return -1;
+        }
+    }
+    return 0;
+}
+
 static PyObject *
 to_bytes(PyObject *self, PyObject *const *args, Py_ssize_t nargs,
          PyObject *kwnames)
 {
-    if (nargs > 2) {
-        PyErr_SetString(PyExc_TypeError,
-                        "to_bytes() takes at most 2 positional arguments");
+    static const char * const keywords[] = {"length", "byteorder",
+                                            "signed", NULL};
+    const static gmp_pyargs fnargs = {
+        .keywords = keywords,
+        .minpos = 0,
+        .maxpos = 2,
+        .minargs = 0,
+        .maxargs = 3,
+        .fname = "to_bytes",
+    };
+    int argidx[3] = {-1, -1, -1};
+
+    if (gmp_parse_pyargs(&fnargs, argidx, args, nargs, kwnames) == -1) {
         return NULL;
     }
 
-    Py_ssize_t length = 1, nkws = 0;
-    int is_little = 0, is_signed = 0, argidx[3] = {-1, -1, -1};
+    Py_ssize_t length = 1;
+    int is_little = 0, is_signed = 0;
 
-    if (nargs >= 1) {
-        argidx[0] = 0;
-    }
-    if (nargs == 2) {
-        argidx[1] = 1;
-    }
-    if (kwnames) {
-        nkws = PyTuple_GET_SIZE(kwnames);
-    }
-    if (nkws > 3) {
-        PyErr_SetString(PyExc_TypeError,
-                        "to_bytes() takes at most 3 keyword arguments");
-        return NULL;
-    }
-    for (Py_ssize_t i = 0; i < nkws; i++) {
-        const char *kwname = PyUnicode_AsUTF8(PyTuple_GET_ITEM(kwnames, i));
-
-        if (strcmp(kwname, "length") == 0) {
-            if (nargs == 0) {
-                argidx[0] = (int)(nargs + i);
-            }
-            else {
-                PyErr_SetString(PyExc_TypeError,
-                                ("argument for to_bytes() given by name "
-                                 "('length') and position (1)"));
-                return NULL;
-            }
-        }
-        else if (strcmp(kwname, "byteorder") == 0) {
-            if (nargs <= 1) {
-                argidx[1] = (int)(nargs + i);
-            }
-            else {
-                PyErr_SetString(PyExc_TypeError,
-                                ("argument for to_bytes() given by "
-                                 "name ('byteorder') and position (2)"));
-                return NULL;
-            }
-        }
-        else if (strcmp(kwname, "signed") == 0) {
-            argidx[2] = (int)(nargs + i);
-        }
-        else {
-            PyErr_SetString(PyExc_TypeError,
-                            "got an invalid keyword argument for to_bytes()");
-            return NULL;
-        }
-    }
     if (argidx[0] >= 0) {
         PyObject *arg = args[argidx[0]];
 
@@ -2155,69 +2192,24 @@ static PyObject *
 from_bytes(PyTypeObject *Py_UNUSED(type), PyObject *const *args,
            Py_ssize_t nargs, PyObject *kwnames)
 {
-    if (nargs > 2) {
-        PyErr_SetString(PyExc_TypeError, ("from_bytes() takes at most 2"
-                                          " positional arguments"));
+    static const char * const keywords[] = {"bytes", "byteorder",
+                                            "signed", NULL};
+    const static gmp_pyargs fnargs = {
+        .keywords = keywords,
+        .minpos = 0,
+        .maxpos = 3,
+        .minargs = 1,
+        .maxargs = 3,
+        .fname = "from_bytes",
+    };
+    int argidx[3] = {-1, -1, -1};
+
+    if (gmp_parse_pyargs(&fnargs, argidx, args, nargs, kwnames) == -1) {
         return NULL;
     }
 
-    Py_ssize_t nkws = 0;
-    int is_little = 0, is_signed = 0, argidx[3] = {-1, -1, -1};
+    int is_little = 0, is_signed = 0;
 
-    if (nargs >= 1) {
-        argidx[0] = 0;
-    }
-    if (nargs == 2) {
-        argidx[1] = 1;
-    }
-    if (kwnames) {
-        nkws = PyTuple_GET_SIZE(kwnames);
-    }
-    if (nkws > 3) {
-        PyErr_SetString(PyExc_TypeError,
-                        "from_bytes() takes at most 3 keyword arguments");
-        return NULL;
-    }
-    if (nkws + nargs < 1) {
-        PyErr_SetString(PyExc_TypeError,
-                        ("from_bytes() missing required argument"
-                         " 'bytes' (pos 1)"));
-        return NULL;
-    }
-    for (Py_ssize_t i = 0; i < nkws; i++) {
-        const char *kwname = PyUnicode_AsUTF8(PyTuple_GET_ITEM(kwnames, i));
-
-        if (strcmp(kwname, "bytes") == 0) {
-            if (nargs == 0) {
-                argidx[0] = (int)(nargs + i);
-            }
-            else {
-                PyErr_SetString(PyExc_TypeError,
-                                ("argument for from_bytes() given by"
-                                 " name ('bytes') and position (1)"));
-                return NULL;
-            }
-        }
-        else if (strcmp(kwname, "byteorder") == 0) {
-            if (nargs <= 1) {
-                argidx[1] = (int)(nargs + i);
-            }
-            else {
-                PyErr_SetString(PyExc_TypeError,
-                                ("argument for from_bytes() given by"
-                                 " name ('byteorder') and position (2)"));
-                return NULL;
-            }
-        }
-        else if (strcmp(kwname, "signed") == 0) {
-            argidx[2] = (int)(nargs + i);
-        }
-        else {
-            PyErr_SetString(PyExc_TypeError, ("got an invalid keyword "
-                                              "argument for from_bytes()"));
-            return NULL;
-        }
-    }
     if (argidx[1] >= 0) {
         PyObject *arg = args[argidx[1]];
 
@@ -2380,60 +2372,23 @@ static PyObject *
 digits(PyObject *self, PyObject *const *args, Py_ssize_t nargs,
        PyObject *kwnames)
 {
-    if (nargs > 1) {
-        PyErr_SetString(PyExc_TypeError,
-                        "digits() takes at most one positional argument");
+    static const char * const keywords[] = {"base", "prefix", NULL};
+    const static gmp_pyargs fnargs = {
+        .keywords = keywords,
+        .minpos = 0,
+        .maxpos = 2,
+        .minargs = 0,
+        .maxargs = 2,
+        .fname = "digits",
+    };
+    int argidx[2] = {-1, -1};
+
+    if (gmp_parse_pyargs(&fnargs, argidx, args, nargs, kwnames) == -1) {
         return NULL;
     }
 
-    Py_ssize_t nkws = 0;
-    int base = 10, prefix = 0, argidx[2] = {-1, -1};
+    int base = 10, prefix = 0;
 
-    if (nargs >= 1) {
-        argidx[0] = 0;
-    }
-    if (nargs == 2) {
-        argidx[1] = 1;
-    }
-    if (kwnames) {
-        nkws = PyTuple_GET_SIZE(kwnames);
-    }
-    if (nkws > 2) {
-        PyErr_SetString(PyExc_TypeError,
-                        "digits() takes at most two keyword argument");
-        return NULL;
-    }
-    for (Py_ssize_t i = 0; i < nkws; i++) {
-        const char *kwname = PyUnicode_AsUTF8(PyTuple_GET_ITEM(kwnames, i));
-
-        if (strcmp(kwname, "base") == 0) {
-            if (nargs == 0) {
-                argidx[0] = (int)(nargs + i);
-            }
-            else {
-                PyErr_SetString(PyExc_TypeError,
-                                ("argument for digits() given by name "
-                                 "('base') and position (1)"));
-                return NULL;
-            }
-        }
-        else if (strcmp(kwname, "prefix") == 0) {
-            if (nargs <= 1) {
-                argidx[1] = (int)(nargs + i);
-            }
-            else {
-                PyErr_SetString(PyExc_TypeError,
-                                ("argument for digits() given by "
-                                 "name ('prefix') and position (2)"));
-                return NULL;
-            }
-        }
-        else {
-            PyErr_SetString(PyExc_TypeError,
-                            "got an invalid keyword argument for digits()");
-            return NULL;
-        }
-    }
     if (argidx[0] != -1) {
         PyObject *arg = args[argidx[0]];
 
@@ -2525,7 +2480,7 @@ static PyMethodDef methods[] = {
      ("Returns True.  Exists for duck type compatibility "
       "with float.is_integer.")},
     {"digits", (PyCFunction)digits, METH_FASTCALL | METH_KEYWORDS,
-     ("digits($self, base=10)\n--\n\n"
+     ("digits($self, base=10, prefix=False)\n--\n\n"
       "Return Python string representing self in the given base.\n\n"
       "Values for base can range between 2 to 62.")},
     {NULL} /* sentinel */
