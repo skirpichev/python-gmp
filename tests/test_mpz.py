@@ -120,9 +120,12 @@ def test___format__(x, fmt):
 @example(65869376547959985897597359)
 def test_from_to_int(x):
     sx = str(x)
+    bx = bytes(sx, "ascii")
+    bax = bytearray(sx, "ascii")
     mx = mpz(x)
     assert mpz(sx) == mpz(mx) == mx == x
     assert int(mx) == x
+    assert mpz(bx) == mpz(bax) == x
 
 
 @given(floats(allow_nan=False, allow_infinity=False))

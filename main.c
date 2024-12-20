@@ -1729,6 +1729,27 @@ str:
     if (PyUnicode_Check(arg)) {
         return (PyObject *)MPZ_from_str(arg, base);
     }
+    else if (PyByteArray_Check(arg) || PyBytes_Check(arg)) {
+        const char *string;
+
+        if (PyByteArray_Check(arg)) {
+            string = PyByteArray_AS_STRING(arg);
+        }
+        else {
+            string = PyBytes_AS_STRING(arg);
+        }
+
+        PyObject *str = PyUnicode_FromString(string);
+
+        if (!str) {
+            return NULL;
+        }
+
+        PyObject *res = (PyObject *)MPZ_from_str(str, base);
+
+        Py_DECREF(str);
+        return res;
+    }
     PyErr_SetString(PyExc_TypeError,
                     "can't convert non-string with explicit base");
     return NULL;
