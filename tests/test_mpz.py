@@ -13,6 +13,7 @@ from hypothesis.strategies import (
     booleans,
     characters,
     composite,
+    floats,
     integers,
     sampled_from,
     text,
@@ -122,6 +123,11 @@ def test_from_to_int(x):
     mx = mpz(x)
     assert mpz(sx) == mpz(mx) == mx == x
     assert int(mx) == x
+
+
+@given(floats(allow_nan=False, allow_infinity=False))
+def test_from_floats(x):
+    assert mpz(x) == int(x)
 
 
 @given(integers())

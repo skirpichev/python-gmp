@@ -1687,6 +1687,37 @@ new(PyTypeObject *Py_UNUSED(type), PyObject *args, PyObject *keywds)
         if (MPZ_CheckExact(arg)) {
             return Py_NewRef(arg);
         }
+        if (PyNumber_Check(arg) && Py_TYPE(arg)->tp_as_number->nb_int) {
+            PyObject *integer = Py_TYPE(arg)->tp_as_number->nb_int(arg);
+
+            if (!integer) {
+                return NULL;
+            }
+            if (!PyLong_Check(integer)) {
+                PyErr_Format(PyExc_TypeError,
+                             "__int__ returned non-int (type %.200s)",
+                             Py_TYPE(integer)->tp_name);
+                Py_DECREF(integer);
+                return NULL;
+            }
+            if (!PyLong_CheckExact(integer)
+                && PyErr_WarnFormat(PyExc_DeprecationWarning, 1,
+                                    "__int__ returned non-int (type %.200s).  "
+                                    "The ability to return an instance of a "
+                                    "strict subclass of int "
+                                    "is deprecated, and may be removed "
+                                    "in a future version of Python.",
+                                    Py_TYPE(integer)->tp_name))
+            {
+                Py_DECREF(integer);
+                return NULL;
+            }
+
+            PyObject *res = (PyObject *)MPZ_from_int(integer);
+
+            Py_DECREF(integer);
+            return res;
+        }
         goto str;
     }
     if (!PyArg_ParseTupleAndKeywords(args, keywds, "O|i",
