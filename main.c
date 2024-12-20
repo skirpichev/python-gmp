@@ -317,10 +317,7 @@ MPZ_from_str(PyObject *obj, int base)
                 base = 16;
             }
             else {
-                PyErr_Format(PyExc_ValueError,
-                             "invalid literal for mpz() with base %d: %.200R",
-                             base, obj);
-                return NULL;
+                goto err;
             }
         }
         if ((tolower(p[1]) == 'b' && base == 2)
@@ -329,10 +326,20 @@ MPZ_from_str(PyObject *obj, int base)
         {
             p += 2;
             len -= 2;
+            if (p[0] == '_') {
+                p += 1;
+                len--;
+            }
         }
     }
     if (base == 0) {
         base = 10;
+    }
+    if (p[0] == '_') {
+        goto err;
+    }
+    if (!len) {
+        goto err;
     }
 
     const unsigned char *digit_value = gmp_digit_value_tab;
@@ -340,15 +347,23 @@ MPZ_from_str(PyObject *obj, int base)
     if (base > 36) {
         digit_value += 208;
     }
+
+    Py_ssize_t new_len = len;
+
     for (Py_ssize_t i = 0; i < len; i++) {
+        if (p[i] == '_') {
+            if (i == len - 1 || p[i + 1] == '_') {
+                goto err;
+            }
+            new_len--;
+            memmove(p + i, p + i + 1, len - i - 1);
+        }
         p[i] = digit_value[p[i]];
         if (p[i] >= base) {
-            PyErr_Format(PyExc_ValueError,
-                         "invalid literal for mpz() with base %d: %.200R",
-                         base, obj);
-            return NULL;
+            goto err;
         }
     }
+    len = new_len;
 
     MPZ_Object *res = MPZ_new(1 + len/2, negative);
 
@@ -376,6 +391,12 @@ MPZ_from_str(PyObject *obj, int base)
     }
     MPZ_normalize(res);
     return res;
+err:
+    PyMem_Free(buf);
+    PyErr_Format(PyExc_ValueError,
+                 "invalid literal for mpz() with base %d: %.200R",
+                 base, obj);
+    return NULL;
 }
 
 static MPZ_Object *
