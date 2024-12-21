@@ -26,7 +26,15 @@ gmp_allocate_function(size_t size)
         gmp_tracker.ptrs = realloc(tmp, gmp_tracker.alloc * sizeof(void *));
         if (!gmp_tracker.ptrs) {
             gmp_tracker.alloc -= GMP_TRACKER_SIZE_INCR;
+/* Workaround https://gcc.gnu.org/bugzilla/show_bug.cgi?id=110501 */
+#if defined(__GNUC__) && !defined(__clang__) && __GNUC__ >= 13
+#  pragma GCC diagnostic push
+#  pragma GCC diagnostic ignored "-Wuse-after-free"
+#endif
             gmp_tracker.ptrs = tmp;
+#if defined(__GNUC__) && !defined(__clang__)
+#  pragma GCC diagnostic pop
+#endif
             goto err;
         }
     }
