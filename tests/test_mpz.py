@@ -620,6 +620,8 @@ def test_pickle(protocol, x):
     assert mx == pickle.loads(pickle.dumps(mx, protocol))
 
 
+@pytest.mark.skipif(platform.system() != "Linux",
+                    reason="FIXME: setrlimit fails with ValueError on MacOS")
 def test_outofmemory():
     soft, hard = resource.getrlimit(resource.RLIMIT_AS)
     resource.setrlimit(resource.RLIMIT_AS, (1024*32*1024, hard))
