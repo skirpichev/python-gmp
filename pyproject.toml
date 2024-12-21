@@ -42,7 +42,7 @@ Homepage = "https://github.com/diofant/python-gmp"
 Documentation = "https://python-gmp.readthedocs.io/en/latest/"
 
 [tool.setuptools]
-ext-modules = [{name = "gmp", sources = ["main.c"], libraries = ["gmp"]}]
+ext-modules = [{name = "gmp", sources = ["main.c"], libraries = ["gmp"], include-dirs = [".local/include"], library-dirs = [".local/lib"]}]
 
 [tool.setuptools.dynamic]
 version = {attr = "setuptools_scm.get_version"}
