@@ -3,15 +3,16 @@ on: [push, pull_request]
 jobs:
   linter:
     uses: ./.github/workflows/linter.yml
+  docs:
+    uses: ./.github/workflows/docs.yml
   linux:
     needs:
       - linter
     strategy:
-      fail-fast: false
+      fail-fast: true
       matrix:
         python-version: [3.9, '3.10', pypy3.10-nightly, 3.11, 3.12, 3.13, 3.14]
-        os: [ubuntu-22.04]
-    runs-on: ${{ matrix.os }}
+    runs-on: ubuntu-22.04
     env:
       CFLAGS: -Wpedantic -Werror -std=c17
       PYTEST_ADDOPTS: --verbose
@@ -21,31 +22,59 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
           allow-prereleases: true
-      - run: sudo apt-get update
-      - run: sudo apt-get install libgmp-dev
-      - run: sudo apt-get install texlive texlive-latex-extra latexmk
-        if: matrix.python-version == 3.13
-      - run: sudo apt-get install libmpc-dev
-        if: matrix.python-version == 3.14
+      - run: |
+          sudo apt-get update
+          sudo apt-get install libmpc-dev
       - run: pip install --upgrade pip
       - run: pip install git+https://github.com/skirpichev/gmpy.git@fix-gcc-pedantic
         if: matrix.python-version == 3.14
       - run: pip --verbose install --editable .[tests]
-        if: matrix.python-version != 3.13
-      - run: pip --verbose install --editable .[tests,docs]
-        if: matrix.python-version == 3.13
       - run: pytest
-      - name: Building docs
-        if: matrix.python-version == 3.13
-        run: |
-          sphinx-build --color -W --keep-going -b doctest docs build/sphinx/doctest
-          sphinx-build --color -W --keep-going -b html docs build/sphinx/html
-          sphinx-build --color -W --keep-going -b latex docs build/sphinx/latex
-          make -C build/sphinx/latex all-pdf
-      - name: Archive build artifacts
-        uses: actions/upload-artifact@v4
-        if: matrix.python-version == 3.13
+  macos:
+    needs:
+      - linux
+    runs-on: macos-14
+    env:
+      CFLAGS: -Wpedantic -Werror -std=c17
+      PYTEST_ADDOPTS: --verbose
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
         with:
-          path: |
-            build/sphinx/html/
-            build/sphinx/latex/python-gmp.pdf
+          python-version: "3.x"
+      - run: pip install --upgrade pip
+      - run: |
+          export CFLAGS="$CFLAGS -I$(brew --prefix gmp)/include"
+          export LDFLAGS="-L$(brew --prefix gmp)/lib"
+          pip --verbose install --editable .[tests]
+      - run: pytest
+  windows:
+    needs:
+      - linux
+    runs-on: windows-2022
+    env:
+      CFLAGS: -Wpedantic -Werror -std=c17
+      PYTEST_ADDOPTS: --verbose
+    defaults:
+      run:
+        shell: msys2 {0}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: msys2/setup-msys2@v2
+        with:
+          update: true
+          install: >-
+            git
+            gcc
+            gmp-devel
+            mpfr-devel
+            mpc-devel
+            python-setuptools
+            python-pip
+      - run: |
+          python -m venv .test-venv
+          source .test-venv/bin/activate
+          pip install --upgrade pip
+          pip install git+https://github.com/skirpichev/gmpy.git@fix-gcc-pedantic
+          pip --verbose install -e .[tests]
+          pytest
