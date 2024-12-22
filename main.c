@@ -308,6 +308,9 @@ MPZ_from_str(PyObject *obj, int base)
         return (MPZ_Object *)PyErr_NoMemory();
     }
     memcpy(buf, str, len);
+    if (!len) {
+        goto err;
+    }
 
     int8_t negative = (buf[0] == '-');
 
