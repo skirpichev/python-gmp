@@ -26,7 +26,8 @@ gmp_allocate_function(size_t size)
         gmp_tracker.ptrs = realloc(tmp, gmp_tracker.alloc * sizeof(void *));
         if (!gmp_tracker.ptrs) {
             gmp_tracker.alloc -= GMP_TRACKER_SIZE_INCR;
-/* Workaround https://gcc.gnu.org/bugzilla/show_bug.cgi?id=110501 */
+            /* Workaround
+               https://gcc.gnu.org/bugzilla/show_bug.cgi?id=110501 */
 #if defined(__GNUC__) && !defined(__clang__) && __GNUC__ >= 13
 #  pragma GCC diagnostic push
 #  pragma GCC diagnostic ignored "-Wuse-after-free"
@@ -411,7 +412,7 @@ err:
 }
 
 #if !defined(PYPY_VERSION)
-#define BITS_TO_LIMBS(n) (((n) + (GMP_NUMB_BITS - 1))/GMP_NUMB_BITS)
+#  define BITS_TO_LIMBS(n) (((n) + (GMP_NUMB_BITS - 1))/GMP_NUMB_BITS)
 
 static size_t int_digit_size, int_nails, int_bits_per_digit;
 static int int_digits_order, int_endianness;
