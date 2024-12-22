@@ -2,10 +2,10 @@ import math
 import operator
 import pickle
 import platform
-import random
 import resource
 import string
 import sys
+import warnings
 
 import pytest
 from gmp import gmp_info, mpz
@@ -134,6 +134,39 @@ def test_from_floats(x):
     assert mpz(x) == int(x)
 
 
+def test_mpz_interface():
+    with pytest.raises(ValueError):
+        mpz(123).digits(-1)
+    with pytest.raises(ValueError):
+        mpz(123).digits(123)
+    with pytest.raises(ValueError):
+        mpz("123", 1)
+    with pytest.raises(ValueError):
+        mpz("123", 123)
+    with pytest.raises(ValueError):
+        mpz("0123", 0)
+    with pytest.raises(TypeError):
+        mpz(1j, 10)
+    assert mpz() == mpz(0) == 0
+
+    class with_int:
+        def __init__(self, value):
+            self.value = value
+        def __int__(self):
+            return self.value
+    class int2(int):
+        pass
+    assert mpz(with_int(123)) == 123
+    with pytest.deprecated_call():
+        assert mpz(with_int(int2(123))) == 123
+    with warnings.catch_warnings():
+        warnings.simplefilter("error", DeprecationWarning)
+        with pytest.raises(DeprecationWarning):
+            mpz(with_int(int2(123)))
+    with pytest.raises(TypeError):
+        mpz(with_int(1j))
+
+
 @given(integers())
 def test_repr(x):
     mx = mpz(x)
@@ -148,6 +181,12 @@ def test_richcompare(x, y):
                operator.gt, operator.ge]:
         assert op(mx, my) == op(x, y)
     assert bool(mx) == bool(x)
+
+
+def test_richcompare_errors():
+    mx = mpz(123)
+    with pytest.raises(TypeError):
+        mx > 1j
 
 
 @given(integers())
@@ -198,11 +237,15 @@ def test_mul(x, y):
 
 
 @given(integers(), integers())
+@example(18446744073709551615, -1)
+@example(18446744073709551615<<64, -1<<64)
 def test_divmod(x, y):
-    if not y:
-        return
     mx = mpz(x)
     my = mpz(y)
+    if not y:
+        with pytest.raises(ZeroDivisionError):
+            mx // my
+        return
     r = x // y
     assert mx // my == r
     assert mx // y == r
@@ -215,19 +258,37 @@ def test_divmod(x, y):
     assert divmod(mx, my) == r
 
 
+def test_divmod_errors():
+    mx = mpz(123)
+    with pytest.raises(TypeError):
+        divmod(mx, 1j)
+
+
 @given(integers(), integers())
+@example(0, -1)
+@example(0, 123)
+@example(10**1000, 2)
+@example(2, 18446744073709551616)
 def test_truediv(x, y):
-    if not y:
-        return
     mx = mpz(x)
     my = mpz(y)
-    r = x / y
-    assert mx / my == r
-    assert mx / y == r
-    assert x / my == r
+    if not y:
+        with pytest.raises(ZeroDivisionError):
+            mx / my
+        return
+    try:
+        r = x / y
+    except OverflowError:
+        with pytest.raises(OverflowError):
+            mx / my
+    else:
+        assert mx / my == r
+        assert mx / y == r
+        assert x / my == r
 
 
 @given(integers(), integers(max_value=100000))
+@example(0, 123)
 @example(123, 0)
 @example(-321, 0)
 @example(1, 123)
@@ -254,6 +315,9 @@ def test_power(x, y):
 
 
 @given(integers(), integers(max_value=1000000), integers())
+@example(123, 111, 1)
+@example(123, 1, 12)
+@example(1, 123, 12)
 def test_power_mod(x, y, z):
     mx = mpz(x)
     my = mpz(y)
@@ -282,6 +346,10 @@ def test_invert(x):
 
 
 @given(integers(), integers())
+@example(1, 1<<67)
+@example(1, -(1<<67))
+@example(-2, -1)
+@example(-1, -1)
 def test_and(x, y):
     mx = mpz(x)
     my = mpz(y)
@@ -292,6 +360,10 @@ def test_and(x, y):
 
 
 @given(integers(), integers())
+@example(1, 1<<67)
+@example(1, -(1<<67))
+@example(-2, -1)
+@example(2, -1)
 def test_or(x, y):
     mx = mpz(x)
     my = mpz(y)
@@ -302,6 +374,10 @@ def test_or(x, y):
 
 
 @given(integers(), integers())
+@example(1, 1<<67)
+@example(1, -(1<<67))
+@example(-2, -1)
+@example(-1, -1)
 def test_xor(x, y):
     mx = mpz(x)
     my = mpz(y)
@@ -313,6 +389,7 @@ def test_xor(x, y):
 
 @given(integers(), integers(max_value=12345))
 @example(18446744073709551618, 64)
+@example(1, 1<<128)
 def test_lshift(x, y):
     mx = mpz(x)
     my = mpz(y)
@@ -339,6 +416,9 @@ def test_lshift(x, y):
 
 
 @given(integers(), integers())
+@example(1, 1<<78)
+@example(-1, 1<<128)
+@example(-340282366920938463444927863358058659840, 64)
 def test_rshift(x, y):
     mx = mpz(x)
     my = mpz(y)
@@ -511,6 +591,10 @@ def test_from_bytes_interface():
 
 @given(integers())
 @example(117529601297931785)
+@example(1<<64)
+@example(9007199254740993)
+@example(10965857771245191)
+@example(10<<10000)
 def test___float__(x):
     mx = mpz(x)
     try:
@@ -528,6 +612,12 @@ def test___round__(x, n):
     assert round(mx, n) == round(mx, mn) == round(x, n)
     if not n:
         assert round(mx) == round(x)
+
+
+def test___round__interface():
+    x = mpz(133)
+    with pytest.raises(TypeError):
+        x.__round__(1, 2)
 
 
 @pytest.mark.skipif(platform.python_implementation() == "PyPy",
@@ -674,20 +764,17 @@ def test_pickle(protocol, x):
 
 @pytest.mark.skipif(platform.system() != "Linux",
                     reason="FIXME: setrlimit fails with ValueError on MacOS")
-def test_outofmemory():
+@given(integers(min_value=49846727467293, max_value=249846727467293))
+def test_outofmemory(x):
     soft, hard = resource.getrlimit(resource.RLIMIT_AS)
     resource.setrlimit(resource.RLIMIT_AS, (1024*32*1024, hard))
-    total = 20
-    for n in range(total):
-        a = random.randint(49846727467293, 249846727467293)
-        a = mpz(a)
-        i = 1
-        while True:
-            try:
-                a = a*a
-            except MemoryError:
-                assert i > 5
-                break
-            i += 1
-    assert n + 1 == total
+    mx = mpz(x)
+    i = 1
+    while True:
+        try:
+            mx = mx*mx
+        except MemoryError:
+            assert i > 5
+            break
+        i += 1
     resource.setrlimit(resource.RLIMIT_AS, (soft, hard))
