@@ -45,6 +45,6 @@ jobs:
       - name: Merge Wheels
         uses: actions/upload-artifact/merge@v4
         with:
-          name: wheels
+          name: python-gmp-wheels
           pattern: wheels-*
           delete-merged: true
