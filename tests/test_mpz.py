@@ -4,6 +4,7 @@ import pickle
 import platform
 import random
 import resource
+import string
 import sys
 
 import pytest
@@ -537,12 +538,59 @@ def test___sizeof__():
     assert sys.getsizeof(ms[2]) - sys.getsizeof(ms[1]) == sz
 
 
+def to_digits(n, base):
+    if n == 0:
+        return "0"
+    if base < 2 or base > 62:
+        raise ValueError("base must be in the interval [2, 62]")
+    num_to_text = string.digits + string.ascii_lowercase
+    if base > 36:
+        num_to_text = num_to_text.upper() + string.ascii_lowercase
+    digits = []
+    if n < 0:
+        sign = "-"
+        n = -n
+    else:
+        sign = ""
+    while n:
+        i = n % base
+        d = num_to_text[i]
+        digits.append(d)
+        n //= base
+    return sign + "".join(digits[::-1])
+
+
+def from_digits(s, base):
+    if s == "0":
+        return 0
+    if base < 2 or base > 62:
+        raise ValueError("base must be in the interval [2, 62]")
+    if base <= 36:
+        return int(s, base)
+    if s[0] == "-":
+        negative = True
+        s = s[1:]
+    else:
+        negative = False
+    n = 0
+    b = 1
+    for c in reversed(s):
+        v = ord(c)
+        if 48 <= v <= 57:
+            v -= 48
+        elif 65 <= v <= 90:
+            v -= 55
+        else:
+            v -= 87
+        n += v*b
+        b *= base
+    return -n if negative else n
+
+
 @given(integers(), integers(min_value=2, max_value=62))
 def test_digits(x, base):
-    gmpy2 = pytest.importorskip("gmpy2")
     mx = mpz(x)
-    gx = gmpy2.mpz(x)
-    res = gx.digits(base)
+    res = to_digits(x, base)
     assert mx.digits(base) == res
 
 
@@ -591,12 +639,12 @@ def test_digits_frombase_high(x, base):
     assert int(gmpy2.mpz(smx, base)) == mx
     smaller_base = (base + 2)//2 + 1
     try:
-        g = gmpy2.mpz(smx, smaller_base)
+        g = from_digits(smx, smaller_base)
     except ValueError:
         with pytest.raises(ValueError):
             mpz(smx, smaller_base)
     else:
-        assert mpz(smx, smaller_base) == int(g)
+        assert mpz(smx, smaller_base) == g
 
 
 @given(integers())

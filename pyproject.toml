@@ -27,6 +27,10 @@ classifiers = ["Development Status :: 2 - Pre-Alpha",
                "Programming Language :: Python :: 3.14",
                "Programming Language :: Python :: Implementation :: CPython",
                "Programming Language :: Python :: Implementation :: PyPy",
+               "Operating System :: Microsoft :: Windows",
+               "Operating System :: POSIX",
+               "Operating System :: Unix",
+               "Operating System :: MacOS",
                "Topic :: Scientific/Engineering :: Mathematics",
                "Topic :: Software Development :: Libraries :: Python Modules"]
 requires-python = ">= 3.9"
@@ -52,8 +56,7 @@ version = {attr = "setuptools_scm.get_version"}
 "*" = ["*.h"]
 
 [project.optional-dependencies]
-tests = ["pytest", "hypothesis",
-         "gmpy2; platform_python_implementation!='PyPy'"]
+tests = ["pytest", "hypothesis"]
 docs = ["sphinx"]
 develop = ["python-gmp[tests,docs]", "pre-commit"]
 
