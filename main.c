@@ -2271,7 +2271,6 @@ bit_count(PyObject *self, PyObject *Py_UNUSED(args))
 }
 
 typedef struct gmp_pyargs {
-    Py_ssize_t minpos;
     Py_ssize_t maxpos;
     Py_ssize_t minargs;
     Py_ssize_t maxargs;
@@ -2289,11 +2288,6 @@ gmp_parse_pyargs(const gmp_pyargs *fnargs, int argidx[], PyObject *const *args,
                      fnargs->fname, fnargs->maxpos);
         return -1;
     }
-    if (nargs < fnargs->minpos) {
-        PyErr_Format(PyExc_TypeError,
-                     "%s() takes at least %zu positional arguments",
-                     fnargs->fname, fnargs->minpos);
-    }
     for (Py_ssize_t i = 0; i < nargs; i++) {
         argidx[i] = i;
     }
@@ -2303,10 +2297,10 @@ gmp_parse_pyargs(const gmp_pyargs *fnargs, int argidx[], PyObject *const *args,
     if (kwnames) {
         nkws = PyTuple_GET_SIZE(kwnames);
     }
-    if (nkws > fnargs->maxpos - fnargs->minpos) {
+    if (nkws > fnargs->maxpos) {
         PyErr_Format(PyExc_TypeError,
                      "%s() takes at most %zu keyword arguments", fnargs->fname,
-                     fnargs->maxargs - fnargs->minpos);
+                     fnargs->maxargs);
         return -1;
     }
     if (nkws + nargs < fnargs->minargs) {
@@ -2318,7 +2312,7 @@ gmp_parse_pyargs(const gmp_pyargs *fnargs, int argidx[], PyObject *const *args,
     }
     for (Py_ssize_t i = 0; i < nkws; i++) {
         const char *kwname = PyUnicode_AsUTF8(PyTuple_GET_ITEM(kwnames, i));
-        Py_ssize_t j = fnargs->minpos;
+        Py_ssize_t j = 0;
 
         for (; j < fnargs->maxargs; j++) {
             if (strcmp(kwname, fnargs->keywords[j]) == 0) {
@@ -2352,7 +2346,6 @@ to_bytes(PyObject *self, PyObject *const *args, Py_ssize_t nargs,
     static const char *const keywords[] = {"length", "byteorder", "signed"};
     const static gmp_pyargs fnargs = {
         .keywords = keywords,
-        .minpos = 0,
         .maxpos = 2,
         .minargs = 0,
         .maxargs = 3,
@@ -2430,7 +2423,6 @@ from_bytes(PyTypeObject *Py_UNUSED(type), PyObject *const *args,
     static const char *const keywords[] = {"bytes", "byteorder", "signed"};
     const static gmp_pyargs fnargs = {
         .keywords = keywords,
-        .minpos = 0,
         .maxpos = 3,
         .minargs = 1,
         .maxargs = 3,
@@ -2609,7 +2601,6 @@ digits(PyObject *self, PyObject *const *args, Py_ssize_t nargs,
     static const char *const keywords[] = {"base", "prefix"};
     const static gmp_pyargs fnargs = {
         .keywords = keywords,
-        .minpos = 0,
         .maxpos = 2,
         .minargs = 0,
         .maxargs = 2,
@@ -2782,98 +2773,100 @@ gmp_gcd(PyObject *Py_UNUSED(module), PyObject *const *args, Py_ssize_t nargs)
         return NULL;
     }
     for (Py_ssize_t i = 1; i < nargs; i++) {
-        if (res->size != 1 || res->negative || res->digits[0] != 1) {
-            if (MPZ_CheckExact(args[i])) {
-                arg = MPZ_abs((MPZ_Object *)args[i]);
-            }
-            else if (PyLong_Check(args[i])) {
-                tmp = MPZ_from_int(args[i]);
-                if (!tmp) {
-                    Py_DECREF(res);
-                    return NULL;
-                }
-                arg = MPZ_abs(tmp);
-                if (!arg) {
-                    Py_DECREF(tmp);
-                    Py_DECREF(res);
-                    return NULL;
-                }
-                Py_DECREF(tmp);
-            }
-            else {
-                Py_DECREF(res);
-                PyErr_SetString(PyExc_TypeError,
-                                "gcd() arguments must be integers");
-                return NULL;
-            }
-            if (!res->size) {
-                Py_DECREF(res);
-                res = MPZ_abs(arg);
-                if (!res) {
-                    Py_DECREF(arg);
-                    return NULL;
-                }
-                Py_DECREF(arg);
-                continue;
-            }
-            nzeros_res = mpn_scan1(res->digits, 0);
-            if (nzeros_res) {
-                mpn_rshift(res->digits, res->digits, res->size, nzeros_res);
-            }
-            if (!arg->size) {
-                Py_DECREF(arg);
-                continue;
-            }
-            nzeros_res = Py_MIN(nzeros_res, mpn_scan1(arg->digits, 0));
-            if (nzeros_res) {
-                mpn_rshift(arg->digits, arg->digits, arg->size, nzeros_res);
-            }
-            tmp = MPZ_copy(res);
+        if (MPZ_CheckExact(args[i])) {
+            arg = MPZ_abs((MPZ_Object *)args[i]);
+        }
+        else if (PyLong_Check(args[i])) {
+            tmp = MPZ_from_int(args[i]);
             if (!tmp) {
                 Py_DECREF(res);
+                return NULL;
+            }
+            arg = MPZ_abs(tmp);
+            if (!arg) {
+                Py_DECREF(tmp);
+                Py_DECREF(res);
+                return NULL;
+            }
+            Py_DECREF(tmp);
+        }
+        else {
+            Py_DECREF(res);
+            PyErr_SetString(PyExc_TypeError,
+                            "gcd() arguments must be integers");
+            return NULL;
+        }
+        if (res->size == 1 && res->digits[0] == 1) {
+            Py_DECREF(arg);
+            continue;
+        }
+        if (!res->size) {
+            Py_DECREF(res);
+            res = MPZ_abs(arg);
+            if (!res) {
                 Py_DECREF(arg);
                 return NULL;
             }
+            Py_DECREF(arg);
+            continue;
+        }
+        nzeros_res = mpn_scan1(res->digits, 0);
+        if (nzeros_res) {
+            mpn_rshift(res->digits, res->digits, res->size, nzeros_res);
+        }
+        if (!arg->size) {
+            Py_DECREF(arg);
+            continue;
+        }
+        nzeros_res = Py_MIN(nzeros_res, mpn_scan1(arg->digits, 0));
+        if (nzeros_res) {
+            mpn_rshift(arg->digits, arg->digits, arg->size, nzeros_res);
+        }
+        tmp = MPZ_copy(res);
+        if (!tmp) {
+            Py_DECREF(res);
+            Py_DECREF(arg);
+            return NULL;
+        }
 
-            mp_size_t newsize;
+        mp_size_t newsize;
 
-            if (tmp->size >= arg->size) {
-                if (CHECK_NO_MEM_LEAK) {
-                    newsize = mpn_gcd(res->digits, tmp->digits, tmp->size,
-                                      arg->digits, arg->size);
-                }
-                else {
-                    Py_DECREF(tmp);
-                    Py_DECREF(res);
-                    Py_DECREF(arg);
-                    return PyErr_NoMemory();
-                }
+        if (tmp->size >= arg->size) {
+            if (CHECK_NO_MEM_LEAK) {
+                newsize = mpn_gcd(res->digits, tmp->digits, tmp->size,
+                                  arg->digits, arg->size);
             }
             else {
-                if (CHECK_NO_MEM_LEAK) {
-                    newsize = mpn_gcd(res->digits, arg->digits, arg->size,
-                                      tmp->digits, tmp->size);
-                }
-                else {
-                    Py_DECREF(tmp);
-                    Py_DECREF(res);
-                    Py_DECREF(arg);
-                    return PyErr_NoMemory();
-                }
+                Py_DECREF(tmp);
+                Py_DECREF(res);
+                Py_DECREF(arg);
+                return PyErr_NoMemory();
             }
-            Py_DECREF(arg);
-            Py_DECREF(tmp);
-            if (newsize != res->size) {
-                mp_limb_t *tmp_limbs = res->digits;
+        }
+        else {
+            if (CHECK_NO_MEM_LEAK) {
+                newsize = mpn_gcd(res->digits, arg->digits, arg->size,
+                                  tmp->digits, tmp->size);
+            }
+            else {
+                Py_DECREF(tmp);
+                Py_DECREF(res);
+                Py_DECREF(arg);
+                return PyErr_NoMemory();
+            }
+        }
+        Py_DECREF(arg);
+        Py_DECREF(tmp);
+        if (newsize != res->size) {
+            mp_limb_t *tmp_limbs = res->digits;
 
-                res->digits = PyMem_Resize(tmp_limbs, mp_limb_t, newsize);
-                if (!res->digits) {
-                    res->digits = tmp_limbs;
-                    Py_DECREF(res);
-                    return PyErr_NoMemory();
-                }
-                res->size = newsize;
+            res->digits = PyMem_Resize(tmp_limbs, mp_limb_t, newsize);
+            if (!res->digits) {
+                res->digits = tmp_limbs;
+                Py_DECREF(res);
+                return PyErr_NoMemory();
             }
+            res->size = newsize;
         }
     }
     if (nzeros_res) {
@@ -2885,7 +2878,7 @@ gmp_gcd(PyObject *Py_UNUSED(module), PyObject *const *args, Py_ssize_t nargs)
 static PyObject *
 gmp_isqrt(PyObject *Py_UNUSED(module), PyObject *arg)
 {
-    static MPZ_Object *x, *res = NULL;
+    MPZ_Object *x, *res = NULL;
 
     if (MPZ_CheckExact(arg)) {
         x = (MPZ_Object *)arg;
@@ -2924,14 +2917,14 @@ gmp_isqrt(PyObject *Py_UNUSED(module), PyObject *arg)
         return PyErr_NoMemory();
     }
 end:
-    Py_DECREF(x);
+    Py_XDECREF(x);
     return (PyObject *)res;
 }
 
 static PyObject *
 gmp_factorial(PyObject *Py_UNUSED(module), PyObject *arg)
 {
-    static MPZ_Object *x, *res = NULL;
+    MPZ_Object *x, *res = NULL;
 
     if (MPZ_CheckExact(arg)) {
         x = (MPZ_Object *)arg;
@@ -2953,14 +2946,14 @@ gmp_factorial(PyObject *Py_UNUSED(module), PyObject *arg)
 
     tmp._mp_d = x->digits;
     tmp._mp_size = (x->negative ? -1 : 1) * x->size;
-    if (!mpz_fits_ulong_p(&tmp)) {
-        PyErr_Format(PyExc_OverflowError,
-                     "factorial() argument should not exceed %ld", LONG_MAX);
-        goto end;
-    }
     if (x->negative) {
         PyErr_SetString(PyExc_ValueError,
                         "factorial() not defined for negative values");
+        goto end;
+    }
+    if (!mpz_fits_ulong_p(&tmp)) {
+        PyErr_Format(PyExc_OverflowError,
+                     "factorial() argument should not exceed %ld", LONG_MAX);
         goto end;
     }
 
@@ -2982,7 +2975,7 @@ gmp_factorial(PyObject *Py_UNUSED(module), PyObject *arg)
     mpn_copyi(res->digits, tmp._mp_d, res->size);
     mpz_clear(&tmp);
 end:
-    Py_DECREF(x);
+    Py_XDECREF(x);
     return (PyObject *)res;
 }
 
@@ -3043,33 +3036,42 @@ PyInit_gmp(void)
     PyObject *m = PyModule_Create(&gmp_module);
 
     if (PyModule_AddType(m, &MPZ_Type) < 0) {
+        /* LCOV_EXCL_START */
         return NULL;
+        /* LCOV_EXCL_STOP */
     }
 
     PyTypeObject *GMP_InfoType = PyStructSequence_NewType(&gmp_info_desc);
 
     if (!GMP_InfoType) {
-        Py_DECREF(GMP_InfoType);
+        /* LCOV_EXCL_START */
         return NULL;
+        /* LCOV_EXCL_STOP */
     }
 
     PyObject *gmp_info = PyStructSequence_New(GMP_InfoType);
 
-    if (gmp_info == NULL) {
-        return NULL;
-    }
     Py_DECREF(GMP_InfoType);
+    if (gmp_info == NULL) {
+        /* LCOV_EXCL_START */
+        return NULL;
+        /* LCOV_EXCL_STOP */
+    }
     PyStructSequence_SET_ITEM(gmp_info, 0, PyLong_FromLong(GMP_LIMB_BITS));
     PyStructSequence_SET_ITEM(gmp_info, 1, PyLong_FromLong(GMP_NAIL_BITS));
     PyStructSequence_SET_ITEM(gmp_info, 2, PyLong_FromLong(sizeof(mp_limb_t)));
     PyStructSequence_SET_ITEM(gmp_info, 3, PyUnicode_FromString(gmp_version));
     if (PyErr_Occurred()) {
+        /* LCOV_EXCL_START */
         Py_DECREF(gmp_info);
         return NULL;
+        /* LCOV_EXCL_STOP */
     }
     if (PyModule_AddObject(m, "gmp_info", gmp_info) < 0) {
+        /* LCOV_EXCL_START */
         Py_DECREF(gmp_info);
         return NULL;
+        /* LCOV_EXCL_STOP */
     }
 
     PyObject *ns = PyDict_New();
@@ -3078,44 +3080,58 @@ PyInit_gmp(void)
         return NULL;
     }
     if (PyDict_SetItemString(ns, "gmp", m) < 0) {
+        /* LCOV_EXCL_START */
         Py_DECREF(ns);
         return NULL;
+        /* LCOV_EXCL_STOP */
     }
 
     PyObject *gmp_fractions = PyImport_ImportModule("gmp_fractions");
 
     if (!gmp_fractions) {
+        /* LCOV_EXCL_START */
         Py_DECREF(ns);
         return NULL;
+        /* LCOV_EXCL_STOP */
     }
 
     PyObject *mpq = PyObject_GetAttrString(gmp_fractions, "mpq");
 
     if (!mpq) {
+        /* LCOV_EXCL_START */
         Py_DECREF(ns);
         Py_DECREF(gmp_fractions);
         return NULL;
+        /* LCOV_EXCL_STOP */
     }
 
     PyObject *mname = PyUnicode_FromString("gmp");
 
     if (!mname) {
-        Py_DECREF(ns);
-        Py_DECREF(gmp_fractions);
-        Py_DECREF(mpq);
-    }
-    if (PyObject_SetAttrString(mpq, "__module__", mname) < 0) {
-        Py_DECREF(ns);
-        Py_DECREF(gmp_fractions);
-        Py_DECREF(mpq);
-        Py_DECREF(mname);
-    }
-    Py_DECREF(mname);
-    if (PyModule_AddType(m, (PyTypeObject *)mpq) < 0) {
+        /* LCOV_EXCL_START */
         Py_DECREF(ns);
         Py_DECREF(gmp_fractions);
         Py_DECREF(mpq);
         return NULL;
+        /* LCOV_EXCL_STOP */
+    }
+    if (PyObject_SetAttrString(mpq, "__module__", mname) < 0) {
+        /* LCOV_EXCL_START */
+        Py_DECREF(ns);
+        Py_DECREF(gmp_fractions);
+        Py_DECREF(mpq);
+        Py_DECREF(mname);
+        return NULL;
+        /* LCOV_EXCL_STOP */
+    }
+    Py_DECREF(mname);
+    if (PyModule_AddType(m, (PyTypeObject *)mpq) < 0) {
+        /* LCOV_EXCL_START */
+        Py_DECREF(ns);
+        Py_DECREF(gmp_fractions);
+        Py_DECREF(mpq);
+        return NULL;
+        /* LCOV_EXCL_STOP */
     }
     Py_DECREF(gmp_fractions);
     Py_DECREF(mpq);
@@ -3123,45 +3139,57 @@ PyInit_gmp(void)
     PyObject *numbers = PyImport_ImportModule("numbers");
 
     if (!numbers) {
+        /* LCOV_EXCL_START */
         Py_DECREF(ns);
         return NULL;
+        /* LCOV_EXCL_STOP */
     }
 
     const char *str = ("numbers.Integral.register(gmp.mpz)\n"
                        "numbers.Rational.register(gmp.mpq)\n");
 
     if (PyDict_SetItemString(ns, "numbers", numbers) < 0) {
+        /* LCOV_EXCL_START */
         Py_DECREF(numbers);
         Py_DECREF(ns);
         return NULL;
+        /* LCOV_EXCL_STOP */
     }
 
     PyObject *res = PyRun_String(str, Py_file_input, ns, ns);
 
     if (!res) {
+        /* LCOV_EXCL_START */
         Py_DECREF(numbers);
         Py_DECREF(ns);
         return NULL;
+        /* LCOV_EXCL_STOP */
     }
     Py_DECREF(res);
 
     PyObject *importlib = PyImport_ImportModule("importlib.metadata");
 
     if (!importlib) {
+        /* LCOV_EXCL_START */
         Py_DECREF(ns);
         return NULL;
+        /* LCOV_EXCL_STOP */
     }
     if (PyDict_SetItemString(ns, "importlib", importlib) < 0) {
+        /* LCOV_EXCL_START */
         Py_DECREF(ns);
         Py_DECREF(importlib);
         return NULL;
+        /* LCOV_EXCL_STOP */
     }
     str = "gmp.__version__ = importlib.version('python-gmp')\n";
     res = PyRun_String(str, Py_file_input, ns, ns);
     if (!res) {
+        /* LCOV_EXCL_START */
         Py_DECREF(ns);
         Py_DECREF(importlib);
         return NULL;
+        /* LCOV_EXCL_STOP */
     }
     Py_DECREF(ns);
     Py_DECREF(importlib);

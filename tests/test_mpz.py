@@ -6,6 +6,7 @@ import random
 import resource
 import string
 import sys
+import warnings
 
 import pytest
 from gmp import gmp_info, mpz
@@ -134,6 +135,39 @@ def test_from_floats(x):
     assert mpz(x) == int(x)
 
 
+def test_mpz_interface():
+    with pytest.raises(ValueError):
+        mpz(123).digits(-1)
+    with pytest.raises(ValueError):
+        mpz(123).digits(123)
+    with pytest.raises(ValueError):
+        mpz("123", 1)
+    with pytest.raises(ValueError):
+        mpz("123", 123)
+    with pytest.raises(ValueError):
+        mpz("0123", 0)
+    with pytest.raises(TypeError):
+        mpz(1j, 10)
+    assert mpz() == mpz(0) == 0
+
+    class with_int:
+        def __init__(self, value):
+            self.value = value
+        def __int__(self):
+            return self.value
+    class int2(int):
+        pass
+    assert mpz(with_int(123)) == 123
+    with pytest.deprecated_call():
+        assert mpz(with_int(int2(123))) == 123
+    with warnings.catch_warnings():
+        warnings.simplefilter("error", DeprecationWarning)
+        with pytest.raises(DeprecationWarning):
+            mpz(with_int(int2(123)))
+    with pytest.raises(TypeError):
+        mpz(with_int(1j))
+
+
 @given(integers())
 def test_repr(x):
     mx = mpz(x)
@@ -199,10 +233,12 @@ def test_mul(x, y):
 
 @given(integers(), integers())
 def test_divmod(x, y):
-    if not y:
-        return
     mx = mpz(x)
     my = mpz(y)
+    if not y:
+        with pytest.raises(ZeroDivisionError):
+            mx // my
+        return
     r = x // y
     assert mx // my == r
     assert mx // y == r
@@ -216,15 +252,25 @@ def test_divmod(x, y):
 
 
 @given(integers(), integers())
+@example(0, -1)
+@example(0, 123)
+@example(10**1000, 2)
 def test_truediv(x, y):
-    if not y:
-        return
     mx = mpz(x)
     my = mpz(y)
-    r = x / y
-    assert mx / my == r
-    assert mx / y == r
-    assert x / my == r
+    if not y:
+        with pytest.raises(ZeroDivisionError):
+            mx / my
+        return
+    try:
+        r = x / y
+    except OverflowError:
+        with pytest.raises(OverflowError):
+            mx / my
+    else:
+        assert mx / my == r
+        assert mx / y == r
+        assert x / my == r
 
 
 @given(integers(), integers(max_value=100000))
@@ -511,6 +557,9 @@ def test_from_bytes_interface():
 
 @given(integers())
 @example(117529601297931785)
+@example(1<<64)
+@example(9007199254740993)
+@example(10965857771245191)
 def test___float__(x):
     mx = mpz(x)
     try:
@@ -528,6 +577,12 @@ def test___round__(x, n):
     assert round(mx, n) == round(mx, mn) == round(x, n)
     if not n:
         assert round(mx) == round(x)
+
+
+def test___round__interface():
+    x = mpz(133)
+    with pytest.raises(TypeError):
+        x.__round__(1, 2)
 
 
 @pytest.mark.skipif(platform.python_implementation() == "PyPy",
