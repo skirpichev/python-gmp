@@ -19,9 +19,9 @@ rm config.guess && mv configfsf.guess config.guess && chmod +x config.guess
             --enable-shared \
             --disable-static \
             --with-pic \
-            --prefix=$PREFIX
-make -j6
-make install
+            --prefix=$PREFIX -q
+make -j6 -s
+make -s install
 cd ../
 
 # -- generate *.lib files from *.dll on M$ Windows --
