@@ -407,9 +407,62 @@ err:
     return NULL;
 }
 
+#if !defined(PYPY_VERSION)
+#define BITS_TO_LIMBS(n) (((n) + (GMP_NUMB_BITS - 1))/GMP_NUMB_BITS)
+
+static size_t int_digit_size, int_nails, int_bits_per_digit;
+static int int_digits_order, int_endianness;
+#endif
+
 static MPZ_Object *
 MPZ_from_int(PyObject *obj)
 {
+#if !defined(PYPY_VERSION)
+    static PyLongExport long_export;
+    MPZ_Object *res = NULL;
+
+    if (PyLong_Export(obj, &long_export) < 0) {
+        return res;
+    }
+
+    if (long_export.digits) {
+        mp_size_t ndigits = long_export.ndigits;
+        mp_size_t size = BITS_TO_LIMBS(ndigits*(8*int_digit_size - int_nails));
+        res = MPZ_new(size, long_export.negative);
+        if (!res) {
+            return res;
+        }
+
+        mpz_t z;
+
+        z->_mp_d = res->digits;
+        z->_mp_size = (res->negative ? -1 : 1)*res->size;
+        z->_mp_alloc = res->size;
+        mpz_import(z, ndigits, int_digits_order, int_digit_size,
+                   int_endianness, int_nails, long_export.digits);
+        PyLong_FreeExport(&long_export);
+    }
+    else {
+        int64_t value = long_export.value;
+        mp_size_t size = BITS_TO_LIMBS(8*sizeof(int64_t) - int_nails);
+        res = MPZ_new(size, value < 0);
+        if (!res) {
+            return res;
+        }
+
+        mpz_t z;
+
+        z->_mp_d = res->digits;
+        z->_mp_size = (res->negative ? -1 : 1)*res->size;
+        z->_mp_alloc = res->size;
+        if (res->negative) {
+            value = -value;
+        }
+        mpz_import(z, 1, -1, sizeof(int64_t), 0, 0, &value);
+    }
+    MPZ_normalize(res);
+    return res;
+#else
     PyObject *str = PyNumber_ToBase(obj, 16);
 
     if (!str) {
@@ -423,11 +476,34 @@ MPZ_from_int(PyObject *obj)
     }
     Py_DECREF(str);
     return res;
+#endif
 }
 
 static PyObject *
 MPZ_to_int(MPZ_Object *u)
 {
+#if !defined(PYPY_VERSION)
+    mpz_t z;
+
+    z->_mp_d = u->digits;
+    z->_mp_size = (u->negative ? -1 : 1)*u->size;
+    z->_mp_alloc = u->size;
+    if (mpz_fits_slong_p(z)) {
+        return PyLong_FromLong(mpz_get_si(z));
+    }
+
+    size_t size = (mpn_sizeinbase(u->digits, u->size, 2) +
+                   int_bits_per_digit - 1)/int_bits_per_digit;
+    void *digits;
+    PyLongWriter *writer = PyLongWriter_Create(u->negative, size, &digits);
+
+    if (!writer) {
+        return NULL;
+    }
+    mpz_export(digits, NULL, int_digits_order, int_digit_size,
+               int_endianness, int_nails, z);
+    return PyLongWriter_Finish(writer);
+#else
     PyObject *str = MPZ_to_str(u, 16, 0);
 
     if (!str) {
@@ -438,6 +514,7 @@ MPZ_to_int(MPZ_Object *u)
 
     Py_DECREF(str);
     return res;
+#endif
 }
 
 static int
@@ -3098,7 +3175,16 @@ PyInit_gmp(void)
 {
     mp_set_memory_functions(gmp_allocate_function, gmp_reallocate_function,
                             gmp_free_function);
+#if !defined(PYPY_VERSION)
+    /* Query parameters of Python’s internal representation of integers. */
+    const PyLongLayout *layout = PyLong_GetNativeLayout();
 
+    int_digit_size = layout->digit_size;
+    int_digits_order = layout->digits_order;
+    int_bits_per_digit = layout->bits_per_digit;
+    int_nails = int_digit_size*8 - int_bits_per_digit;
+    int_endianness = layout->digit_endianness;
+#endif
     PyObject *m = PyModule_Create(&gmp_module);
 
     if (PyModule_AddType(m, &MPZ_Type) < 0) {
