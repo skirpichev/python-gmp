@@ -913,13 +913,8 @@ MPZ_lshift1(MPZ_Object *u, mp_limb_t lshift, uint8_t negative)
     if (whole) {
         mpn_zero(res->digits, whole);
     }
-
-    mp_limb_t carry = mpn_lshift(res->digits + whole, u->digits,
-                                 u->size, lshift);
-
-    if (lshift) {
-        res->digits[size - 1] = carry;
-    }
+    res->digits[size - 1] = mpn_lshift(res->digits + whole, u->digits,
+                                       u->size, lshift);
     MPZ_normalize(res);
     return res;
 }

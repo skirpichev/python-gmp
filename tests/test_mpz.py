@@ -312,6 +312,7 @@ def test_xor(x, y):
 
 
 @given(integers(), integers(max_value=12345))
+@example(18446744073709551618, 64)
 def test_lshift(x, y):
     mx = mpz(x)
     my = mpz(y)
