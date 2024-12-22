@@ -56,8 +56,7 @@ version = {attr = "setuptools_scm.get_version"}
 "*" = ["*.h"]
 
 [project.optional-dependencies]
-tests = ["pytest", "hypothesis",
-         "gmpy2; platform_python_implementation!='PyPy'"]
+tests = ["pytest", "hypothesis"]
 docs = ["sphinx"]
 develop = ["python-gmp[tests,docs]", "pre-commit"]
 

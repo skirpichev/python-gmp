@@ -24,10 +24,8 @@ jobs:
           allow-prereleases: true
       - run: |
           sudo apt-get update
-          sudo apt-get install libmpc-dev
+          sudo apt-get install libgmp-dev
       - run: pip install --upgrade pip
-      - run: pip install git+https://github.com/skirpichev/gmpy.git@fix-gcc-pedantic
-        if: matrix.python-version == 3.14
       - run: pip --verbose install --editable .[tests]
       - run: pytest
   macos:
@@ -53,7 +51,6 @@ jobs:
       - linux
     runs-on: windows-2022
     env:
-      CFLAGS: -Wpedantic -Werror -std=c17
       PYTEST_ADDOPTS: --verbose
     defaults:
       run:
@@ -67,14 +64,11 @@ jobs:
             git
             gcc
             gmp-devel
-            mpfr-devel
-            mpc-devel
             python-setuptools
             python-pip
       - run: |
           python -m venv .test-venv
           source .test-venv/bin/activate
           pip install --upgrade pip
-          pip install git+https://github.com/skirpichev/gmpy.git@fix-gcc-pedantic
           pip --verbose install -e .[tests]
           pytest
