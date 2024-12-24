@@ -633,7 +633,7 @@ MPZ_AsDoubleAndExp(MPZ_Object *u, Py_ssize_t *e)
         b = tmp;       \
     } while (0);
 
-static PyObject *
+static MPZ_Object *
 MPZ_add(MPZ_Object *u, MPZ_Object *v, int subtract)
 {
     MPZ_Object *res;
@@ -672,14 +672,14 @@ MPZ_add(MPZ_Object *u, MPZ_Object *v, int subtract)
         }
     }
     MPZ_normalize(res);
-    return (PyObject *)res;
+    return res;
 }
 
-static PyObject *
+static MPZ_Object *
 MPZ_mul(MPZ_Object *u, MPZ_Object *v)
 {
     if (!u->size || !v->size) {
-        return (PyObject *)MPZ_FromDigitSign(0, 0);
+        return MPZ_FromDigitSign(0, 0);
     }
 
     MPZ_Object *res = MPZ_new(u->size + v->size, u->negative != v->negative);
@@ -696,7 +696,7 @@ MPZ_mul(MPZ_Object *u, MPZ_Object *v)
         }
         else {
             Py_DECREF(res);
-            return PyErr_NoMemory();
+            return (MPZ_Object *)PyErr_NoMemory();
         }
     }
     else {
@@ -705,11 +705,11 @@ MPZ_mul(MPZ_Object *u, MPZ_Object *v)
         }
         else {
             Py_DECREF(res);
-            return PyErr_NoMemory();
+            return (MPZ_Object *)PyErr_NoMemory();
         }
     }
     MPZ_normalize(res);
-    return (PyObject *)res;
+    return res;
 }
 
 static int
@@ -726,7 +726,7 @@ MPZ_DivMod(MPZ_Object *u, MPZ_Object *v, MPZ_Object **q, MPZ_Object **r)
     else if (u->size < v->size) {
         if (u->negative != v->negative) {
             *q = MPZ_FromDigitSign(1, 1);
-            *r = (MPZ_Object *)MPZ_add(u, v, 0);
+            *r = MPZ_add(u, v, 0);
         }
         else {
             *q = MPZ_FromDigitSign(0, 0);
@@ -870,7 +870,7 @@ MPZ_DivModNear(MPZ_Object *u, MPZ_Object *v, MPZ_Object **q, MPZ_Object **r)
         if (!one) {
             return -1;
         }
-        *q = (MPZ_Object *)MPZ_add(*q, one, 0);
+        *q = MPZ_add(*q, one, 0);
         if (!*q) {
             Py_DECREF(tmp);
             Py_DECREF(*r);
@@ -880,7 +880,7 @@ MPZ_DivModNear(MPZ_Object *u, MPZ_Object *v, MPZ_Object **q, MPZ_Object **r)
         Py_DECREF(tmp);
         Py_DECREF(one);
         tmp = *r;
-        *r = (MPZ_Object *)MPZ_add(*r, v, 1);
+        *r = MPZ_add(*r, v, 1);
         if (!*r) {
             Py_DECREF(tmp);
             Py_DECREF(*q);
@@ -1555,7 +1555,7 @@ MPZ_inverse(MPZ_Object *u, MPZ_Object *v)
         Py_SETREF(a, n);
         n = r;
 
-        MPZ_Object *t = (MPZ_Object *)MPZ_mul(q, c);
+        MPZ_Object *t = MPZ_mul(q, c);
 
         if (!t) {
             Py_DECREF(a);
@@ -1565,7 +1565,7 @@ MPZ_inverse(MPZ_Object *u, MPZ_Object *v)
             return NULL;
         }
 
-        MPZ_Object *s = (MPZ_Object *)MPZ_add(b, t, 1);
+        MPZ_Object *s = MPZ_add(b, t, 1);
 
         if (!s) {
             Py_DECREF(t);
@@ -1930,7 +1930,7 @@ plus(PyObject *self)
 static PyObject *
 minus(PyObject *self)
 {
-    MPZ_Object *res = (MPZ_Object *)plus(self), *u = (MPZ_Object *)self;
+    MPZ_Object *u = (MPZ_Object *)self, *res = MPZ_copy(u);
 
     if (!res) {
         return NULL;
@@ -1988,7 +1988,7 @@ add(PyObject *self, PyObject *other)
     CHECK_OP(u, self);
     CHECK_OP(v, other);
 
-    res = MPZ_add(u, v, 0);
+    res = (PyObject *)MPZ_add(u, v, 0);
 end:
     Py_XDECREF(u);
     Py_XDECREF(v);
@@ -2003,7 +2003,7 @@ sub(PyObject *self, PyObject *other)
     CHECK_OP(u, self);
     CHECK_OP(v, other);
 
-    res = MPZ_add(u, v, 1);
+    res = (PyObject *)MPZ_add(u, v, 1);
 end:
     Py_XDECREF(u);
     Py_XDECREF(v);
@@ -2018,11 +2018,11 @@ mul(PyObject *self, PyObject *other)
     CHECK_OP(u, self);
     CHECK_OP(v, other);
 
-    res = MPZ_mul(u, v);
+    res = (PyObject *)MPZ_mul(u, v);
 end:
     Py_XDECREF(u);
     Py_XDECREF(v);
-    return (PyObject *)res;
+    return res;
 }
 
 static PyObject *
@@ -2321,7 +2321,7 @@ negative:
         if (negativeOutput && res->size) {
             MPZ_Object *tmp = res;
 
-            res = (MPZ_Object *)MPZ_add(res, w, 1);
+            res = MPZ_add(res, w, 1);
             if (!res) {
                 Py_DECREF(tmp);
                 Py_DECREF(w);
@@ -2694,7 +2694,7 @@ __round__(PyObject *self, PyObject *const *args, Py_ssize_t nargs)
     Py_DECREF(p);
     Py_DECREF(q);
 
-    PyObject *res = MPZ_add(u, r, 1);
+    PyObject *res = (PyObject *)MPZ_add(u, r, 1);
 
     Py_DECREF(r);
     return res;
