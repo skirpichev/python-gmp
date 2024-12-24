@@ -1461,8 +1461,27 @@ MPZ_xor(MPZ_Object *u, MPZ_Object *v)
 }
 
 static MPZ_Object *
-MPZ_pow1(MPZ_Object *u, mp_limb_t e)
+MPZ_pow(MPZ_Object *u, MPZ_Object *v)
 {
+    if (!v->size) {
+       return MPZ_FromDigitSign(1, 0);
+    }
+    if (!u->size) {
+       return MPZ_FromDigitSign(0, 0);
+    }
+    if (u->size == 1 && u->digits[0] == 1) {
+        if (u->negative) {
+            return MPZ_FromDigitSign(1, v->digits[0] % 2);
+        }
+        else {
+            return MPZ_FromDigitSign(1, 0);
+        }
+    }
+    if (v->size > 1 || v->negative) {
+        return NULL;
+    }
+
+    mp_limb_t e = v->digits[0];
     MPZ_Object *res = MPZ_new(u->size * e, u->negative && e%2);
 
     if (!res) {
@@ -2098,31 +2117,13 @@ power(PyObject *self, PyObject *other, PyObject *module)
             Py_DECREF(vf);
             return resf;
         }
-        if (!v->size) {
-            res = MPZ_FromDigitSign(1, 0);
-            goto end;
-        }
-        if (!u->size) {
-            res = MPZ_FromDigitSign(0, 0);
-            goto end;
-        }
-        if (u->size == 1 && u->digits[0] == 1) {
-            if (u->negative) {
-                res = MPZ_FromDigitSign(1, v->digits[0] % 2);
-                goto end;
-            }
-            else {
-                res = MPZ_FromDigitSign(1, 0);
-                goto end;
-            }
-        }
-        if (v->size == 1) {
-            res = MPZ_pow1(u, v->digits[0]);
-            goto end;
-        }
+        res = MPZ_pow(u, v);
         Py_DECREF(u);
         Py_DECREF(v);
-        return PyErr_NoMemory();
+        if (!res) {
+            PyErr_SetNone(PyExc_MemoryError);
+        }
+        return (PyObject *)res;
     }
     else {
         MPZ_Object *w;
