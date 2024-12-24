@@ -328,6 +328,10 @@ def test_invert(x):
 
 
 @given(integers(), integers())
+@example(1, 1<<67)
+@example(1, -(1<<67))
+@example(-2, -1)
+@example(-1, -1)
 def test_and(x, y):
     mx = mpz(x)
     my = mpz(y)
@@ -338,6 +342,10 @@ def test_and(x, y):
 
 
 @given(integers(), integers())
+@example(1, 1<<67)
+@example(1, -(1<<67))
+@example(-2, -1)
+@example(2, -1)
 def test_or(x, y):
     mx = mpz(x)
     my = mpz(y)
@@ -348,6 +356,10 @@ def test_or(x, y):
 
 
 @given(integers(), integers())
+@example(1, 1<<67)
+@example(1, -(1<<67))
+@example(-2, -1)
+@example(-1, -1)
 def test_xor(x, y):
     mx = mpz(x)
     my = mpz(y)
@@ -359,6 +371,7 @@ def test_xor(x, y):
 
 @given(integers(), integers(max_value=12345))
 @example(18446744073709551618, 64)
+@example(1, 1<<128)
 def test_lshift(x, y):
     mx = mpz(x)
     my = mpz(y)
@@ -385,6 +398,9 @@ def test_lshift(x, y):
 
 
 @given(integers(), integers())
+@example(1, 1<<78)
+@example(-1, 1<<128)
+@example(-340282366920938463444927863358058659840, 64)
 def test_rshift(x, y):
     mx = mpz(x)
     my = mpz(y)
