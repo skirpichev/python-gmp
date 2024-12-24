@@ -634,7 +634,7 @@ MPZ_AsDoubleAndExp(MPZ_Object *u, Py_ssize_t *e)
     } while (0);
 
 static MPZ_Object *
-MPZ_add(MPZ_Object *u, MPZ_Object *v, int subtract)
+_MPZ_addsub(MPZ_Object *u, MPZ_Object *v, int subtract)
 {
     MPZ_Object *res;
     uint8_t negu = u->negative, negv = v->negative;
@@ -673,6 +673,18 @@ MPZ_add(MPZ_Object *u, MPZ_Object *v, int subtract)
     }
     MPZ_normalize(res);
     return res;
+}
+
+static MPZ_Object *
+MPZ_add(MPZ_Object *u, MPZ_Object *v)
+{
+    return _MPZ_addsub(u, v, 0);
+}
+
+static MPZ_Object *
+MPZ_sub(MPZ_Object *u, MPZ_Object *v)
+{
+    return _MPZ_addsub(u, v, 1);
 }
 
 static MPZ_Object *
@@ -726,7 +738,7 @@ MPZ_DivMod(MPZ_Object *u, MPZ_Object *v, MPZ_Object **q, MPZ_Object **r)
     else if (u->size < v->size) {
         if (u->negative != v->negative) {
             *q = MPZ_FromDigitSign(1, 1);
-            *r = MPZ_add(u, v, 0);
+            *r = MPZ_add(u, v);
         }
         else {
             *q = MPZ_FromDigitSign(0, 0);
@@ -870,7 +882,7 @@ MPZ_DivModNear(MPZ_Object *u, MPZ_Object *v, MPZ_Object **q, MPZ_Object **r)
         if (!one) {
             return -1;
         }
-        *q = MPZ_add(*q, one, 0);
+        *q = MPZ_add(*q, one);
         if (!*q) {
             Py_DECREF(tmp);
             Py_DECREF(*r);
@@ -880,7 +892,7 @@ MPZ_DivModNear(MPZ_Object *u, MPZ_Object *v, MPZ_Object **q, MPZ_Object **r)
         Py_DECREF(tmp);
         Py_DECREF(one);
         tmp = *r;
-        *r = MPZ_add(*r, v, 1);
+        *r = MPZ_sub(*r, v);
         if (!*r) {
             Py_DECREF(tmp);
             Py_DECREF(*q);
@@ -1565,7 +1577,7 @@ MPZ_inverse(MPZ_Object *u, MPZ_Object *v)
             return NULL;
         }
 
-        MPZ_Object *s = MPZ_add(b, t, 1);
+        MPZ_Object *s = MPZ_sub(b, t);
 
         if (!s) {
             Py_DECREF(t);
@@ -1988,7 +2000,7 @@ add(PyObject *self, PyObject *other)
     CHECK_OP(u, self);
     CHECK_OP(v, other);
 
-    res = (PyObject *)MPZ_add(u, v, 0);
+    res = (PyObject *)MPZ_add(u, v);
 end:
     Py_XDECREF(u);
     Py_XDECREF(v);
@@ -2003,7 +2015,7 @@ sub(PyObject *self, PyObject *other)
     CHECK_OP(u, self);
     CHECK_OP(v, other);
 
-    res = (PyObject *)MPZ_add(u, v, 1);
+    res = (PyObject *)MPZ_sub(u, v);
 end:
     Py_XDECREF(u);
     Py_XDECREF(v);
@@ -2321,7 +2333,7 @@ negative:
         if (negativeOutput && res->size) {
             MPZ_Object *tmp = res;
 
-            res = MPZ_add(res, w, 1);
+            res = MPZ_sub(res, w);
             if (!res) {
                 Py_DECREF(tmp);
                 Py_DECREF(w);
@@ -2694,7 +2706,7 @@ __round__(PyObject *self, PyObject *const *args, Py_ssize_t nargs)
     Py_DECREF(p);
     Py_DECREF(q);
 
-    PyObject *res = (PyObject *)MPZ_add(u, r, 1);
+    PyObject *res = (PyObject *)MPZ_sub(u, r);
 
     Py_DECREF(r);
     return res;
