@@ -725,7 +725,7 @@ MPZ_mul(MPZ_Object *u, MPZ_Object *v)
 }
 
 static int
-MPZ_divmod(MPZ_Object *u, MPZ_Object *v, MPZ_Object **q, MPZ_Object **r)
+MPZ_divmod(MPZ_Object **q, MPZ_Object **r, MPZ_Object *u, MPZ_Object *v)
 {
     if (!v->size) {
         PyErr_SetString(PyExc_ZeroDivisionError, "division by zero");
@@ -807,7 +807,7 @@ MPZ_quot(MPZ_Object *u, MPZ_Object *v)
 {
     MPZ_Object *q, *r;
 
-    if (MPZ_divmod(u, v, &q, &r) == -1) {
+    if (MPZ_divmod(&q, &r, u, v) == -1) {
         return NULL;
     }
     Py_DECREF(r);
@@ -819,7 +819,7 @@ MPZ_rem(MPZ_Object *u, MPZ_Object *v)
 {
     MPZ_Object *q, *r;
 
-    if (MPZ_divmod(u, v, &q, &r) == -1) {
+    if (MPZ_divmod(&q, &r, u, v) == -1) {
         return NULL;
     }
     Py_DECREF(q);
@@ -865,11 +865,11 @@ MPZ_rshift1(MPZ_Object *u, mp_limb_t rshift, uint8_t negative)
 }
 
 static int
-MPZ_divmod_near(MPZ_Object *u, MPZ_Object *v, MPZ_Object **q, MPZ_Object **r)
+MPZ_divmod_near(MPZ_Object **q, MPZ_Object **r, MPZ_Object *u, MPZ_Object *v)
 {
     int unexpect = v->negative ? -1 : 1;
 
-    if (MPZ_divmod(u, v, q, r) == -1) {
+    if (MPZ_divmod(q, r, u, v) == -1) {
         return -1;
     }
 
@@ -1029,7 +1029,7 @@ MPZ_truediv(MPZ_Object *u, MPZ_Object *v)
 
     MPZ_Object *c, *d;
 
-    if (MPZ_divmod_near(a, b, &c, &d) == -1) {
+    if (MPZ_divmod_near(&c, &d, a, b) == -1) {
         Py_DECREF(a);
         Py_DECREF(b);
         return NULL;
@@ -1574,7 +1574,7 @@ MPZ_inverse(MPZ_Object *u, MPZ_Object *v)
     while (n->size) {
         MPZ_Object *q, *r;
 
-        if (MPZ_divmod(a, n, &q, &r) == -1) {
+        if (MPZ_divmod(&q, &r, a, n) == -1) {
             Py_DECREF(a);
             Py_DECREF(n);
             Py_DECREF(b);
@@ -2048,7 +2048,7 @@ divmod(PyObject *self, PyObject *other)
 
     MPZ_Object *q, *r;
 
-    if (MPZ_divmod(u, v, &q, &r) == -1) {
+    if (MPZ_divmod(&q, &r, u, v) == -1) {
         goto end;
     }
     PyTuple_SET_ITEM(res, 0, (PyObject *)q);
@@ -2574,7 +2574,7 @@ __round__(PyObject *self, PyObject *const *args, Py_ssize_t nargs)
 
     MPZ_Object *q, *r;
 
-    if (MPZ_divmod_near(u, (MPZ_Object *)p, &q, &r) == -1) {
+    if (MPZ_divmod_near(&q, &r, u, (MPZ_Object *)p) == -1) {
         Py_DECREF(p);
         return NULL;
     }
