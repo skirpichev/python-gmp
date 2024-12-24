@@ -1966,6 +1966,12 @@ to_int(PyObject *self)
 }
 
 static PyObject *
+invert(PyObject *self)
+{
+    return (PyObject *)MPZ_invert((MPZ_Object *)self);
+}
+
+static PyObject *
 to_float(PyObject *self)
 {
     Py_ssize_t exp;
@@ -1992,50 +1998,25 @@ to_bool(PyObject *self)
     return ((MPZ_Object *)self)->size != 0;
 }
 
-static PyObject *
-add(PyObject *self, PyObject *other)
-{
-    PyObject *res = NULL;
+#define BINOP(suff)                              \
+    static PyObject *                            \
+    nb_##suff(PyObject *self, PyObject *other)   \
+    {                                            \
+        PyObject *res = NULL;                    \
+                                                 \
+        CHECK_OP(u, self);                       \
+        CHECK_OP(v, other);                      \
+                                                 \
+        res = (PyObject *)MPZ_##suff(u, v);      \
+    end:                                         \
+        Py_XDECREF(u);                           \
+        Py_XDECREF(v);                           \
+        return res;                              \
+    }
 
-    CHECK_OP(u, self);
-    CHECK_OP(v, other);
-
-    res = (PyObject *)MPZ_add(u, v);
-end:
-    Py_XDECREF(u);
-    Py_XDECREF(v);
-    return res;
-}
-
-static PyObject *
-sub(PyObject *self, PyObject *other)
-{
-    PyObject *res = NULL;
-
-    CHECK_OP(u, self);
-    CHECK_OP(v, other);
-
-    res = (PyObject *)MPZ_sub(u, v);
-end:
-    Py_XDECREF(u);
-    Py_XDECREF(v);
-    return res;
-}
-
-static PyObject *
-mul(PyObject *self, PyObject *other)
-{
-    PyObject *res = NULL;
-
-    CHECK_OP(u, self);
-    CHECK_OP(v, other);
-
-    res = (PyObject *)MPZ_mul(u, v);
-end:
-    Py_XDECREF(u);
-    Py_XDECREF(v);
-    return res;
-}
+BINOP(add)
+BINOP(sub)
+BINOP(mul)
 
 static PyObject *
 divmod(PyObject *self, PyObject *other)
@@ -2082,20 +2063,6 @@ end:
 }
 
 static PyObject *
-truediv(PyObject *self, PyObject *other)
-{
-    PyObject *res = NULL;
-
-    CHECK_OP(u, self);
-    CHECK_OP(v, other);
-    res = MPZ_truediv(u, v);
-end:
-    Py_XDECREF(u);
-    Py_XDECREF(v);
-    return res;
-}
-
-static PyObject *
 rem(PyObject *self, PyObject *other)
 {
     MPZ_Object *q, *r;
@@ -2113,86 +2080,12 @@ end:
     return NULL;
 }
 
-static PyObject *
-invert(PyObject *self)
-{
-    return (PyObject *)MPZ_invert((MPZ_Object *)self);
-}
-
-static PyObject *
-lshift(PyObject *self, PyObject *other)
-{
-    PyObject *res = NULL;
-
-    CHECK_OP(u, self);
-    CHECK_OP(v, other);
-
-    res = (PyObject *)MPZ_lshift(u, v);
-end:
-    Py_XDECREF(u);
-    Py_XDECREF(v);
-    return (PyObject *)res;
-}
-
-static PyObject *
-rshift(PyObject *self, PyObject *other)
-{
-    PyObject *res = NULL;
-
-    CHECK_OP(u, self);
-    CHECK_OP(v, other);
-
-    res = (PyObject *)MPZ_rshift(u, v);
-end:
-    Py_XDECREF(u);
-    Py_XDECREF(v);
-    return (PyObject *)res;
-}
-
-static PyObject *
-bitwise_and(PyObject *self, PyObject *other)
-{
-    PyObject *res = NULL;
-
-    CHECK_OP(u, self);
-    CHECK_OP(v, other);
-
-    res = (PyObject *)MPZ_and(u, v);
-end:
-    Py_XDECREF(u);
-    Py_XDECREF(v);
-    return (PyObject *)res;
-}
-
-static PyObject *
-bitwise_or(PyObject *self, PyObject *other)
-{
-    PyObject *res = NULL;
-
-    CHECK_OP(u, self);
-    CHECK_OP(v, other);
-
-    res = (PyObject *)MPZ_or(u, v);
-end:
-    Py_XDECREF(u);
-    Py_XDECREF(v);
-    return (PyObject *)res;
-}
-
-static PyObject *
-bitwise_xor(PyObject *self, PyObject *other)
-{
-    PyObject *res = NULL;
-
-    CHECK_OP(u, self);
-    CHECK_OP(v, other);
-
-    res = (PyObject *)MPZ_xor(u, v);
-end:
-    Py_XDECREF(u);
-    Py_XDECREF(v);
-    return (PyObject *)res;
-}
+BINOP(truediv)
+BINOP(lshift)
+BINOP(rshift)
+BINOP(and)
+BINOP(or)
+BINOP(xor)
 
 static PyObject *
 power(PyObject *self, PyObject *other, PyObject *module)
@@ -2350,23 +2243,23 @@ end:
 }
 
 static PyNumberMethods as_number = {
-    .nb_add = add,
-    .nb_subtract = sub,
-    .nb_multiply = mul,
+    .nb_add = nb_add,
+    .nb_subtract = nb_sub,
+    .nb_multiply = nb_mul,
     .nb_divmod = divmod,
     .nb_floor_divide = floordiv,
-    .nb_true_divide = truediv,
+    .nb_true_divide = nb_truediv,
     .nb_remainder = rem,
     .nb_power = power,
     .nb_positive = plus,
     .nb_negative = minus,
     .nb_absolute = absolute,
     .nb_invert = invert,
-    .nb_lshift = lshift,
-    .nb_rshift = rshift,
-    .nb_and = bitwise_and,
-    .nb_or = bitwise_or,
-    .nb_xor = bitwise_xor,
+    .nb_lshift = nb_lshift,
+    .nb_rshift = nb_rshift,
+    .nb_and = nb_and,
+    .nb_or = nb_or,
+    .nb_xor = nb_xor,
     .nb_int = to_int,
     .nb_float = to_float,
     .nb_index = to_int,
