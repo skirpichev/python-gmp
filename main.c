@@ -760,9 +760,7 @@ MPZ_divmod(MPZ_Object *u, MPZ_Object *v, MPZ_Object **q, MPZ_Object **r)
                         v->digits, v->size);
         }
         else {
-            Py_DECREF(*q);
-            Py_DECREF(*r);
-            return -1;
+            goto err;
         }
         if ((*q)->negative) {
             if (u->digits[u->size - 1] == GMP_NUMB_MAX
@@ -775,9 +773,7 @@ MPZ_divmod(MPZ_Object *u, MPZ_Object *v, MPZ_Object **q, MPZ_Object **r)
                 (*q)->digits = PyMem_Resize(tmp, mp_limb_t, (*q)->size);
                 if (!(*q)->digits) {
                     (*q)->digits = tmp;
-                    Py_DECREF(*q);
-                    Py_DECREF(*r);
-                    return -1;
+                    goto err;
                 }
                 (*q)->digits[(*q)->size - 1] = 0;
             }
@@ -798,12 +794,9 @@ MPZ_divmod(MPZ_Object *u, MPZ_Object *v, MPZ_Object **q, MPZ_Object **r)
         return 0;
     }
     if (!*q || !*r) {
-        if (*q) {
-            Py_DECREF(*q);
-        }
-        if (*r) {
-            Py_DECREF(*r);
-        }
+err:
+        Py_XDECREF(*q);
+        Py_XDECREF(*r);
         return -1;
     }
     return 0;
