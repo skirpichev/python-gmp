@@ -872,7 +872,7 @@ MPZ_rshift1(MPZ_Object *u, mp_limb_t rshift, uint8_t negative)
 }
 
 static int
-MPZ_DivModNear(MPZ_Object *u, MPZ_Object *v, MPZ_Object **q, MPZ_Object **r)
+MPZ_divmod_near(MPZ_Object *u, MPZ_Object *v, MPZ_Object **q, MPZ_Object **r)
 {
     int unexpect = v->negative ? -1 : 1;
 
@@ -1036,7 +1036,7 @@ MPZ_truediv(MPZ_Object *u, MPZ_Object *v)
 
     MPZ_Object *c, *d;
 
-    if (MPZ_DivModNear(a, b, &c, &d) == -1) {
+    if (MPZ_divmod_near(a, b, &c, &d) == -1) {
         Py_DECREF(a);
         Py_DECREF(b);
         return NULL;
@@ -2581,7 +2581,7 @@ __round__(PyObject *self, PyObject *const *args, Py_ssize_t nargs)
 
     MPZ_Object *q, *r;
 
-    if (MPZ_DivModNear(u, (MPZ_Object *)p, &q, &r) == -1) {
+    if (MPZ_divmod_near(u, (MPZ_Object *)p, &q, &r) == -1) {
         Py_DECREF(p);
         return NULL;
     }
