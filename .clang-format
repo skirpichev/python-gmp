@@ -29,3 +29,5 @@ StatementMacros: [PyObject_HEAD, PyObject_VAR_HEAD, PyObject_HEAD_EXTRA]
 TabWidth: 4
 UseTab: Never
 BreakBeforeBinaryOperators: NonAssignment
+IndentPPDirectives: AfterHash
+PPIndentWidth: 2
