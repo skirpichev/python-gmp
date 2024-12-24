@@ -725,7 +725,7 @@ MPZ_mul(MPZ_Object *u, MPZ_Object *v)
 }
 
 static int
-MPZ_DivMod(MPZ_Object *u, MPZ_Object *v, MPZ_Object **q, MPZ_Object **r)
+MPZ_divmod(MPZ_Object *u, MPZ_Object *v, MPZ_Object **q, MPZ_Object **r)
 {
     if (!v->size) {
         PyErr_SetString(PyExc_ZeroDivisionError, "division by zero");
@@ -810,6 +810,30 @@ MPZ_DivMod(MPZ_Object *u, MPZ_Object *v, MPZ_Object **q, MPZ_Object **r)
 }
 
 static MPZ_Object *
+MPZ_quot(MPZ_Object *u, MPZ_Object *v)
+{
+    MPZ_Object *q, *r;
+
+    if (MPZ_divmod(u, v, &q, &r) == -1) {
+        return NULL;
+    }
+    Py_DECREF(r);
+    return q;
+}
+
+static MPZ_Object *
+MPZ_rem(MPZ_Object *u, MPZ_Object *v)
+{
+    MPZ_Object *q, *r;
+
+    if (MPZ_divmod(u, v, &q, &r) == -1) {
+        return NULL;
+    }
+    Py_DECREF(q);
+    return r;
+}
+
+static MPZ_Object *
 MPZ_rshift1(MPZ_Object *u, mp_limb_t rshift, uint8_t negative)
 {
     mp_size_t whole = rshift / GMP_NUMB_BITS;
@@ -852,7 +876,7 @@ MPZ_DivModNear(MPZ_Object *u, MPZ_Object *v, MPZ_Object **q, MPZ_Object **r)
 {
     int unexpect = v->negative ? -1 : 1;
 
-    if (MPZ_DivMod(u, v, q, r) == -1) {
+    if (MPZ_divmod(u, v, q, r) == -1) {
         return -1;
     }
 
@@ -1557,7 +1581,7 @@ MPZ_inverse(MPZ_Object *u, MPZ_Object *v)
     while (n->size) {
         MPZ_Object *q, *r;
 
-        if (MPZ_DivMod(a, n, &q, &r) == -1) {
+        if (MPZ_divmod(a, n, &q, &r) == -1) {
             Py_DECREF(a);
             Py_DECREF(n);
             Py_DECREF(b);
@@ -2031,7 +2055,7 @@ divmod(PyObject *self, PyObject *other)
 
     MPZ_Object *q, *r;
 
-    if (MPZ_DivMod(u, v, &q, &r) == -1) {
+    if (MPZ_divmod(u, v, &q, &r) == -1) {
         goto end;
     }
     PyTuple_SET_ITEM(res, 0, (PyObject *)q);
@@ -2044,42 +2068,8 @@ end:
     return NULL;
 }
 
-static PyObject *
-floordiv(PyObject *self, PyObject *other)
-{
-    MPZ_Object *q, *r;
-
-    CHECK_OP(u, self);
-    CHECK_OP(v, other);
-    if (MPZ_DivMod(u, v, &q, &r) == -1) {
-        goto end;
-    }
-    Py_DECREF(r);
-    return (PyObject *)q;
-end:
-    Py_XDECREF(u);
-    Py_XDECREF(v);
-    return NULL;
-}
-
-static PyObject *
-rem(PyObject *self, PyObject *other)
-{
-    MPZ_Object *q, *r;
-
-    CHECK_OP(u, self);
-    CHECK_OP(v, other);
-    if (MPZ_DivMod(u, v, &q, &r) == -1) {
-        return NULL;
-    }
-    Py_DECREF(q);
-    return (PyObject *)r;
-end:
-    Py_XDECREF(u);
-    Py_XDECREF(v);
-    return NULL;
-}
-
+BINOP(quot)
+BINOP(rem)
 BINOP(truediv)
 BINOP(lshift)
 BINOP(rshift)
@@ -2200,13 +2190,12 @@ power(PyObject *self, PyObject *other, PyObject *module)
             Py_SETREF(u, tmp);
         }
         if (u->negative || u->size > w->size) {
-            MPZ_Object *q, *r;
+            MPZ_Object *r = MPZ_rem(u, w);
 
-            if (MPZ_DivMod(u, w, &q, &r) == -1) {
+            if (!r) {
                 Py_DECREF(w);
                 goto end;
             }
-            Py_DECREF(q);
             Py_SETREF(u, r);
         }
         if (!v->size) {
@@ -2247,9 +2236,9 @@ static PyNumberMethods as_number = {
     .nb_subtract = nb_sub,
     .nb_multiply = nb_mul,
     .nb_divmod = divmod,
-    .nb_floor_divide = floordiv,
+    .nb_floor_divide = nb_quot,
     .nb_true_divide = nb_truediv,
-    .nb_remainder = rem,
+    .nb_remainder = nb_rem,
     .nb_power = power,
     .nb_positive = plus,
     .nb_negative = minus,
