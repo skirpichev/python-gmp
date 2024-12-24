@@ -2125,21 +2125,7 @@ power(PyObject *self, PyObject *other, PyObject *module)
         return (PyObject *)res;
     }
     else {
-        MPZ_Object *w;
-
-        if (MPZ_CheckExact(module)) {
-            w = (MPZ_Object *)module;
-            Py_INCREF(w);
-        }
-        else if (PyLong_Check(module)) {
-            w = MPZ_from_int(module);
-            if (!w) {
-                goto end;
-            }
-        }
-        else {
-            Py_RETURN_NOTIMPLEMENTED;
-        }
+        CHECK_OP(w, module);
         if (!w->size) {
             PyErr_SetString(PyExc_ValueError,
                             "pow() 3rd argument cannot be 0");
@@ -2153,69 +2139,57 @@ power(PyObject *self, PyObject *other, PyObject *module)
             MPZ_Object *tmp = MPZ_copy(w);
 
             if (!tmp) {
-                Py_DECREF(w);
-                goto end;
+                goto end3;
             }
             negativeOutput = 1;
             tmp->negative = 0;
             Py_SETREF(w, tmp);
         }
-        if (w->size == 1 && w->digits[0] == 1) {
-            res = MPZ_FromDigitSign(0, 0);
-            Py_DECREF(w);
-            goto end;
-        }
         if (v->negative) {
             MPZ_Object *tmp = MPZ_copy(v);
 
             if (!tmp) {
-                Py_DECREF(w);
-                goto end;
+                goto end3;
             }
             tmp->negative = 0;
             Py_SETREF(v, tmp);
 
             tmp = MPZ_inverse(u, w);
             if (!tmp) {
-                Py_DECREF(w);
-                goto end;
+                goto end3;
             }
             Py_SETREF(u, tmp);
         }
         if (u->negative || u->size > w->size) {
-            MPZ_Object *r = MPZ_rem(u, w);
+            MPZ_Object *tmp = MPZ_rem(u, w);
 
-            if (!r) {
-                Py_DECREF(w);
-                goto end;
+            if (!tmp) {
+                goto end3;
             }
-            Py_SETREF(u, r);
+            Py_SETREF(u, tmp);
         }
-        if (!v->size) {
-            res = MPZ_FromDigitSign(1, 0);
-            goto negative;
-        }
-        if (!u->size) {
+        if (w->size == 1 && w->digits[0] == 1) {
             res = MPZ_FromDigitSign(0, 0);
-            goto negative;
         }
-        if (u->size == 1 && u->digits[0] == 1) {
+        else if (!v->size) {
             res = MPZ_FromDigitSign(1, 0);
-            goto negative;
         }
-        res = MPZ_powm(u, v, w);
-negative:
+        else if (!u->size) {
+            res = MPZ_FromDigitSign(0, 0);
+        }
+        else if (u->size == 1 && u->digits[0] == 1) {
+            res = MPZ_FromDigitSign(1, 0);
+        }
+        else {
+            res = MPZ_powm(u, v, w);
+        }
         if (negativeOutput && res->size) {
             MPZ_Object *tmp = res;
 
             res = MPZ_sub(res, w);
-            if (!res) {
-                Py_DECREF(tmp);
-                Py_DECREF(w);
-                goto end;
-            }
             Py_DECREF(tmp);
         }
+    end3:
         Py_DECREF(w);
     }
 end:
