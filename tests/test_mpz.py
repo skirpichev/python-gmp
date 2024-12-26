@@ -156,6 +156,7 @@ def test_mpz_interface():
             return self.value
     class int2(int):
         pass
+
     assert mpz(with_int(123)) == 123
     with pytest.deprecated_call():
         assert mpz(with_int(int2(123))) == 123
@@ -165,6 +166,20 @@ def test_mpz_interface():
             mpz(with_int(int2(123)))
     with pytest.raises(TypeError):
         mpz(with_int(1j))
+
+
+@pytest.mark.xfail(reason="diofant/python-gmp#13")
+def test_mpz_subclasses():
+    class mpz2(mpz):
+        pass
+
+    assert issubclass(mpz2, mpz)
+    x = mpz2(123)
+    assert type(x) is mpz2
+    assert type(x) is not mpz
+    assert isinstance(x, mpz2)
+    assert isinstance(x, mpz)
+    assert x == mpz(123)
 
 
 @given(integers())
