@@ -156,6 +156,7 @@ def test_mpz_interface():
             return self.value
     class int2(int):
         pass
+
     assert mpz(with_int(123)) == 123
     with pytest.deprecated_call():
         assert mpz(with_int(int2(123))) == 123
@@ -165,6 +166,20 @@ def test_mpz_interface():
             mpz(with_int(int2(123)))
     with pytest.raises(TypeError):
         mpz(with_int(1j))
+
+
+@pytest.mark.xfail(reason="diofant/python-gmp#13")
+def test_mpz_subclasses():
+    class mpz2(mpz):
+        pass
+
+    assert issubclass(mpz2, mpz)
+    x = mpz2(123)
+    assert type(x) is mpz2
+    assert type(x) is not mpz
+    assert isinstance(x, mpz2)
+    assert isinstance(x, mpz)
+    assert x == mpz(123)
 
 
 @given(integers())
@@ -206,7 +221,9 @@ def test_hash(x):
 @example(65869376547959985897597359)
 def test_plus_minus_abs(x):
     mx = mpz(x)
+    assert +(+mx) == mx
     assert +mx == x
+    assert -(-mx) == mx
     assert -mx == -x
     assert abs(mx) == abs(x)
 
@@ -216,6 +233,7 @@ def test_add_sub(x, y):
     mx = mpz(x)
     my = mpz(y)
     r = x + y
+    assert mx + my == my + mx
     assert mx + my == r
     assert mx + y == r
     assert x + my == r
@@ -231,9 +249,28 @@ def test_mul(x, y):
     my = mpz(y)
     assert mx * mx == x * x
     r = x * y
+    assert mx * my == my * mx
     assert mx * my == r
     assert mx * y == r
     assert x * my == r
+
+
+@given(integers(), integers(), integers())
+def test_addmul_associativity(x, y, z):
+    mx = mpz(x)
+    my = mpz(y)
+    mz = mpz(z)
+    assert (mx + my) + mz == mx + (my + mz)
+    assert (mx * my) * mz == mx * (my * mz)
+
+
+@given(integers(), integers(), integers())
+def test_mul_distributivity(x, y, z):
+    mx = mpz(x)
+    my = mpz(y)
+    mz = mpz(z)
+    assert (mx + my) * mz == mx*mz + my*mz
+    assert (mx - my) * mz == mx*mz - my*mz
 
 
 @given(integers(), integers())
