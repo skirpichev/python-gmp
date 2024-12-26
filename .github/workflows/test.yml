@@ -5,9 +5,12 @@ jobs:
     uses: ./.github/workflows/linter.yml
   docs:
     uses: ./.github/workflows/docs.yml
+  coverage:
+    uses: ./.github/workflows/coverage.yml
   linux:
     needs:
       - linter
+      - coverage
     strategy:
       fail-fast: true
       matrix:

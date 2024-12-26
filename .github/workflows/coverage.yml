@@ -1,0 +1,28 @@
+name: Run coverage tests
+on:
+  workflow_call:
+jobs:
+  coverage:
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.x"
+      - run: |
+          sudo apt-get update
+          sudo apt-get install libgmp-dev
+          sudo apt-get install lcov
+      - run: pip install --upgrade pip setuptools setuptools_scm
+      - run: pip --verbose install --editable .[tests]
+      - run: |
+          python setup.py clean
+          CFLAGS="-coverage" python setup.py develop
+          pytest --hypothesis-profile=default
+          lcov --capture --directory . --no-external --output-file build/coverage.info
+          genhtml build/coverage.info --output-directory build/coverage
+      - uses: actions/upload-artifact@v4
+        with:
+          name: coverage
+          path: |
+            build/coverage/
