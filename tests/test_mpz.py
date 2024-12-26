@@ -206,7 +206,9 @@ def test_hash(x):
 @example(65869376547959985897597359)
 def test_plus_minus_abs(x):
     mx = mpz(x)
+    assert +(+mx) == mx
     assert +mx == x
+    assert -(-mx) == mx
     assert -mx == -x
     assert abs(mx) == abs(x)
 
@@ -216,6 +218,7 @@ def test_add_sub(x, y):
     mx = mpz(x)
     my = mpz(y)
     r = x + y
+    assert mx + my == my + mx
     assert mx + my == r
     assert mx + y == r
     assert x + my == r
@@ -231,9 +234,28 @@ def test_mul(x, y):
     my = mpz(y)
     assert mx * mx == x * x
     r = x * y
+    assert mx * my == my * mx
     assert mx * my == r
     assert mx * y == r
     assert x * my == r
+
+
+@given(integers(), integers(), integers())
+def test_addmul_associativity(x, y, z):
+    mx = mpz(x)
+    my = mpz(y)
+    mz = mpz(z)
+    assert (mx + my) + mz == mx + (my + mz)
+    assert (mx * my) * mz == mx * (my * mz)
+
+
+@given(integers(), integers(), integers())
+def test_mul_distributivity(x, y, z):
+    mx = mpz(x)
+    my = mpz(y)
+    mz = mpz(z)
+    assert (mx + my) * mz == mx*mz + my*mz
+    assert (mx - my) * mz == mx*mz - my*mz
 
 
 @given(integers(), integers())
