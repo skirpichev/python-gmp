@@ -1779,7 +1779,8 @@ MPZ_from_bytes(PyObject *obj, int is_little, int is_signed)
     return res;
 }
 
-#define MPZ_CheckExact(a) PyObject_TypeCheck((a), &MPZ_Type)
+#define MPZ_Check(u) PyObject_TypeCheck((u), &MPZ_Type)
+#define MPZ_CheckExact(u) Py_IS_TYPE((u), &MPZ_Type)
 
 static PyObject *
 new(PyTypeObject *Py_UNUSED(type), PyObject *args, PyObject *keywds)
@@ -1890,7 +1891,7 @@ str(PyObject *self)
 #define CHECK_OP(u, a)            \
     static MPZ_Object *u;         \
                                   \
-    if (MPZ_CheckExact(a)) {      \
+    if (MPZ_Check(a)) {           \
         u = (MPZ_Object *)a;      \
         Py_INCREF(u);             \
     }                             \
@@ -2732,7 +2733,7 @@ gmp_gcd(PyObject *Py_UNUSED(module), PyObject *const *args, Py_ssize_t nargs)
     mp_bitcnt_t nzeros_res = 0;
     MPZ_Object *res, *arg, *tmp;
 
-    if (MPZ_CheckExact(args[0])) {
+    if (MPZ_Check(args[0])) {
         arg = (MPZ_Object *)args[0];
         Py_INCREF(arg);
     }
@@ -2752,7 +2753,7 @@ gmp_gcd(PyObject *Py_UNUSED(module), PyObject *const *args, Py_ssize_t nargs)
         return NULL;
     }
     for (Py_ssize_t i = 1; i < nargs; i++) {
-        if (MPZ_CheckExact(args[i])) {
+        if (MPZ_Check(args[i])) {
             arg = MPZ_abs((MPZ_Object *)args[i]);
         }
         else if (PyLong_Check(args[i])) {
@@ -2859,7 +2860,7 @@ gmp_isqrt(PyObject *Py_UNUSED(module), PyObject *arg)
 {
     MPZ_Object *x, *res = NULL;
 
-    if (MPZ_CheckExact(arg)) {
+    if (MPZ_Check(arg)) {
         x = (MPZ_Object *)arg;
         Py_INCREF(x);
     }
@@ -2905,7 +2906,7 @@ gmp_factorial(PyObject *Py_UNUSED(module), PyObject *arg)
 {
     MPZ_Object *x, *res = NULL;
 
-    if (MPZ_CheckExact(arg)) {
+    if (MPZ_Check(arg)) {
         x = (MPZ_Object *)arg;
         Py_INCREF(x);
     }
