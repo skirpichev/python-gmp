@@ -2532,7 +2532,7 @@ __round__(PyObject *self, PyObject *const *args, Py_ssize_t nargs)
 static PyObject *from_bytes_func;
 
 static PyObject *
-__reduce__(PyObject *self, PyObject *Py_UNUSED(args))
+__reduce_ex__(PyObject *self, PyObject *Py_UNUSED(args))
 {
     MPZ_Object *u = (MPZ_Object *)self;
     Py_ssize_t len = u->size ? mpn_sizeinbase(u->digits, u->size, 2) : 1;
@@ -2675,7 +2675,7 @@ static PyMethodDef methods[] = {
      ("__round__($self, ndigits=None, /)\n--\n\n"
       "Rounding an Integral returns itself.\n\n"
       "Rounding with an ndigits argument also returns an integer.")},
-    {"__reduce__", __reduce__, METH_NOARGS, NULL},
+    {"__reduce_ex__", __reduce_ex__, METH_O, NULL},
     {"__format__", __format__, METH_O,
      ("__format__($self, format_spec, /)\n--\n\n"
       "Convert to a string according to format_spec.")},
