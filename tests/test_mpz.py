@@ -168,7 +168,6 @@ def test_mpz_interface():
         mpz(with_int(1j))
 
 
-@pytest.mark.xfail(reason="diofant/python-gmp#13")
 def test_mpz_subclasses():
     class mpz2(mpz):
         pass

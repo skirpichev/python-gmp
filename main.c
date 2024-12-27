@@ -1781,12 +1781,39 @@ MPZ_from_bytes(PyObject *obj, int is_little, int is_signed)
 #define MPZ_CheckExact(u) Py_IS_TYPE((u), &MPZ_Type)
 
 static PyObject *
-new(PyTypeObject *Py_UNUSED(type), PyObject *args, PyObject *keywds)
+new(PyTypeObject *type, PyObject *args, PyObject *keywds)
 {
     static char *kwlist[] = {"", "base", NULL};
     Py_ssize_t argc = PyTuple_GET_SIZE(args);
     int base = 10;
     PyObject *arg;
+
+    if (type != &MPZ_Type) {
+        MPZ_Object *tmp = (MPZ_Object *)new(&MPZ_Type, args, keywds);
+
+        if (!tmp) {
+            return NULL;
+        }
+
+        mp_size_t n = tmp->size;
+        MPZ_Object *newobj = (MPZ_Object *)type->tp_alloc(type, 0);
+
+        if (!newobj) {
+            Py_DECREF(tmp);
+            return NULL;
+        }
+        newobj->size = n;
+        newobj->negative = tmp->negative;
+        newobj->digits = PyMem_New(mp_limb_t, n);
+        if (!newobj->digits) {
+            Py_DECREF(tmp);
+            return PyErr_NoMemory();
+        }
+        memcpy(newobj->digits, tmp->digits, sizeof(mp_limb_t)*n);
+
+        Py_DECREF(tmp);
+        return (PyObject *)newobj;
+    }
 
     if (argc == 0) {
         return (PyObject *)MPZ_FromDigitSign(0, 0);
@@ -1871,7 +1898,7 @@ static void
 dealloc(PyObject *self)
 {
     PyMem_Free(((MPZ_Object *)self)->digits);
-    PyObject_Free(self);
+    Py_TYPE(self)->tp_free((PyObject *)self);
 }
 
 static PyObject *
@@ -2719,6 +2746,7 @@ PyTypeObject MPZ_Type = {
     .tp_getset = getsetters,
     .tp_methods = methods,
     .tp_doc = mpz_doc,
+    .tp_flags = Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE,
 };
 
 static PyObject *
