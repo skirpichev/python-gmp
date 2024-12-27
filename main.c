@@ -17,7 +17,7 @@ static struct {
 } gmp_tracker;
 
 static void *
-gmp_allocate_function(size_t size)
+gmp_reallocate_function(void *ptr, size_t old_size, size_t new_size)
 {
     if (gmp_tracker.size >= gmp_tracker.alloc) {
         void **tmp = gmp_tracker.ptrs;
@@ -39,14 +39,31 @@ gmp_allocate_function(size_t size)
             goto err;
         }
     }
+    if (!ptr) {
+        void *ret = malloc(new_size);
 
-    void *ret = malloc(size);
+        if (!ret) {
+            goto err;
+        }
+        gmp_tracker.ptrs[gmp_tracker.size] = ret;
+        gmp_tracker.size++;
+        return ret;
+    }
+
+    size_t i = gmp_tracker.size - 1;
+
+    for (;; i--) {
+        if (gmp_tracker.ptrs[i] == ptr) {
+            break;
+        }
+    }
+
+    void *ret = realloc(ptr, new_size);
 
     if (!ret) {
         goto err;
     }
-    gmp_tracker.ptrs[gmp_tracker.size] = ret;
-    gmp_tracker.size++;
+    gmp_tracker.ptrs[i] = ret;
     return ret;
 err:
     for (size_t i = 0; i < gmp_tracker.size; i++) {
@@ -55,36 +72,17 @@ err:
             gmp_tracker.ptrs[i] = NULL;
         }
     }
+    free(gmp_tracker.ptrs);
+    gmp_tracker.ptrs = 0;
     gmp_tracker.alloc = 0;
     gmp_tracker.size = 0;
     longjmp(gmp_env, 1);
 }
 
 static void *
-gmp_reallocate_function(void *ptr, size_t old_size, size_t new_size)
+gmp_allocate_function(size_t size)
 {
-    void *ret = realloc(ptr, new_size);
-
-    if (!ret) {
-        goto err;
-    }
-    for (size_t i = gmp_tracker.size - 1; i >= 0; i--) {
-        if (gmp_tracker.ptrs[i] == ptr) {
-            gmp_tracker.ptrs[i] = ret;
-            break;
-        }
-    }
-    return ret;
-err:
-    for (size_t i = 0; i < gmp_tracker.size; i++) {
-        if (gmp_tracker.ptrs[i]) {
-            free(gmp_tracker.ptrs[i]);
-            gmp_tracker.ptrs[i] = NULL;
-        }
-    }
-    gmp_tracker.alloc = 0;
-    gmp_tracker.size = 0;
-    longjmp(gmp_env, 1);
+    return gmp_reallocate_function(NULL, 0, size);
 }
 
 static void
