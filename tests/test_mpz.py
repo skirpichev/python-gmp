@@ -179,6 +179,8 @@ def test_mpz_subclasses():
     assert isinstance(x, mpz2)
     assert isinstance(x, mpz)
     assert x == mpz(123)
+    assert mpz2() == 0
+    assert mpz2("123", 16) == int("123", 16)
 
 
 @given(integers())

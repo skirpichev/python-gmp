@@ -1781,45 +1781,11 @@ MPZ_from_bytes(PyObject *obj, int is_little, int is_signed)
 #define MPZ_CheckExact(u) Py_IS_TYPE((u), &MPZ_Type)
 
 static PyObject *
-new(PyTypeObject *type, PyObject *args, PyObject *keywds)
+new_impl(PyTypeObject *Py_UNUSED(type), PyObject *arg, PyObject *base_arg)
 {
-    static char *kwlist[] = {"", "base", NULL};
-    Py_ssize_t argc = PyTuple_GET_SIZE(args);
     int base = 10;
-    PyObject *arg;
 
-    if (type != &MPZ_Type) {
-        MPZ_Object *tmp = (MPZ_Object *)new(&MPZ_Type, args, keywds);
-
-        if (!tmp) {
-            return NULL;
-        }
-
-        mp_size_t n = tmp->size;
-        MPZ_Object *newobj = (MPZ_Object *)type->tp_alloc(type, 0);
-
-        if (!newobj) {
-            Py_DECREF(tmp);
-            return NULL;
-        }
-        newobj->size = n;
-        newobj->negative = tmp->negative;
-        newobj->digits = PyMem_New(mp_limb_t, n);
-        if (!newobj->digits) {
-            Py_DECREF(tmp);
-            return PyErr_NoMemory();
-        }
-        memcpy(newobj->digits, tmp->digits, sizeof(mp_limb_t)*n);
-
-        Py_DECREF(tmp);
-        return (PyObject *)newobj;
-    }
-
-    if (argc == 0) {
-        return (PyObject *)MPZ_FromDigitSign(0, 0);
-    }
-    if (argc == 1 && !keywds) {
-        arg = PyTuple_GET_ITEM(args, 0);
+    if (base_arg == Py_None) {
         if (PyLong_Check(arg)) {
             return (PyObject *)MPZ_from_int(arg);
         }
@@ -1859,10 +1825,11 @@ new(PyTypeObject *type, PyObject *args, PyObject *keywds)
         }
         goto str;
     }
-    if (!PyArg_ParseTupleAndKeywords(args, keywds, "O|i",
-                                     kwlist, &arg, &base))
-    {
-        return NULL;
+    else {
+        base = PyLong_AsInt(base_arg);
+        if (base == -1 && PyErr_Occurred()) {
+            return NULL;
+        }
     }
 str:
     if (PyUnicode_Check(arg)) {
@@ -1894,11 +1861,158 @@ str:
     return NULL;
 }
 
+static PyObject *
+new(PyTypeObject *type, PyObject *args, PyObject *keywds)
+{
+    static char *kwlist[] = {"", "base", NULL};
+    Py_ssize_t argc = PyTuple_GET_SIZE(args);
+    PyObject *arg, *base;
+
+    if (type != &MPZ_Type) {
+        MPZ_Object *tmp = (MPZ_Object *)new(&MPZ_Type, args, keywds);
+
+        if (!tmp) {
+            return NULL;
+        }
+
+        mp_size_t n = tmp->size;
+        MPZ_Object *newobj = (MPZ_Object *)type->tp_alloc(type, 0);
+
+        if (!newobj) {
+            Py_DECREF(tmp);
+            return NULL;
+        }
+        newobj->size = n;
+        newobj->negative = tmp->negative;
+        newobj->digits = PyMem_New(mp_limb_t, n);
+        if (!newobj->digits) {
+            Py_DECREF(tmp);
+            return PyErr_NoMemory();
+        }
+        memcpy(newobj->digits, tmp->digits, sizeof(mp_limb_t)*n);
+
+        Py_DECREF(tmp);
+        return (PyObject *)newobj;
+    }
+    if (argc == 0) {
+        return (PyObject *)MPZ_FromDigitSign(0, 0);
+    }
+    if (argc == 1 && !keywds) {
+        arg = PyTuple_GET_ITEM(args, 0);
+        return new_impl(type, arg, Py_None);
+    }
+    if (!PyArg_ParseTupleAndKeywords(args, keywds, "O|O",
+                                     kwlist, &arg, &base))
+    {
+        return NULL;
+    }
+    return new_impl(type, arg, base);
+}
+
 static void
 dealloc(PyObject *self)
 {
     PyMem_Free(((MPZ_Object *)self)->digits);
     Py_TYPE(self)->tp_free((PyObject *)self);
+}
+
+typedef struct gmp_pyargs {
+    Py_ssize_t maxpos;
+    Py_ssize_t minargs;
+    Py_ssize_t maxargs;
+    const char *fname;
+    const char *const *keywords;
+} gmp_pyargs;
+
+static int
+gmp_parse_pyargs(const gmp_pyargs *fnargs, int argidx[], PyObject *const *args,
+                 Py_ssize_t nargs, PyObject *kwnames)
+{
+    if (nargs > fnargs->maxpos) {
+        PyErr_Format(PyExc_TypeError,
+                     "%s() takes at most %zu positional arguments",
+                     fnargs->fname, fnargs->maxpos);
+        return -1;
+    }
+    for (Py_ssize_t i = 0; i < nargs; i++) {
+        argidx[i] = i;
+    }
+
+    Py_ssize_t nkws = 0;
+
+    if (kwnames) {
+        nkws = PyTuple_GET_SIZE(kwnames);
+    }
+    if (nkws > fnargs->maxpos) {
+        PyErr_Format(PyExc_TypeError,
+                     "%s() takes at most %zu keyword arguments", fnargs->fname,
+                     fnargs->maxargs);
+        return -1;
+    }
+    if (nkws + nargs < fnargs->minargs) {
+        PyErr_Format(PyExc_TypeError,
+                     ("%s() takes at least %zu positional or "
+                      "keyword arguments"),
+                     fnargs->fname, fnargs->minargs);
+        return -1;
+    }
+    for (Py_ssize_t i = 0; i < nkws; i++) {
+        const char *kwname = PyUnicode_AsUTF8(PyTuple_GET_ITEM(kwnames, i));
+        Py_ssize_t j = 0;
+
+        for (; j < fnargs->maxargs; j++) {
+            if (strcmp(kwname, fnargs->keywords[j]) == 0) {
+                if (j > fnargs->maxpos || nargs <= j) {
+                    argidx[j] = (int)(nargs + i);
+                    break;
+                }
+                else {
+                    PyErr_Format(PyExc_TypeError,
+                                 ("argument for %s() given by name "
+                                  "('%s') and position (%zu)"),
+                                 fnargs->fname, fnargs->keywords[j], j + 1);
+                    return -1;
+                }
+            }
+        }
+        if (j == fnargs->maxargs) {
+            PyErr_Format(PyExc_TypeError,
+                         "%s() got an unexpected keyword argument '%s'",
+                         fnargs->fname, kwname);
+            return -1;
+        }
+    }
+    return 0;
+}
+
+static PyObject *
+vectorcall(PyObject *type, PyObject * const*args, size_t nargsf,
+           PyObject *kwnames)
+{
+    Py_ssize_t nargs = PyVectorcall_NARGS(nargsf);
+    static const char *const keywords[] = {"", "base"};
+    const static gmp_pyargs fnargs = {
+        .keywords = keywords,
+        .maxpos = 2,
+        .minargs = 0,
+        .maxargs = 2,
+        .fname = "mpz",
+    };
+    int argidx[2] = {-1, -1};
+
+    if (gmp_parse_pyargs(&fnargs, argidx, args, nargs, kwnames) == -1) {
+        return NULL;
+    }
+    if (argidx[1] >= 0) {
+        return new_impl((PyTypeObject *)type, args[argidx[0]],
+                        args[argidx[1]]);
+    }
+    else if (argidx[0] >= 0) {
+        return new_impl((PyTypeObject *)type, args[argidx[0]], Py_None);
+    }
+    else {
+        return (PyObject *)MPZ_FromDigitSign(0, 0);
+    }
 }
 
 static PyObject *
@@ -2273,75 +2387,6 @@ bit_count(PyObject *self, PyObject *Py_UNUSED(args))
     mp_bitcnt_t count = u->size ? mpn_popcount(u->digits, u->size) : 0;
 
     return (PyObject *)MPZ_FromDigitSign(count, 0);
-}
-
-typedef struct gmp_pyargs {
-    Py_ssize_t maxpos;
-    Py_ssize_t minargs;
-    Py_ssize_t maxargs;
-    const char *fname;
-    const char *const *keywords;
-} gmp_pyargs;
-
-static int
-gmp_parse_pyargs(const gmp_pyargs *fnargs, int argidx[], PyObject *const *args,
-                 Py_ssize_t nargs, PyObject *kwnames)
-{
-    if (nargs > fnargs->maxpos) {
-        PyErr_Format(PyExc_TypeError,
-                     "%s() takes at most %zu positional arguments",
-                     fnargs->fname, fnargs->maxpos);
-        return -1;
-    }
-    for (Py_ssize_t i = 0; i < nargs; i++) {
-        argidx[i] = i;
-    }
-
-    Py_ssize_t nkws = 0;
-
-    if (kwnames) {
-        nkws = PyTuple_GET_SIZE(kwnames);
-    }
-    if (nkws > fnargs->maxpos) {
-        PyErr_Format(PyExc_TypeError,
-                     "%s() takes at most %zu keyword arguments", fnargs->fname,
-                     fnargs->maxargs);
-        return -1;
-    }
-    if (nkws + nargs < fnargs->minargs) {
-        PyErr_Format(PyExc_TypeError,
-                     ("%s() takes at least %zu positional or "
-                      "keyword arguments"),
-                     fnargs->fname, fnargs->minargs);
-        return -1;
-    }
-    for (Py_ssize_t i = 0; i < nkws; i++) {
-        const char *kwname = PyUnicode_AsUTF8(PyTuple_GET_ITEM(kwnames, i));
-        Py_ssize_t j = 0;
-
-        for (; j < fnargs->maxargs; j++) {
-            if (strcmp(kwname, fnargs->keywords[j]) == 0) {
-                if (j > fnargs->maxpos || nargs <= j) {
-                    argidx[j] = (int)(nargs + i);
-                    break;
-                }
-                else {
-                    PyErr_Format(PyExc_TypeError,
-                                 ("argument for %s() given by name "
-                                  "('%s') and position (%zu)"),
-                                 fnargs->fname, fnargs->keywords[j], j + 1);
-                    return -1;
-                }
-            }
-        }
-        if (j == fnargs->maxargs) {
-            PyErr_Format(PyExc_TypeError,
-                         "%s() got an unexpected keyword argument '%s'",
-                         fnargs->fname, kwname);
-            return -1;
-        }
-    }
-    return 0;
 }
 
 static PyObject *
@@ -2747,6 +2792,7 @@ PyTypeObject MPZ_Type = {
     .tp_methods = methods,
     .tp_doc = mpz_doc,
     .tp_flags = Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE,
+    .tp_vectorcall = vectorcall,
 };
 
 static PyObject *
