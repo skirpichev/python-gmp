@@ -62,7 +62,7 @@ develop = ["python-gmp[tests,docs]", "pre-commit"]
 
 [tool.pytest.ini_options]
 addopts = "--durations=7"
-norecursedirs = ["build", ".eggs", ".git", ".venv"]
+norecursedirs = ["build", ".eggs", ".git", ".venv", ".hypothesis"]
 xfail_strict = true
 
 [tool.ruff]
