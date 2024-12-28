@@ -3324,6 +3324,9 @@ PyInit_gmp(void)
 #endif
     PyObject *m = PyModule_Create(&gmp_module);
 
+#if Py_GIL_DISABLED
+    PyUnstable_Module_SetGIL(m, Py_MOD_GIL_NOT_USED);
+#endif
     if (PyModule_AddType(m, &MPZ_Type) < 0) {
         /* LCOV_EXCL_START */
         return NULL;
