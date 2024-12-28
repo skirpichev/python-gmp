@@ -145,6 +145,8 @@ def test_mpz_interface():
         mpz("123", 123)
     with pytest.raises(ValueError):
         mpz("0123", 0)
+    with pytest.raises(ValueError):
+        mpz("0x", 0)
     with pytest.raises(TypeError):
         mpz(1j, 10)
     assert mpz() == mpz(0) == 0
@@ -333,6 +335,8 @@ def test_truediv(x, y):
 @example(-1, 123)
 @example(123, 321)
 @example(-56, 321)
+@example(10**1000, -1)
+@example(10, -10**1000)
 def test_power(x, y):
     if y > 0 and abs(x) > 1000000:
         return
@@ -644,6 +648,7 @@ def test___float__(x):
 
 
 @given(integers(), integers(min_value=-20, max_value=30))
+@example(-75, -1)
 def test___round__(x, n):
     mx = mpz(x)
     mn = mpz(n)
@@ -803,6 +808,8 @@ def test_pickle(protocol, x):
 @pytest.mark.skipif(platform.system() != "Linux",
                     reason="FIXME: setrlimit fails with ValueError on MacOS")
 @given(integers(min_value=49846727467293, max_value=249846727467293))
+@example(249846727467293)
+@example(1292734994793)
 def test_outofmemory(x):
     soft, hard = resource.getrlimit(resource.RLIMIT_AS)
     resource.setrlimit(resource.RLIMIT_AS, (1024*32*1024, hard))
