@@ -3378,7 +3378,7 @@ PyInit_gmp(void)
         /* LCOV_EXCL_STOP */
     }
 
-    PyObject *gmp_fractions = PyImport_ImportModule("gmp_fractions");
+    PyObject *gmp_fractions = PyImport_ImportModule("_gmp_fractions");
 
     if (!gmp_fractions) {
         /* LCOV_EXCL_START */
