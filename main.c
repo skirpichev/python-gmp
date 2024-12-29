@@ -17,7 +17,7 @@ static struct {
 } gmp_tracker;
 
 static void *
-gmp_reallocate_function(void *ptr, size_t old_size, size_t new_size)
+gmp_allocate_function(size_t size)
 {
     if (gmp_tracker.size >= gmp_tracker.alloc) {
         void **tmp = gmp_tracker.ptrs;
@@ -39,31 +39,13 @@ gmp_reallocate_function(void *ptr, size_t old_size, size_t new_size)
             goto err;
         }
     }
-    if (!ptr) {
-        void *ret = malloc(new_size);
-
-        if (!ret) {
-            goto err;
-        }
-        gmp_tracker.ptrs[gmp_tracker.size] = ret;
-        gmp_tracker.size++;
-        return ret;
-    }
-
-    size_t i = gmp_tracker.size - 1;
-
-    for (;; i--) {
-        if (gmp_tracker.ptrs[i] == ptr) {
-            break;
-        }
-    }
-
-    void *ret = realloc(ptr, new_size);
+    void *ret = malloc(size);
 
     if (!ret) {
         goto err;
     }
-    gmp_tracker.ptrs[i] = ret;
+    gmp_tracker.ptrs[gmp_tracker.size] = ret;
+    gmp_tracker.size++;
     return ret;
 err:
     for (size_t i = 0; i < gmp_tracker.size; i++) {
@@ -77,12 +59,6 @@ err:
     gmp_tracker.alloc = 0;
     gmp_tracker.size = 0;
     longjmp(gmp_env, 1);
-}
-
-static void *
-gmp_allocate_function(size_t size)
-{
-    return gmp_reallocate_function(NULL, 0, size);
 }
 
 static void
@@ -3204,70 +3180,6 @@ end:
     return (PyObject *)res;
 }
 
-static PyObject *
-gmp_factorial(PyObject *Py_UNUSED(module), PyObject *arg)
-{
-    MPZ_Object *x, *res = NULL;
-
-    if (MPZ_Check(arg)) {
-        x = (MPZ_Object *)arg;
-        Py_INCREF(x);
-    }
-    else if (PyLong_Check(arg)) {
-        x = MPZ_from_int(arg);
-        if (!x) {
-            /* LCOV_EXCL_START */
-            goto end;
-            /* LCOV_EXCL_STOP */
-        }
-    }
-    else {
-        PyErr_SetString(PyExc_TypeError,
-                        "factorial() argument must be an integer");
-        return NULL;
-    }
-
-    __mpz_struct tmp;
-
-    tmp._mp_d = x->digits;
-    tmp._mp_size = (x->negative ? -1 : 1) * x->size;
-    if (x->negative) {
-        PyErr_SetString(PyExc_ValueError,
-                        "factorial() not defined for negative values");
-        goto end;
-    }
-    if (!mpz_fits_ulong_p(&tmp)) {
-        PyErr_Format(PyExc_OverflowError,
-                     "factorial() argument should not exceed %ld", LONG_MAX);
-        goto end;
-    }
-
-    unsigned long n = mpz_get_ui(&tmp);
-
-    if (CHECK_NO_MEM_LEAK) {
-        mpz_init(&tmp);
-        mpz_fac_ui(&tmp, n);
-    }
-    else {
-        /* LCOV_EXCL_START */
-        Py_DECREF(x);
-        return PyErr_NoMemory();
-        /* LCOV_EXCL_STOP */
-    }
-    res = MPZ_new(tmp._mp_size, 0);
-    if (!res) {
-        /* LCOV_EXCL_START */
-        mpz_clear(&tmp);
-        goto end;
-        /* LCOV_EXCL_STOP */
-    }
-    mpn_copyi(res->digits, tmp._mp_d, res->size);
-    mpz_clear(&tmp);
-end:
-    Py_XDECREF(x);
-    return (PyObject *)res;
-}
-
 static PyMethodDef functions[] = {
     {"gcd", (PyCFunction)gmp_gcd, METH_FASTCALL,
      ("gcd($module, /, *integers)\n--\n\n"
@@ -3275,9 +3187,6 @@ static PyMethodDef functions[] = {
     {"isqrt", gmp_isqrt, METH_O,
      ("isqrt($module, n, /)\n--\n\n"
       "Return the integer part of the square root of the input.")},
-    {"factorial", gmp_factorial, METH_O,
-     ("factorial($module, n, /)\n--\n\n"
-      "Find n!.\n\nRaise a ValueError if x is negative or non-integral.")},
     {"_from_bytes", _from_bytes, METH_O, NULL},
     {NULL} /* sentinel */
 };
@@ -3310,8 +3219,7 @@ static PyStructSequence_Desc gmp_info_desc = {
 PyMODINIT_FUNC
 PyInit_gmp(void)
 {
-    mp_set_memory_functions(gmp_allocate_function, gmp_reallocate_function,
-                            gmp_free_function);
+    mp_set_memory_functions(gmp_allocate_function, NULL, gmp_free_function);
 #if !defined(PYPY_VERSION)
     /* Query parameters of Python’s internal representation of integers. */
     const PyLongLayout *layout = PyLong_GetNativeLayout();
@@ -3396,13 +3304,13 @@ PyInit_gmp(void)
         return NULL;
         /* LCOV_EXCL_STOP */
     }
+    Py_DECREF(gmp_fractions);
 
     PyObject *mname = PyUnicode_FromString("gmp");
 
     if (!mname) {
         /* LCOV_EXCL_START */
         Py_DECREF(ns);
-        Py_DECREF(gmp_fractions);
         Py_DECREF(mpq);
         return NULL;
         /* LCOV_EXCL_STOP */
@@ -3410,23 +3318,59 @@ PyInit_gmp(void)
     if (PyObject_SetAttrString(mpq, "__module__", mname) < 0) {
         /* LCOV_EXCL_START */
         Py_DECREF(ns);
-        Py_DECREF(gmp_fractions);
         Py_DECREF(mpq);
         Py_DECREF(mname);
         return NULL;
         /* LCOV_EXCL_STOP */
     }
-    Py_DECREF(mname);
     if (PyModule_AddType(m, (PyTypeObject *)mpq) < 0) {
         /* LCOV_EXCL_START */
         Py_DECREF(ns);
-        Py_DECREF(gmp_fractions);
         Py_DECREF(mpq);
+        Py_DECREF(mname);
         return NULL;
         /* LCOV_EXCL_STOP */
     }
-    Py_DECREF(gmp_fractions);
     Py_DECREF(mpq);
+
+    PyObject *gmp_utils = PyImport_ImportModule("_gmp_utils");
+
+    if (!gmp_utils) {
+        /* LCOV_EXCL_START */
+        Py_DECREF(ns);
+        Py_DECREF(mname);
+        return NULL;
+        /* LCOV_EXCL_STOP */
+    }
+
+    PyObject *factorial = PyObject_GetAttrString(gmp_utils, "factorial");
+
+    if (!factorial) {
+        /* LCOV_EXCL_START */
+        Py_DECREF(ns);
+        Py_DECREF(gmp_utils);
+        Py_DECREF(mname);
+        return NULL;
+        /* LCOV_EXCL_STOP */
+    }
+    Py_DECREF(gmp_utils);
+    if (PyObject_SetAttrString(factorial, "__module__", mname) < 0) {
+        /* LCOV_EXCL_START */
+        Py_DECREF(ns);
+        Py_DECREF(factorial);
+        Py_DECREF(mname);
+        return NULL;
+        /* LCOV_EXCL_STOP */
+    }
+    Py_DECREF(mname);
+    if (PyModule_AddObject(m, "factorial", factorial) < 0) {
+        /* LCOV_EXCL_START */
+        Py_DECREF(ns);
+        Py_DECREF(factorial);
+        return NULL;
+        /* LCOV_EXCL_STOP */
+    }
+    Py_DECREF(factorial);
 
     PyObject *numbers = PyImport_ImportModule("numbers");
 
