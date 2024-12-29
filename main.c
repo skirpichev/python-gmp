@@ -8,57 +8,42 @@
 #include <setjmp.h>
 
 static jmp_buf gmp_env;
-#define GMP_TRACKER_SIZE_INCR 16
 #define CHECK_NO_MEM_LEAK (setjmp(gmp_env) != 1)
+#define TRACKER_MAX_SIZE 64
 static struct {
     size_t size;
-    size_t alloc;
-    void **ptrs;
+    void *ptrs[TRACKER_MAX_SIZE];
 } gmp_tracker;
 
 static void *
 gmp_allocate_function(size_t size)
 {
-    if (gmp_tracker.size >= gmp_tracker.alloc) {
-        void **tmp = gmp_tracker.ptrs;
-
-        gmp_tracker.alloc += GMP_TRACKER_SIZE_INCR;
-        gmp_tracker.ptrs = realloc(tmp, gmp_tracker.alloc * sizeof(void *));
-        if (!gmp_tracker.ptrs) {
-            gmp_tracker.alloc -= GMP_TRACKER_SIZE_INCR;
-            /* Workaround
-               https://gcc.gnu.org/bugzilla/show_bug.cgi?id=110501 */
-#if defined(__GNUC__) && !defined(__clang__) && __GNUC__ >= 13
-#  pragma GCC diagnostic push
-#  pragma GCC diagnostic ignored "-Wuse-after-free"
-#endif
-            gmp_tracker.ptrs = tmp;
-#if defined(__GNUC__) && !defined(__clang__)
-#  pragma GCC diagnostic pop
-#endif
-            goto err;
-        }
+    if (gmp_tracker.size >= TRACKER_MAX_SIZE) {
+        /* LCOV_EXCL_START */
+        goto err;
+        /* LCOV_EXCL_STOP */
     }
     void *ret = malloc(size);
 
     if (!ret) {
+        /* LCOV_EXCL_START */
         goto err;
+        /* LCOV_EXCL_STOP */
     }
     gmp_tracker.ptrs[gmp_tracker.size] = ret;
     gmp_tracker.size++;
     return ret;
 err:
+    /* LCOV_EXCL_START */
     for (size_t i = 0; i < gmp_tracker.size; i++) {
         if (gmp_tracker.ptrs[i]) {
             free(gmp_tracker.ptrs[i]);
             gmp_tracker.ptrs[i] = NULL;
         }
     }
-    free(gmp_tracker.ptrs);
-    gmp_tracker.ptrs = 0;
-    gmp_tracker.alloc = 0;
     gmp_tracker.size = 0;
     longjmp(gmp_env, 1);
+    /* LCOV_EXCL_STOP */
 }
 
 static void
@@ -66,7 +51,7 @@ gmp_free_function(void *ptr, size_t size)
 {
     for (size_t i = gmp_tracker.size - 1; i >= 0; i--) {
         if (gmp_tracker.ptrs[i] && gmp_tracker.ptrs[i] == ptr) {
-            gmp_tracker.ptrs[i] = 0;
+            gmp_tracker.ptrs[i] = NULL;
             if (i == gmp_tracker.size - 1) {
                 gmp_tracker.size--;
             }
