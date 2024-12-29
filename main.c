@@ -297,7 +297,7 @@ MPZ_from_str(PyObject *obj, int base)
 
     p += negative;
     len -= negative;
-    if (p[0] == '0' && len > 2 && p[1] != '\0') {
+    if (p[0] == '0' && len >= 2) {
         if (base == 0) {
             if (tolower(p[1]) == 'b') {
                 base = 2;
@@ -327,10 +327,10 @@ MPZ_from_str(PyObject *obj, int base)
     if (base == 0) {
         base = 10;
     }
-    if (p[0] == '_') {
+    if (!len) {
         goto err;
     }
-    if (!len) {
+    if (p[0] == '_') {
         goto err;
     }
 
