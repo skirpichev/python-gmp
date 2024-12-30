@@ -1896,7 +1896,7 @@ new_impl(PyTypeObject *Py_UNUSED(type), PyObject *arg, PyObject *base_arg)
 {
     int base = 10;
 
-    if (base_arg == Py_None) {
+    if (Py_IsNone(base_arg)) {
         if (PyLong_Check(arg)) {
             return (PyObject *)MPZ_from_int(arg);
         }
@@ -1979,7 +1979,7 @@ new(PyTypeObject *type, PyObject *args, PyObject *keywds)
 {
     static char *kwlist[] = {"", "base", NULL};
     Py_ssize_t argc = PyTuple_GET_SIZE(args);
-    PyObject *arg, *base;
+    PyObject *arg, *base = Py_None;
 
     if (type != &MPZ_Type) {
         MPZ_Object *tmp = (MPZ_Object *)new(&MPZ_Type, args, keywds);
