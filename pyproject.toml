@@ -47,7 +47,7 @@ Documentation = "https://python-gmp.readthedocs.io/en/latest/"
 
 [tool.setuptools]
 ext-modules = [{name = "gmp", sources = ["main.c"], libraries = ["gmp"], include-dirs = [".local/include"], library-dirs = [".local/lib"]}]
-py-modules = ["gmp_fractions"]
+py-modules = ["_gmp_fractions", "_gmp_utils"]
 
 [tool.setuptools.dynamic]
 version = {attr = "setuptools_scm.get_version"}
@@ -66,7 +66,7 @@ norecursedirs = ["build", ".eggs", ".git", ".venv", ".hypothesis"]
 xfail_strict = true
 
 [tool.ruff]
-exclude = [".venv", "gmp_fractions.py"]
+exclude = [".venv", "_gmp_fractions.py"]
 line-length = 79
 
 [tool.ruff.lint]

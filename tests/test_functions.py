@@ -1,4 +1,6 @@
 import math
+import platform
+import resource
 
 import pytest
 from gmp import factorial, gcd, isqrt, mpz
@@ -18,6 +20,27 @@ def test_factorial(x):
     mx = mpz(x)
     r = math.factorial(x)
     assert factorial(mx) == factorial(x) == r
+
+
+@pytest.mark.skipif(platform.system() != "Linux",
+                    reason="FIXME: setrlimit fails with ValueError on MacOS")
+@pytest.mark.skipif(platform.python_implementation() == "PyPy",
+                    reason="XXX: bug in PyNumber_ToBase()?")
+def test_factorial_outofmemory():
+    import random
+
+    for _ in range(100):
+        soft, hard = resource.getrlimit(resource.RLIMIT_AS)
+        resource.setrlimit(resource.RLIMIT_AS, (1024*64*1024, hard))
+        a = random.randint(12811, 24984)
+        a = mpz(a)
+        while True:
+            try:
+                factorial(a)
+                a *= 2
+            except MemoryError:
+                break
+        resource.setrlimit(resource.RLIMIT_AS, (soft, hard))
 
 
 @given(integers(), integers())
