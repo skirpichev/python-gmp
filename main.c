@@ -757,11 +757,16 @@ MPZ_divmod(MPZ_Object **q, MPZ_Object **r, MPZ_Object *u, MPZ_Object *v)
         }
     }
     else {
-        *q = MPZ_new(u->size - v->size + 1, u->negative != v->negative);
+        uint8_t q_negative = (u->negative != v->negative);
+
+        *q = MPZ_new(u->size - v->size + 1 + q_negative, q_negative);
         if (!*q) {
             /* LCOV_EXCL_START */
             return -1;
             /* LCOV_EXCL_STOP */
+        }
+        if (q_negative) {
+            (*q)->digits[(*q)->size - 1] = 0;
         }
         *r = MPZ_new(v->size, v->negative);
         if (!*r) {
@@ -779,34 +784,10 @@ MPZ_divmod(MPZ_Object **q, MPZ_Object **r, MPZ_Object *u, MPZ_Object *v)
             goto err;
             /* LCOV_EXCL_STOP */
         }
-        if ((*q)->negative) {
-            if (u->digits[u->size - 1] == GMP_NUMB_MAX
-                && v->digits[v->size - 1] == 1)
-            {
-                (*q)->size++;
-
-                mp_limb_t *tmp = (*q)->digits;
-
-                (*q)->digits = PyMem_Resize(tmp, mp_limb_t, (*q)->size);
-                if (!(*q)->digits) {
-                    /* LCOV_EXCL_START */
-                    (*q)->digits = tmp;
-                    goto err;
-                    /* LCOV_EXCL_STOP */
-                }
-                (*q)->digits[(*q)->size - 1] = 0;
-            }
-            for (mp_size_t i = 0; i < v->size; i++) {
-                if ((*r)->digits[i]) {
-                    mpn_sub_n((*r)->digits, v->digits, (*r)->digits, v->size);
-                    if (mpn_add_1((*q)->digits, (*q)->digits, (*q)->size - 1,
-                                  1))
-                    {
-                        (*q)->digits[(*q)->size - 2] = 1;
-                    }
-                    break;
-                }
-            }
+        MPZ_normalize(*r);
+        if (q_negative && (*r)->size) {
+            mpn_sub_n((*r)->digits, v->digits, (*r)->digits, v->size);
+            mpn_add_1((*q)->digits, (*q)->digits, (*q)->size, 1);
         }
         MPZ_normalize(*q);
         MPZ_normalize(*r);

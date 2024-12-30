@@ -278,7 +278,10 @@ def test_mul_distributivity(x, y, z):
 
 @given(integers(), integers())
 @example(18446744073709551615, -1)
+@example(1<<64, -2)
+@example(1<<64, 2)
 @example(18446744073709551615<<64, -1<<64)
+@example(int("0x"+"f"*32, 0), -1<<64)  # XXX: assuming limb_size == 64
 def test_divmod(x, y):
     mx = mpz(x)
     my = mpz(y)
