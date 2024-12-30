@@ -889,10 +889,10 @@ MPZ_divmod_near(MPZ_Object **q, MPZ_Object **r, MPZ_Object *u, MPZ_Object *v)
     int cmp = MPZ_compare(*r, halfQ);
 
     Py_DECREF(halfQ);
-    if (cmp == 0 && v->digits[0]%2 == 0) {
-        if ((*q)->size && (*q)->digits[0]%2 != 0) {
+    if (cmp == 0 && v->digits[0]%2 == 0 && (*q)->size
+        && (*q)->digits[0]%2 != 0)
+    {
             cmp = unexpect;
-        }
     }
     if (cmp == unexpect) {
         MPZ_Object *tmp = *q;
@@ -2187,8 +2187,8 @@ richcompare(PyObject *self, PyObject *other, int op)
         case Py_NE:
             return PyBool_FromLong(r != 0);
     }
-    Py_RETURN_NOTIMPLEMENTED;
     /* LCOV_EXCL_START */
+    Py_RETURN_NOTIMPLEMENTED;
 end:
     Py_XDECREF(u);
     Py_XDECREF(v);
