@@ -713,12 +713,15 @@ def from_digits(s, base):
     b = 1
     for c in reversed(s):
         v = ord(c)
-        if 48 <= v <= 57:
-            v -= 48
-        elif 65 <= v <= 90:
-            v -= 55
+        if ord("0") <= v <= ord("9"):
+            v -= ord("0")
+        elif ord("A") <= v <= ord("Z"):
+            v -= ord("A") - 10
         else:
-            v -= 87
+            if base <= 36:
+                v -= ord("a") - 10
+            else:
+                v -= ord("a") - 36
         n += v*b
         b *= base
     return -n if negative else n
@@ -769,11 +772,10 @@ def test_digits_frombase_low(x, base):
 
 @given(integers(), integers(min_value=37, max_value=62))
 def test_digits_frombase_high(x, base):
-    gmpy2 = pytest.importorskip("gmpy2")
     mx = mpz(x)
     smx = mx.digits(base)
     assert mpz(smx, base) == mx
-    assert int(gmpy2.mpz(smx, base)) == mx
+    assert from_digits(smx, base) == mx
     smaller_base = (base + 2)//2 + 1
     try:
         g = from_digits(smx, smaller_base)
