@@ -2517,7 +2517,7 @@ bit_length(PyObject *self, PyObject *Py_UNUSED(args))
     MPZ_Object *u = (MPZ_Object *)self;
     mp_limb_t digit = u->size ? mpn_sizeinbase(u->digits, u->size, 2) : 0;
 
-    return (PyObject *)MPZ_FromDigitSign(digit, 0);
+    return PyLong_FromUnsignedLongLong(digit);
 }
 
 static PyObject *
@@ -2526,7 +2526,7 @@ bit_count(PyObject *self, PyObject *Py_UNUSED(args))
     MPZ_Object *u = (MPZ_Object *)self;
     mp_bitcnt_t count = u->size ? mpn_popcount(u->digits, u->size) : 0;
 
-    return (PyObject *)MPZ_FromDigitSign(count, 0);
+    return PyLong_FromUnsignedLongLong(count);
 }
 
 static PyObject *
