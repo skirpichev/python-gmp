@@ -465,6 +465,9 @@ def test_lshift(x, y):
 @example(-1, 1<<128)
 @example(-340282366920938463444927863358058659840, 64)
 def test_rshift(x, y):
+    # XXX: mp_size_t might be smaller than mp_limb_t
+    if abs(y) >= 2**32 and platform.system() == "Windows":
+        return
     mx = mpz(x)
     my = mpz(y)
     try:
