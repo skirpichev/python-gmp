@@ -149,6 +149,7 @@ def test_mpz_interface():
     with pytest.raises(TypeError):
         mpz(1j, 10)
     assert mpz() == mpz(0) == 0
+    assert mpz("+123") == 123
 
     class with_int:
         def __init__(self, value):

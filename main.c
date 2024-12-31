@@ -293,10 +293,14 @@ MPZ_from_str(PyObject *obj, int base)
         goto err;
     }
 
-    int8_t negative = (buf[0] == '-');
+    int8_t negative = (p[0] == '-');
 
     p += negative;
     len -= negative;
+    if (len && p[0] == '+') {
+        p++;
+        len--;
+    }
     if (p[0] == '0' && len >= 2) {
         if (base == 0) {
             if (tolower(p[1]) == 'b') {
@@ -319,7 +323,7 @@ MPZ_from_str(PyObject *obj, int base)
             p += 2;
             len -= 2;
             if (len && p[0] == '_') {
-                p += 1;
+                p++;
                 len--;
             }
         }
