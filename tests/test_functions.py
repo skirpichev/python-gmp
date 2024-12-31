@@ -1,6 +1,5 @@
 import math
 import platform
-import resource
 
 import pytest
 from gmp import factorial, gcd, isqrt, mpz
@@ -28,6 +27,7 @@ def test_factorial(x):
                     reason="XXX: bug in PyNumber_ToBase()?")
 def test_factorial_outofmemory():
     import random
+    import resource
 
     for _ in range(100):
         soft, hard = resource.getrlimit(resource.RLIMIT_AS)
