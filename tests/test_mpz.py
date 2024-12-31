@@ -282,6 +282,7 @@ def test_mul_distributivity(x, y, z):
 @example(2, 1<<64)
 @example(18446744073709551615<<64, -1<<64)
 @example(int("0x"+"f"*32, 0), -1<<64)  # XXX: assuming limb_size == 64
+@example(-68501870735943706700000000000000000001, 10**20)  # issue 117
 def test_divmod(x, y):
     mx = mpz(x)
     my = mpz(y)
@@ -652,6 +653,7 @@ def test___float__(x):
 
 @given(integers(), integers(min_value=-20, max_value=30))
 @example(-75, -1)
+@example(-68501870735943706700000000000000000001, -20)  # issue 117
 def test___round__(x, n):
     mx = mpz(x)
     mn = mpz(n)

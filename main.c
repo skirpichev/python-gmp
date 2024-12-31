@@ -786,6 +786,7 @@ MPZ_divmod(MPZ_Object **q, MPZ_Object **r, MPZ_Object *u, MPZ_Object *v)
         }
         MPZ_normalize(*r);
         if (q_negative && (*r)->size) {
+            (*r)->size = v->size;
             mpn_sub_n((*r)->digits, v->digits, (*r)->digits, v->size);
             mpn_add_1((*q)->digits, (*q)->digits, (*q)->size, 1);
         }
