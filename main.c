@@ -318,7 +318,7 @@ MPZ_from_str(PyObject *obj, int base)
         {
             p += 2;
             len -= 2;
-            if (p[0] == '_') {
+            if (len && p[0] == '_') {
                 p += 1;
                 len--;
             }
