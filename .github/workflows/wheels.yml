@@ -28,7 +28,6 @@ jobs:
           CIBW_BEFORE_ALL: bash scripts/cibw_before_all.sh
           CIBW_BEFORE_ALL_WINDOWS: msys2 -c scripts/cibw_before_all.sh
           CIBW_BEFORE_BUILD_WINDOWS: pip install wheel delvewheel
-          CIBW_ENVIRONMENT_WINDOWS: LIB="$(pwd)\\.local\\lib"
           CIBW_TEST_EXTRAS: tests
           CIBW_TEST_COMMAND: pytest {package}/tests/
           CIBW_REPAIR_WHEEL_COMMAND: >
