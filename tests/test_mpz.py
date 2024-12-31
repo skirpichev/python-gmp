@@ -2,7 +2,6 @@ import math
 import operator
 import pickle
 import platform
-import resource
 import string
 import sys
 import warnings
@@ -466,6 +465,9 @@ def test_lshift(x, y):
 @example(-1, 1<<128)
 @example(-340282366920938463444927863358058659840, 64)
 def test_rshift(x, y):
+    # XXX: mp_size_t might be smaller than mp_limb_t
+    if abs(y) >= 2**32 and platform.system() == "Windows":
+        return
     mx = mpz(x)
     my = mpz(y)
     try:
@@ -818,6 +820,8 @@ def test_pickle(protocol, x):
 @example(249846727467293)
 @example(1292734994793)
 def test_outofmemory(x):
+    import resource
+
     soft, hard = resource.getrlimit(resource.RLIMIT_AS)
     resource.setrlimit(resource.RLIMIT_AS, (1024*32*1024, hard))
     mx = mpz(x)
