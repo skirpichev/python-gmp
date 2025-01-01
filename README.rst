@@ -17,12 +17,12 @@ The CPython (and most other Python implementations, like PyPy) is optimized to
 work with small integers.  Algorithms used here for "big enough" integers
 usually aren't best known in the field.  Fortunately, it's possible to use
 bindings (for example, the `gmpy2 <https://pypi.org/project/gmpy2/>`_ package)
-to the GNU Multiple Precision Arithmetic Library (GMP), which aims to be
-faster than any other bignum library for all operand sizes.
+to the GNU Multiple Precision Arithmetic Library (GMP), which aims to be faster
+than any other bignum library for all operand sizes.
 
 But such extension modules usually rely on default GMP's memory allocation
-functions and can't recover from errors such as out of memory.  So, e.g. it's
-easy to crash the Python interpreter during the interactive session.  Above
+functions and can't recover from errors such as out of memory.  So, it's easy
+to crash the Python interpreter during the interactive session.  Following
 example with the gmpy2 should work on most Unix systems:
 
 .. code:: pycon
@@ -42,6 +42,8 @@ The gmp module handles such errors correctly:
 
 .. code:: pycon
 
+   >>> import gmp, resource
+   >>> resource.setrlimit(resource.RLIMIT_AS, (1024*32*1024, -1))
    >>> z = gmp.mpz(29925959575501)
    >>> while True:
    ...     z = z*z
