@@ -849,24 +849,45 @@ MPZ_rshift1(MPZ_Object *u, mp_limb_t rshift, uint8_t negative)
     }
     size -= whole;
 
-    MPZ_Object *res = MPZ_new(size, negative);
+    uint8_t carry = 0, extra = 1;
+
+    for (mp_size_t i = 0; i < whole; i++) {
+        if (u->digits[i]) {
+            carry = negative;
+            break;
+        }
+    }
+    for (mp_size_t i = whole; i < u->size; i++) {
+        if (u->digits[i] != GMP_NUMB_MAX) {
+            extra = 0;
+            break;
+        }
+    }
+
+    MPZ_Object *res = MPZ_new(size + extra, negative);
 
     if (!res) {
         /* LCOV_EXCL_START */
         return NULL;
         /* LCOV_EXCL_STOP */
     }
+    if (extra) {
+        res->digits[size] = 0;
+    }
     if (rshift) {
         if (mpn_rshift(res->digits, u->digits + whole, size, rshift)) {
-            if (negative) {
-                mpn_add_1(res->digits, res->digits, size, 1);
-            }
+            carry = negative;
         }
-        MPZ_normalize(res);
     }
     else {
         mpn_copyi(res->digits, u->digits + whole, size);
     }
+    if (carry) {
+        if (mpn_add_1(res->digits, res->digits, size, 1)) {
+            res->digits[size] = 1;
+        }
+    }
+    MPZ_normalize(res);
     return res;
 }
 
