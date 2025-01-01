@@ -676,7 +676,7 @@ def test___round__interface():
 @pytest.mark.skipif(platform.python_implementation() == "PyPy",
                     reason="sys.getsizeof raises TypeError")
 def test___sizeof__():
-    limb_size = gmp_info[2]
+    limb_size = gmp_info[1]
     ms = [mpz(1<<i*(8*limb_size)) for i in range(3)]
     sz = sys.getsizeof(ms[1]) - sys.getsizeof(ms[0])
     assert sys.getsizeof(ms[2]) - sys.getsizeof(ms[1]) == sz
