@@ -2177,6 +2177,9 @@ str(PyObject *self)
     return MPZ_to_str((MPZ_Object *)self, 10, 0);
 }
 
+#define Number_Check(op) (PyFloat_Check((op)) \
+                          || PyComplex_Check((op)))
+
 #define CHECK_OP(u, a)            \
     if (MPZ_Check(a)) {           \
         u = (MPZ_Object *)a;      \
@@ -2188,9 +2191,14 @@ str(PyObject *self)
             goto end;             \
         }                         \
     }                             \
+    else if (Number_Check(a)) {   \
+        goto numbers;             \
+    }                             \
     else {                        \
         goto fallback;            \
     }
+
+static PyObject * to_float(PyObject *self);
 
 static PyObject *
 richcompare(PyObject *self, PyObject *other, int op)
@@ -2229,6 +2237,39 @@ fallback:
     Py_XDECREF(u);
     Py_XDECREF(v);
     Py_RETURN_NOTIMPLEMENTED;
+numbers:
+    Py_XDECREF(u);
+    Py_XDECREF(v);
+
+    PyObject *uf, *vf;
+
+    if (Number_Check(self)) {
+        uf = self;
+        Py_INCREF(uf);
+    }
+    else {
+        uf = to_float(self);
+        if (!uf) {
+            return NULL;
+        }
+    }
+    if (Number_Check(other)) {
+        vf = other;
+        Py_INCREF(vf);
+    }
+    else {
+        vf = to_float(other);
+        if (!vf) {
+            Py_DECREF(uf);
+            return NULL;
+        }
+    }
+
+    PyObject *res = PyObject_RichCompare(uf, vf, op);
+
+    Py_DECREF(uf);
+    Py_DECREF(vf);
+    return res;
 }
 
 static Py_hash_t
@@ -2308,7 +2349,29 @@ to_bool(PyObject *self)
     return ((MPZ_Object *)self)->size != 0;
 }
 
-#define BINOP(suff)                            \
+#define BINOP_INT(suff)                        \
+    static PyObject *                          \
+    nb_##suff(PyObject *self, PyObject *other) \
+    {                                          \
+        PyObject *res = NULL;                  \
+        MPZ_Object *u = NULL, *v = NULL;       \
+                                               \
+        CHECK_OP(u, self);                     \
+        CHECK_OP(v, other);                    \
+                                               \
+        res = (PyObject *)MPZ_##suff(u, v);    \
+    end:                                       \
+        Py_XDECREF(u);                         \
+        Py_XDECREF(v);                         \
+        return res;                            \
+    fallback:                                  \
+    numbers:                                   \
+        Py_XDECREF(u);                         \
+        Py_XDECREF(v);                         \
+        Py_RETURN_NOTIMPLEMENTED;              \
+    }
+
+#define BINOP(suff, slot)                      \
     static PyObject *                          \
     nb_##suff(PyObject *self, PyObject *other) \
     {                                          \
@@ -2327,11 +2390,42 @@ to_bool(PyObject *self)
         Py_XDECREF(u);                         \
         Py_XDECREF(v);                         \
         Py_RETURN_NOTIMPLEMENTED;              \
+    numbers:                                   \
+        Py_XDECREF(u);                         \
+        Py_XDECREF(v);                         \
+                                               \
+        PyObject *uf, *vf;                     \
+                                               \
+        if (Number_Check(self)) {              \
+            uf = self;                         \
+            Py_INCREF(uf);                     \
+        }                                      \
+        else {                                 \
+            uf = to_float(self);               \
+            if (!uf) {                         \
+                return NULL;                   \
+            }                                  \
+        }                                      \
+        if (Number_Check(other)) {             \
+            vf = other;                        \
+            Py_INCREF(vf);                     \
+        }                                      \
+        else {                                 \
+            vf = to_float(other);              \
+            if (!vf) {                         \
+                Py_DECREF(uf);                 \
+                return NULL;                   \
+            }                                  \
+        }                                      \
+        res = slot(uf, vf);                    \
+        Py_DECREF(uf);                         \
+        Py_DECREF(vf);                         \
+        return res;                            \
     }
 
-BINOP(add)
-BINOP(sub)
-BINOP(mul)
+BINOP(add, PyNumber_Add)
+BINOP(sub, PyNumber_Subtract)
+BINOP(mul, PyNumber_Multiply)
 
 static PyObject *
 divmod(PyObject *self, PyObject *other)
@@ -2367,20 +2461,21 @@ end:
     return NULL;
     /* LCOV_EXCL_STOP */
 fallback:
+numbers:
     Py_DECREF(res);
     Py_XDECREF(u);
     Py_XDECREF(v);
     Py_RETURN_NOTIMPLEMENTED;
 }
 
-BINOP(quot)
-BINOP(rem)
-BINOP(truediv)
-BINOP(lshift)
-BINOP(rshift)
-BINOP(and)
-BINOP(or)
-BINOP(xor)
+BINOP(quot, PyNumber_FloorDivide)
+BINOP(rem, PyNumber_Remainder)
+BINOP(truediv, PyNumber_TrueDivide)
+BINOP_INT(lshift)
+BINOP_INT(rshift)
+BINOP_INT(and)
+BINOP_INT(or)
+BINOP_INT(xor)
 
 static PyObject *
 power(PyObject *self, PyObject *other, PyObject *module)
@@ -2522,6 +2617,39 @@ fallback:
     Py_XDECREF(u);
     Py_XDECREF(v);
     Py_RETURN_NOTIMPLEMENTED;
+numbers:
+    Py_XDECREF(u);
+    Py_XDECREF(v);
+
+    PyObject *uf, *vf;
+
+    if (Number_Check(self)) {
+        uf = self;
+        Py_INCREF(uf);
+    }
+    else {
+        uf = to_float(self);
+        if (!uf) {
+            return NULL;
+        }
+    }
+    if (Number_Check(other)) {
+        vf = other;
+        Py_INCREF(vf);
+    }
+    else {
+        vf = to_float(other);
+        if (!vf) {
+            Py_DECREF(uf);
+            return NULL;
+        }
+    }
+
+    PyObject *res2 = PyNumber_Power(uf, vf, Py_None);
+
+    Py_DECREF(uf);
+    Py_DECREF(vf);
+    return res2;
 }
 
 static PyNumberMethods as_number = {
