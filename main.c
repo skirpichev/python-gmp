@@ -961,8 +961,13 @@ MPZ_lshift1(MPZ_Object *u, mp_limb_t lshift, uint8_t negative)
     if (whole) {
         mpn_zero(res->digits, whole);
     }
-    res->digits[size - 1] = mpn_lshift(res->digits + whole, u->digits,
-                                       u->size, lshift);
+    if (lshift) {
+        res->digits[size - 1] = mpn_lshift(res->digits + whole, u->digits,
+                                           u->size, lshift);
+    }
+    else {
+        mpn_copyi(res->digits + whole, u->digits, u->size);
+    }
     MPZ_normalize(res);
     return res;
 }
