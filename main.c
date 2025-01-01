@@ -2152,8 +2152,6 @@ str(PyObject *self)
 }
 
 #define CHECK_OP(u, a)            \
-    static MPZ_Object *u;         \
-                                  \
     if (MPZ_Check(a)) {           \
         u = (MPZ_Object *)a;      \
         Py_INCREF(u);             \
@@ -2165,12 +2163,14 @@ str(PyObject *self)
         }                         \
     }                             \
     else {                        \
-        Py_RETURN_NOTIMPLEMENTED; \
+        goto fallback;            \
     }
 
 static PyObject *
 richcompare(PyObject *self, PyObject *other, int op)
 {
+    MPZ_Object *u = NULL, *v = NULL;
+
     CHECK_OP(u, self);
     CHECK_OP(v, other);
 
@@ -2199,6 +2199,10 @@ end:
     Py_XDECREF(v);
     return NULL;
     /* LCOV_EXCL_STOP */
+fallback:
+    Py_XDECREF(u);
+    Py_XDECREF(v);
+    Py_RETURN_NOTIMPLEMENTED;
 }
 
 static Py_hash_t
@@ -2283,6 +2287,7 @@ to_bool(PyObject *self)
     nb_##suff(PyObject *self, PyObject *other) \
     {                                          \
         PyObject *res = NULL;                  \
+        MPZ_Object *u = NULL, *v = NULL;       \
                                                \
         CHECK_OP(u, self);                     \
         CHECK_OP(v, other);                    \
@@ -2292,6 +2297,10 @@ to_bool(PyObject *self)
         Py_XDECREF(u);                         \
         Py_XDECREF(v);                         \
         return res;                            \
+    fallback:                                  \
+        Py_XDECREF(u);                         \
+        Py_XDECREF(v);                         \
+        Py_RETURN_NOTIMPLEMENTED;              \
     }
 
 BINOP(add)
@@ -2302,6 +2311,7 @@ static PyObject *
 divmod(PyObject *self, PyObject *other)
 {
     PyObject *res = PyTuple_New(2);
+    MPZ_Object *u = NULL, *v = NULL;
 
     if (!res) {
         /* LCOV_EXCL_START */
@@ -2330,6 +2340,11 @@ end:
     Py_XDECREF(v);
     return NULL;
     /* LCOV_EXCL_STOP */
+fallback:
+    Py_DECREF(res);
+    Py_XDECREF(u);
+    Py_XDECREF(v);
+    Py_RETURN_NOTIMPLEMENTED;
 }
 
 BINOP(quot)
@@ -2345,6 +2360,7 @@ static PyObject *
 power(PyObject *self, PyObject *other, PyObject *module)
 {
     MPZ_Object *res = NULL;
+    MPZ_Object *u = NULL, *v = NULL;
 
     CHECK_OP(u, self);
     CHECK_OP(v, other);
@@ -2380,7 +2396,24 @@ power(PyObject *self, PyObject *other, PyObject *module)
         return (PyObject *)res;
     }
     else {
-        CHECK_OP(w, module);
+        MPZ_Object *w = NULL;
+
+        if (MPZ_Check(module)) {
+            w = (MPZ_Object *)module;
+            Py_INCREF(w);
+        }
+        else if (PyLong_Check(module)) {
+            w = MPZ_from_int(module);
+            if (!u) {
+                goto end;
+            }
+        }
+        else {
+            PyErr_SetString(PyExc_TypeError,
+                            ("pow() 3rd argument not allowed "
+                             "unless all arguments are integers"));
+            goto end;
+        }
         if (!w->size) {
             PyErr_SetString(PyExc_ValueError,
                             "pow() 3rd argument cannot be 0");
@@ -2456,9 +2489,13 @@ power(PyObject *self, PyObject *other, PyObject *module)
         Py_DECREF(w);
     }
 end:
-    Py_DECREF(u);
-    Py_DECREF(v);
+    Py_XDECREF(u);
+    Py_XDECREF(v);
     return (PyObject *)res;
+fallback:
+    Py_XDECREF(u);
+    Py_XDECREF(v);
+    Py_RETURN_NOTIMPLEMENTED;
 }
 
 static PyNumberMethods as_number = {
