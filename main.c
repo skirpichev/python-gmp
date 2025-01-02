@@ -150,11 +150,8 @@ MPZ_abs(MPZ_Object *u)
     return res;
 }
 
-/* Maps 1-byte integer to digit character for bases up to 36 and
-   from 37 up to 62, respectively. */
-static const char *num_to_text36 = "0123456789abcdefghijklmnopqrstuvwxyz";
-static const char *num_to_text62 = ("0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ"
-                                    "abcdefghijklmnopqrstuvwxyz");
+/* Maps 1-byte integer to digit character for bases up to 36. */
+static const char *num_to_text = "0123456789abcdefghijklmnopqrstuvwxyz";
 
 static const char *mpz_tag = "mpz(";
 static int OPT_TAG = 0x1;
@@ -163,9 +160,9 @@ static int OPT_PREFIX = 0x2;
 static PyObject *
 MPZ_to_str(MPZ_Object *u, int base, int options)
 {
-    if (base < 2 || base > 62) {
+    if (base < 2 || base > 36) {
         PyErr_SetString(PyExc_ValueError,
-                        "base must be in the interval [2, 62]");
+                        "mpz base must be >= 2 and <= 36");
         return NULL;
     }
 
@@ -209,9 +206,6 @@ MPZ_to_str(MPZ_Object *u, int base, int options)
         return PyErr_NoMemory();
         /* LCOV_EXCL_STOP */
     }
-
-    const char *num_to_text = base > 36 ? num_to_text62 : num_to_text36;
-
     for (size_t i = 0; i < len; i++) {
         *p = num_to_text[*p];
         p++;
@@ -266,9 +260,9 @@ const unsigned char gmp_digit_value_tab[] =
 static MPZ_Object *
 MPZ_from_str(PyObject *obj, int base)
 {
-    if (base != 0 && (base < 2 || base > 62)) {
+    if (base != 0 && (base < 2 || base > 36)) {
         PyErr_SetString(PyExc_ValueError,
-                        "base must be 0 or in the interval [2, 62]");
+                        "mpz base must be >= 2 and <= 36, or 0");
         return NULL;
     }
 
@@ -339,11 +333,6 @@ MPZ_from_str(PyObject *obj, int base)
     }
 
     const unsigned char *digit_value = gmp_digit_value_tab;
-
-    if (base > 36) {
-        digit_value += 208;
-    }
-
     Py_ssize_t new_len = len;
 
     for (Py_ssize_t i = 0; i < len; i++) {

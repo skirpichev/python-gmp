@@ -685,11 +685,9 @@ def test___sizeof__():
 def to_digits(n, base):
     if n == 0:
         return "0"
-    if base < 2 or base > 62:
-        raise ValueError("base must be in the interval [2, 62]")
+    if base < 2 or base > 36:
+        raise ValueError("mpz base must be >= 2 and <= 36")
     num_to_text = string.digits + string.ascii_lowercase
-    if base > 36:
-        num_to_text = num_to_text.upper() + string.ascii_lowercase
     digits = []
     if n < 0:
         sign = "-"
@@ -704,37 +702,7 @@ def to_digits(n, base):
     return sign + "".join(digits[::-1])
 
 
-def from_digits(s, base):
-    if s == "0":
-        return 0
-    if base < 2 or base > 62:
-        raise ValueError("base must be in the interval [2, 62]")
-    if base <= 36:
-        return int(s, base)
-    if s[0] == "-":
-        negative = True
-        s = s[1:]
-    else:
-        negative = False
-    n = 0
-    b = 1
-    for c in reversed(s):
-        v = ord(c)
-        if ord("0") <= v <= ord("9"):
-            v -= ord("0")
-        elif ord("A") <= v <= ord("Z"):
-            v -= ord("A") - 10
-        else:
-            if base <= 36:
-                v -= ord("a") - 10
-            else:
-                v -= ord("a") - 36
-        n += v*b
-        b *= base
-    return -n if negative else n
-
-
-@given(integers(), integers(min_value=2, max_value=62))
+@given(integers(), integers(min_value=2, max_value=36))
 def test_digits(x, base):
     mx = mpz(x)
     res = to_digits(x, base)
@@ -761,7 +729,7 @@ def test_digits_interface():
 
 
 @given(integers(), integers(min_value=2, max_value=36))
-def test_digits_frombase_low(x, base):
+def test_digits_frombase(x, base):
     mx = mpz(x)
     smx = mx.digits(base)
     assert mpz(smx, base) == mx
@@ -775,22 +743,6 @@ def test_digits_frombase_low(x, base):
             mpz(smx, smaller_base)
     else:
         assert mpz(smx, smaller_base) == i
-
-
-@given(integers(), integers(min_value=37, max_value=62))
-def test_digits_frombase_high(x, base):
-    mx = mpz(x)
-    smx = mx.digits(base)
-    assert mpz(smx, base) == mx
-    assert from_digits(smx, base) == mx
-    smaller_base = (base + 2)//2 + 1
-    try:
-        g = from_digits(smx, smaller_base)
-    except ValueError:
-        with pytest.raises(ValueError):
-            mpz(smx, smaller_base)
-    else:
-        assert mpz(smx, smaller_base) == g
 
 
 @given(integers())
