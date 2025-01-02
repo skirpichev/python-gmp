@@ -57,7 +57,9 @@ version = {attr = "setuptools_scm.get_version"}
 [project.optional-dependencies]
 tests = ["pytest", "hypothesis"]
 docs = ["sphinx"]
-develop = ["python-gmp[tests,docs]", "pre-commit"]
+develop = ["python-gmp[tests,docs]", "pre-commit", "pyperf",
+           "gmpy2>=2.2; platform_python_implementation!='PyPy'",
+           "python-flint>=0.7.0a5"]
 
 [tool.pytest.ini_options]
 addopts = "--durations=7"
