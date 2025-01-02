@@ -161,8 +161,7 @@ static PyObject *
 MPZ_to_str(MPZ_Object *u, int base, int options)
 {
     if (base < 2 || base > 36) {
-        PyErr_SetString(PyExc_ValueError,
-                        "mpz base must be >= 2 and <= 36");
+        PyErr_SetString(PyExc_ValueError, "mpz base must be >= 2 and <= 36");
         return NULL;
     }
 
@@ -2125,7 +2124,7 @@ gmp_parse_pyargs(const gmp_pyargs *fnargs, int argidx[], PyObject *const *args,
 }
 
 static PyObject *
-vectorcall(PyObject *type, PyObject * const*args, size_t nargsf,
+vectorcall(PyObject *type, PyObject *const *args, size_t nargsf,
            PyObject *kwnames)
 {
     Py_ssize_t nargs = PyVectorcall_NARGS(nargsf);
@@ -2166,28 +2165,28 @@ str(PyObject *self)
     return MPZ_to_str((MPZ_Object *)self, 10, 0);
 }
 
-#define Number_Check(op) (PyFloat_Check((op)) \
-                          || PyComplex_Check((op)))
+#define Number_Check(op) (PyFloat_Check((op)) || PyComplex_Check((op)))
 
-#define CHECK_OP(u, a)            \
-    if (MPZ_Check(a)) {           \
-        u = (MPZ_Object *)a;      \
-        Py_INCREF(u);             \
-    }                             \
-    else if (PyLong_Check(a)) {   \
-        u = MPZ_from_int(a);      \
-        if (!u) {                 \
-            goto end;             \
-        }                         \
-    }                             \
-    else if (Number_Check(a)) {   \
-        goto numbers;             \
-    }                             \
-    else {                        \
-        goto fallback;            \
+#define CHECK_OP(u, a)          \
+    if (MPZ_Check(a)) {         \
+        u = (MPZ_Object *)a;    \
+        Py_INCREF(u);           \
+    }                           \
+    else if (PyLong_Check(a)) { \
+        u = MPZ_from_int(a);    \
+        if (!u) {               \
+            goto end;           \
+        }                       \
+    }                           \
+    else if (Number_Check(a)) { \
+        goto numbers;           \
+    }                           \
+    else {                      \
+        goto fallback;          \
     }
 
-static PyObject * to_float(PyObject *self);
+static PyObject *
+to_float(PyObject *self);
 
 static PyObject *
 richcompare(PyObject *self, PyObject *other, int op)
@@ -3351,7 +3350,7 @@ static struct PyModuleDef gmp_module = {
 };
 
 PyDoc_STRVAR(gmp_info__doc__,
-"gmp.gmplib_info\n\
+             "gmp.gmplib_info\n\
 \n\
 A named tuple that holds information about GNU GMP\n\
 and it's internal representation of integers.\n\
