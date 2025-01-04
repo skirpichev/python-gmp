@@ -150,6 +150,7 @@ def test_mpz_interface():
         mpz(1j, 10)
     assert mpz() == mpz(0) == 0
     assert mpz("+123") == 123
+    assert mpz("١٢٣٤") == 1234  # unicode decimal digits
 
     class with_int:
         def __init__(self, value):
@@ -606,8 +607,8 @@ def test_from_bytes(x, length, byteorder, signed):
         rx = int.from_bytes(bytes, byteorder, signed=signed)
         assert rx == mpz.from_bytes(bytes, byteorder, signed=signed)
         assert rx == mpz.from_bytes(bytearray(bytes), byteorder, signed=signed)
-        if platform.python_implementation() == "PyPy":  # FIXME
-            return
+        if platform.python_implementation() == "PyPy":
+            return  # XXX: pypy/pypy#5165
         assert rx == mpz.from_bytes(list(bytes), byteorder, signed=signed)
 
 

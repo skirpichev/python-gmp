@@ -460,11 +460,6 @@ MPZ_from_int(PyObject *obj)
 
     MPZ_Object *res = MPZ_from_str(str, 16);
 
-    if (!res) {
-        /* LCOV_EXCL_START */
-        return NULL;
-        /* LCOV_EXCL_STOP */
-    }
     Py_DECREF(str);
     return res;
 #endif
@@ -1910,6 +1905,55 @@ MPZ_from_bytes(PyObject *obj, int is_little, int is_signed)
 #define MPZ_Check(u) PyObject_TypeCheck((u), &MPZ_Type)
 #define MPZ_CheckExact(u) Py_IS_TYPE((u), &MPZ_Type)
 
+#if PY_VERSION_HEX >= 0x030D0000 || defined(PYPY_VERSION)
+/* copied from CPython internals */
+static PyObject *
+_PyUnicode_TransformDecimalAndSpaceToASCII(PyObject *unicode)
+{
+    if (!PyUnicode_Check(unicode)) {
+        PyErr_BadInternalCall();
+        return NULL;
+    }
+    if (PyUnicode_IS_ASCII(unicode)) {
+        return Py_NewRef(unicode);
+    }
+
+    Py_ssize_t len = PyUnicode_GET_LENGTH(unicode);
+    PyObject *result = PyUnicode_New(len, 127);
+
+    if (result == NULL) {
+        return NULL;
+    }
+
+    Py_UCS1 *out = PyUnicode_1BYTE_DATA(result);
+    int kind = PyUnicode_KIND(unicode);
+    const void *data = PyUnicode_DATA(unicode);
+
+    for (Py_ssize_t i = 0; i < len; ++i) {
+        Py_UCS4 ch = PyUnicode_READ(kind, data, i);
+
+        if (ch < 127) {
+            out[i] = ch;
+        }
+        else if (Py_UNICODE_ISSPACE(ch)) {
+            out[i] = ' ';
+        }
+        else {
+            int decimal = Py_UNICODE_TODECIMAL(ch);
+
+            if (decimal < 0) {
+                out[i] = '?';
+                out[i + 1] = '\0';
+                ((PyASCIIObject *)result)->length = i + 1;
+                break;
+            }
+            out[i] = '0' + decimal;
+        }
+    }
+    return result;
+}
+#endif
+
 static PyObject *
 new_impl(PyTypeObject *Py_UNUSED(type), PyObject *arg, PyObject *base_arg)
 {
@@ -1963,7 +2007,18 @@ new_impl(PyTypeObject *Py_UNUSED(type), PyObject *arg, PyObject *base_arg)
     }
 str:
     if (PyUnicode_Check(arg)) {
-        return (PyObject *)MPZ_from_str(arg, base);
+        PyObject *asciistr = _PyUnicode_TransformDecimalAndSpaceToASCII(arg);
+
+        if (!asciistr) {
+            /* LCOV_EXCL_START */
+            return NULL;
+            /* LCOV_EXCL_STOP */
+        }
+
+        PyObject *res = (PyObject *)MPZ_from_str(asciistr, base);
+
+        Py_DECREF(asciistr);
+        return res;
     }
     else if (PyByteArray_Check(arg) || PyBytes_Check(arg)) {
         const char *string;
