@@ -71,25 +71,78 @@ typedef struct _mpzobject {
 
 PyTypeObject MPZ_Type;
 
+#if !defined(PYPY_VERSION)
+#  define CACHE_SIZE (99)
+#else
+#  define CACHE_SIZE (0)
+#endif
+#define MAX_CACHE_MPZ_LIMBS (64)
+
+typedef struct {
+    MPZ_Object *gmp_cache[CACHE_SIZE + 1];
+    size_t gmp_cache_size;
+} gmp_global;
+
+static gmp_global global = {
+    .gmp_cache_size = 0,
+};
+
 static MPZ_Object *
 MPZ_new(mp_size_t size, uint8_t negative)
 {
-    MPZ_Object *res = PyObject_New(MPZ_Object, &MPZ_Type);
+    MPZ_Object *res;
 
-    if (!res) {
-        /* LCOV_EXCL_START */
-        return NULL;
-        /* LCOV_EXCL_STOP */
+    if (global.gmp_cache_size && size <= MAX_CACHE_MPZ_LIMBS) {
+        res = global.gmp_cache[--(global.gmp_cache_size)];
+        if (res->size < size) {
+#if defined(__GNUC__) && !defined(__clang__)
+#  pragma GCC diagnostic push
+#  pragma GCC diagnostic ignored "-Wsequence-point"
+#endif
+            res->digits = PyMem_Resize(res->digits, mp_limb_t, size);
+#if defined(__GNUC__) && !defined(__clang__)
+#  pragma GCC diagnostic pop
+#endif
+            if (!res->digits) {
+                /* LCOV_EXCL_START */
+                Py_DECREF(res);
+                return (MPZ_Object *)PyErr_NoMemory();
+                /* LCOV_EXCL_STOP */
+            }
+        }
+        Py_INCREF((PyObject *) res);
+    }
+    else {
+        res = PyObject_New(MPZ_Object, &MPZ_Type);
+        if (!res) {
+            /* LCOV_EXCL_START */
+            return NULL;
+            /* LCOV_EXCL_STOP */
+        }
+        res->digits = PyMem_New(mp_limb_t, size);
+        if (!res->digits) {
+            /* LCOV_EXCL_START */
+            return (MPZ_Object *)PyErr_NoMemory();
+            /* LCOV_EXCL_STOP */
+        }
     }
     res->negative = negative;
     res->size = size;
-    res->digits = PyMem_New(mp_limb_t, size);
-    if (!res->digits) {
-        /* LCOV_EXCL_START */
-        return (MPZ_Object *)PyErr_NoMemory();
-        /* LCOV_EXCL_STOP */
-    }
     return res;
+}
+
+static void
+MPZ_dealloc(MPZ_Object *u)
+{
+    if (global.gmp_cache_size < CACHE_SIZE
+        && u->size <= MAX_CACHE_MPZ_LIMBS)
+    {
+        global.gmp_cache[(global.gmp_cache_size)++] = u;
+    }
+    else {
+        PyMem_Free(u->digits);
+        Py_TYPE((PyObject *)u)->tp_free((PyObject *)u);
+    }
 }
 
 static void
@@ -2105,8 +2158,7 @@ new(PyTypeObject *type, PyObject *args, PyObject *keywds)
 static void
 dealloc(PyObject *self)
 {
-    PyMem_Free(((MPZ_Object *)self)->digits);
-    Py_TYPE(self)->tp_free((PyObject *)self);
+    MPZ_dealloc((MPZ_Object *)self);
 }
 
 typedef struct gmp_pyargs {
