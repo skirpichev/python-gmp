@@ -150,6 +150,7 @@ def test_mpz_interface():
         mpz(1j, 10)
     assert mpz() == mpz(0) == 0
     assert mpz("+123") == 123
+    assert mpz("١٢٣٤") == 1234  # unicode decimal digits
 
     class with_int:
         def __init__(self, value):
