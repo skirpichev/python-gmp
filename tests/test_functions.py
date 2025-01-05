@@ -2,9 +2,9 @@ import math
 import platform
 
 import pytest
-from gmp import factorial, gcd, isqrt, mpz
+from gmp import _mpmath_normalize, factorial, gcd, isqrt, mpz
 from hypothesis import given
-from hypothesis.strategies import integers
+from hypothesis.strategies import booleans, integers, sampled_from
 
 
 try:
@@ -71,3 +71,15 @@ def test_interfaces():
         factorial(-1)
     with pytest.raises(OverflowError):
         factorial(2**1000)
+
+
+@given(booleans(), integers(min_value=0), integers(),
+       integers(min_value=1, max_value=1<<32),
+       sampled_from(["n", "f", "c", "u", "d"]))
+def test__mpmath_normalize(sign, man, exp, prec, rnd):
+    mpmath = pytest.importorskip("mpmath")
+    mman = mpz(man)
+    sign = int(sign)
+    bc = mman.bit_length()
+    res = mpmath.libmp.libmpf._normalize(sign, mman, exp, bc, prec, rnd)
+    assert _mpmath_normalize(sign, mman, exp, bc, prec, rnd) == res

@@ -3425,6 +3425,182 @@ end:
     return (PyObject *)res;
 }
 
+static PyObject *
+build_mpf(long sign, MPZ_Object *man, PyObject *exp, mp_bitcnt_t bc)
+{
+    PyObject *tup, *tsign, *tbc;
+
+    if (!(tup = PyTuple_New(4))) {
+        /* LCOV_EXCL_START */
+        Py_DECREF((PyObject*)man);
+        Py_DECREF(exp);
+        return NULL;
+        /* LCOV_EXCL_STOP */
+    }
+
+    if (!(tsign = PyLong_FromLong(sign))) {
+        /* LCOV_EXCL_START */
+        Py_DECREF((PyObject*)man);
+        Py_DECREF(exp);
+        Py_DECREF(tup);
+        return NULL;
+        /* LCOV_EXCL_STOP */
+    }
+
+    if (!(tbc = PyLong_FromUnsignedLongLong(bc))) {
+        /* LCOV_EXCL_START */
+        Py_DECREF((PyObject*)man);
+        Py_DECREF(exp);
+        Py_DECREF(tup);
+        Py_DECREF(tsign);
+        return NULL;
+        /* LCOV_EXCL_STOP */
+    }
+
+    PyTuple_SET_ITEM(tup, 0, tsign);
+    PyTuple_SET_ITEM(tup, 1, (PyObject*)man);
+    PyTuple_SET_ITEM(tup, 2, (exp)?exp:PyLong_FromLong(0));
+    PyTuple_SET_ITEM(tup, 3, tbc);
+    return tup;
+}
+
+static PyObject *
+gmp__mpmath_normalize(PyObject *self, PyObject *const *args, Py_ssize_t nargs)
+{
+    mp_bitcnt_t zbits;
+    PyObject *newexp = NULL, *tmp = NULL;
+    MPZ_Object *res = NULL;
+
+    if (nargs != 6) {
+        PyErr_SetString(PyExc_TypeError, "6 arguments required");
+        return NULL;
+    }
+
+    long sign = PyLong_AsLong(args[0]);
+    MPZ_Object *man = (MPZ_Object*)args[1];
+    PyObject *exp = args[2];
+    mp_bitcnt_t bc = PyLong_AsUnsignedLongLong(args[3]);
+    mp_bitcnt_t prec = PyLong_AsUnsignedLongLong(args[4]);
+    PyObject *rndstr = args[5];
+
+    if (sign == -1 || bc == (mp_bitcnt_t)(-1) || prec == (mp_bitcnt_t)(-1)) {
+        PyErr_SetString(PyExc_TypeError,
+                        ("arguments long, MPZ_Object*, PyObject*, "
+                         "long, long, char needed"));
+        return NULL;
+    }
+    if (!PyUnicode_Check(rndstr)) {
+        PyErr_SetString(PyExc_ValueError, "invalid rounding mode specified");
+        return NULL;
+    }
+    /* If the mantissa is 0, return the normalized representation. */
+    if (!man->size) {
+        Py_INCREF((PyObject*)man);
+        return build_mpf(0, man, 0, 0);
+    }
+    /* if bc <= prec and the number is odd return it */
+    if ((bc <= prec) && man->digits[0]&1) {
+        Py_INCREF((PyObject*)man);
+        Py_INCREF((PyObject*)exp);
+        return build_mpf(sign, man, exp, bc);
+    }
+    Py_INCREF(exp);
+    if (bc > prec) {
+        Py_UCS4 rnd = PyUnicode_READ_CHAR(rndstr, 0);
+        mp_bitcnt_t shift = bc - prec;
+
+        switch (rnd) {
+            case (Py_UCS4)'f':
+                if(sign) {
+                    res = MPZ_rshift1(man, shift, 1);
+                    res->negative = 0;
+                }
+                else {
+                    res = MPZ_rshift1(man, shift, 0);
+                }
+                break;
+            case (Py_UCS4)'c':
+                if(sign) {
+                    res = MPZ_rshift1(man, shift, 0);
+                }
+                else {
+                    res = MPZ_rshift1(man, shift, 1);
+                    res->negative = 0;
+                }
+                break;
+            case (Py_UCS4)'d':
+                res = MPZ_rshift1(man, shift, 0);
+                break;
+            case (Py_UCS4)'u':
+                res = MPZ_rshift1(man, shift, 1);
+                res->negative = 0;
+                break;
+            case (Py_UCS4)'n':
+            default:
+                res = MPZ_rshift1(man, shift - 1, 0);
+
+                int t = (res->digits[0]&1
+                         && (res->digits[0]&2 || shift >= 2));
+
+                mpn_rshift(res->digits, res->digits, res->size, 1);
+                if (t) {
+                    mpn_add_1(res->digits, res->digits, res->size, 1);
+                }
+                MPZ_normalize(res);
+        }
+        if (!(tmp = PyLong_FromUnsignedLongLong(shift))) {
+            /* LCOV_EXCL_START */
+            Py_DECREF((PyObject*)res);
+            Py_DECREF(exp);
+            return NULL;
+            /* LCOV_EXCL_STOP */
+        }
+        if (!(newexp = PyNumber_Add(exp, tmp))) {
+            /* LCOV_EXCL_START */
+            Py_DECREF((PyObject*)res);
+            Py_DECREF(exp);
+            Py_DECREF(tmp);
+            return NULL;
+            /* LCOV_EXCL_STOP */
+        }
+        Py_SETREF(exp, newexp);
+        Py_DECREF(tmp);
+        bc = prec;
+    }
+    else {
+        res = MPZ_copy(man);
+    }
+    /* Strip trailing 0 bits. */
+    if (res->size && (zbits = mpn_scan1(res->digits, 0))) {
+        mpn_rshift(res->digits, res->digits, res->size, zbits);
+        MPZ_normalize(res);
+    }
+    if (!(tmp = PyLong_FromUnsignedLongLong(zbits))) {
+        /* LCOV_EXCL_START */
+        Py_DECREF((PyObject*)res);
+        Py_DECREF(exp);
+        return NULL;
+        /* LCOV_EXCL_STOP */
+    }
+    if (!(newexp = PyNumber_Add(exp, tmp))) {
+        /* LCOV_EXCL_START */
+        Py_DECREF((PyObject*)res);
+        Py_DECREF(tmp);
+        Py_DECREF(exp);
+        return NULL;
+        /* LCOV_EXCL_STOP */
+    }
+    Py_SETREF(exp, newexp);
+    Py_DECREF(tmp);
+
+    bc -= zbits;
+    /* Check if one less than a power of 2 was rounded up. */
+    if (res->size == 1 && res->digits[0] == 1) {
+        bc = 1;
+    }
+    return build_mpf(sign, res, exp, bc);
+}
+
 static PyMethodDef functions[] = {
     {"gcd", (PyCFunction)gmp_gcd, METH_FASTCALL,
      ("gcd($module, /, *integers)\n--\n\n"
@@ -3433,6 +3609,7 @@ static PyMethodDef functions[] = {
      ("isqrt($module, n, /)\n--\n\n"
       "Return the integer part of the square root of the input.")},
     {"_from_bytes", _from_bytes, METH_O, NULL},
+    {"_mpmath_normalize", (PyCFunction)gmp__mpmath_normalize, METH_FASTCALL, NULL},
     {NULL} /* sentinel */
 };
 
