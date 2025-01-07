@@ -23,7 +23,7 @@ gmp_allocate_function(size_t size)
         goto err;
         /* LCOV_EXCL_STOP */
     }
-    void *ret = malloc(size);
+    void *ret = PyMem_RawMalloc(size);
 
     if (!ret) {
         /* LCOV_EXCL_START */
@@ -36,7 +36,7 @@ gmp_allocate_function(size_t size)
 err:
     /* LCOV_EXCL_START */
     for (size_t i = 0; i < gmp_tracker.size; i++) {
-        free(gmp_tracker.ptrs[i]);
+        PyMem_RawFree(gmp_tracker.ptrs[i]);
         gmp_tracker.ptrs[i] = NULL;
     }
     gmp_tracker.size = 0;
@@ -53,7 +53,7 @@ gmp_free_function(void *ptr, size_t size)
             break;
         }
     }
-    free(ptr);
+    PyMem_RawFree(ptr);
 
     size_t i = gmp_tracker.size - 1;
 
@@ -104,7 +104,7 @@ MPZ_new(mp_size_t size, uint8_t negative)
 #  pragma GCC diagnostic push
 #  pragma GCC diagnostic ignored "-Wsequence-point"
 #endif
-            res->digits = PyMem_Resize(res->digits, mp_limb_t, size);
+            res->digits = PyMem_RawRealloc(res->digits, sizeof(mp_limb_t)*size);
 #if defined(__GNUC__) && !defined(__clang__)
 #  pragma GCC diagnostic pop
 #endif
@@ -124,7 +124,7 @@ MPZ_new(mp_size_t size, uint8_t negative)
             return NULL;
             /* LCOV_EXCL_STOP */
         }
-        res->digits = PyMem_New(mp_limb_t, size);
+        res->digits = PyMem_RawMalloc(sizeof(mp_limb_t)*size);
         if (!res->digits) {
             /* LCOV_EXCL_START */
             return (MPZ_Object *)PyErr_NoMemory();
@@ -148,7 +148,7 @@ MPZ_dealloc(MPZ_Object *u)
         global.gmp_cache[(global.gmp_cache_size)++] = u;
     }
     else {
-        PyMem_Free(u->digits);
+        PyMem_RawFree(u->digits);
         Py_TYPE((PyObject *)u)->tp_free((PyObject *)u);
     }
 }
@@ -432,7 +432,7 @@ MPZ_from_str(PyObject *obj, int base)
 
     mp_limb_t *tmp = res->digits;
 
-    res->digits = PyMem_Resize(tmp, mp_limb_t, res->size);
+    res->digits = PyMem_RawRealloc(tmp, sizeof(mp_limb_t)*res->size);
     if (!res->digits) {
         /* LCOV_EXCL_START */
         res->digits = tmp;
@@ -1640,7 +1640,7 @@ MPZ_pow(MPZ_Object *u, MPZ_Object *v)
         /* LCOV_EXCL_STOP */
     }
 
-    mp_limb_t *tmp = PyMem_New(mp_limb_t, res->size);
+    mp_limb_t *tmp = PyMem_RawMalloc(sizeof(mp_limb_t)*res->size);
 
     if (!tmp) {
         /* LCOV_EXCL_START */
@@ -1653,14 +1653,14 @@ MPZ_pow(MPZ_Object *u, MPZ_Object *v)
     }
     else {
         /* LCOV_EXCL_START */
-        PyMem_Free(tmp);
+        PyMem_RawFree(tmp);
         Py_DECREF(res);
         return (MPZ_Object *)PyErr_NoMemory();
         /* LCOV_EXCL_STOP */
     }
-    PyMem_Free(tmp);
+    PyMem_RawFree(tmp);
     tmp = res->digits;
-    res->digits = PyMem_Resize(tmp, mp_limb_t, res->size);
+    res->digits = PyMem_RawRealloc(tmp, sizeof(mp_limb_t)*res->size);
     if (!res->digits) {
         /* LCOV_EXCL_START */
         res->digits = tmp;
@@ -1721,7 +1721,7 @@ MPZ_powm(MPZ_Object *u, MPZ_Object *v, MPZ_Object *w)
 
     mp_size_t enb = v->size * GMP_NUMB_BITS;
     mp_size_t tmp_size = mpn_sec_powm_itch(u->size, enb, w->size);
-    mp_limb_t *tmp = PyMem_New(mp_limb_t, tmp_size);
+    mp_limb_t *tmp = PyMem_RawMalloc(sizeof(mp_limb_t)*tmp_size);
 
     if (!tmp) {
         /* LCOV_EXCL_START */
@@ -1735,12 +1735,12 @@ MPZ_powm(MPZ_Object *u, MPZ_Object *v, MPZ_Object *w)
     }
     else {
         /* LCOV_EXCL_START */
-        PyMem_Free(tmp);
+        PyMem_RawFree(tmp);
         Py_DECREF(res);
         return (MPZ_Object *)PyErr_NoMemory();
         /* LCOV_EXCL_STOP */
     }
-    PyMem_Free(tmp);
+    PyMem_RawFree(tmp);
     MPZ_normalize(res);
     return res;
 }
@@ -1938,7 +1938,7 @@ MPZ_from_bytes(PyObject *obj, int is_little, int is_signed)
 
     mp_limb_t *tmp = res->digits;
 
-    res->digits = PyMem_Resize(tmp, mp_limb_t, res->size);
+    res->digits = PyMem_RawRealloc(tmp, sizeof(mp_limb_t)*res->size);
     if (!res->digits) {
         /* LCOV_EXCL_START */
         res->digits = tmp;
@@ -2141,7 +2141,7 @@ new(PyTypeObject *type, PyObject *args, PyObject *keywds)
         }
         newobj->size = n;
         newobj->negative = tmp->negative;
-        newobj->digits = PyMem_New(mp_limb_t, n);
+        newobj->digits = PyMem_RawMalloc(sizeof(mp_limb_t)*n);
         if (!newobj->digits) {
             /* LCOV_EXCL_START */
             Py_DECREF(tmp);
@@ -3381,7 +3381,7 @@ gmp_gcd(PyObject *Py_UNUSED(module), PyObject *const *args, Py_ssize_t nargs)
         if (newsize != res->size) {
             mp_limb_t *tmp_limbs = res->digits;
 
-            res->digits = PyMem_Resize(tmp_limbs, mp_limb_t, newsize);
+            res->digits = PyMem_RawRealloc(tmp_limbs, sizeof(mp_limb_t)*newsize);
             if (!res->digits) {
                 /* LCOV_EXCL_START */
                 res->digits = tmp_limbs;
