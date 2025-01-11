@@ -36,10 +36,8 @@ gmp_allocate_function(size_t size)
 err:
     /* LCOV_EXCL_START */
     for (size_t i = 0; i < gmp_tracker.size; i++) {
-        if (gmp_tracker.ptrs[i]) {
-            free(gmp_tracker.ptrs[i]);
-            gmp_tracker.ptrs[i] = NULL;
-        }
+        free(gmp_tracker.ptrs[i]);
+        gmp_tracker.ptrs[i] = NULL;
     }
     gmp_tracker.size = 0;
     longjmp(gmp_env, 1);
@@ -50,15 +48,22 @@ static void
 gmp_free_function(void *ptr, size_t size)
 {
     for (size_t i = gmp_tracker.size - 1; i >= 0; i--) {
-        if (gmp_tracker.ptrs[i] && gmp_tracker.ptrs[i] == ptr) {
+        if (gmp_tracker.ptrs[i] == ptr) {
             gmp_tracker.ptrs[i] = NULL;
-            if (i == gmp_tracker.size - 1) {
-                gmp_tracker.size--;
-            }
             break;
         }
     }
     free(ptr);
+
+    size_t i = gmp_tracker.size - 1;
+
+    while (gmp_tracker.size > 0) {
+        if (gmp_tracker.ptrs[i]) {
+            break;
+        }
+        gmp_tracker.size--;
+        i--;
+    }
 }
 
 typedef struct _mpzobject {
@@ -131,11 +136,14 @@ MPZ_new(mp_size_t size, uint8_t negative)
     return res;
 }
 
+#define MPZ_CheckExact(u) Py_IS_TYPE((u), &MPZ_Type)
+
 static void
 MPZ_dealloc(MPZ_Object *u)
 {
     if (global.gmp_cache_size < CACHE_SIZE
-        && u->size <= MAX_CACHE_MPZ_LIMBS)
+        && u->size <= MAX_CACHE_MPZ_LIMBS
+        && MPZ_CheckExact((PyObject *)u))
     {
         global.gmp_cache[(global.gmp_cache_size)++] = u;
     }
@@ -1959,7 +1967,6 @@ MPZ_from_bytes(PyObject *obj, int is_little, int is_signed)
 }
 
 #define MPZ_Check(u) PyObject_TypeCheck((u), &MPZ_Type)
-#define MPZ_CheckExact(u) Py_IS_TYPE((u), &MPZ_Type)
 
 #if PY_VERSION_HEX >= 0x030D0000 || defined(PYPY_VERSION)
 /* copied from CPython internals */
@@ -2623,7 +2630,7 @@ power(PyObject *self, PyObject *other, PyObject *module)
         }
         else if (PyLong_Check(module)) {
             w = MPZ_from_int(module);
-            if (!u) {
+            if (!w) {
                 goto end;
             }
         }
@@ -2698,7 +2705,7 @@ power(PyObject *self, PyObject *other, PyObject *module)
         else {
             res = MPZ_powm(u, v, w);
         }
-        if (negativeOutput && res->size) {
+        if (negativeOutput && res && res->size) {
             MPZ_Object *tmp = res;
 
             res = MPZ_sub(res, w);
