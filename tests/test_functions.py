@@ -4,7 +4,7 @@ import resource
 
 import pytest
 from gmp import factorial, gcd, isqrt, mpz
-from hypothesis import given
+from hypothesis import given, settings
 from hypothesis.strategies import integers
 
 
@@ -26,6 +26,7 @@ def test_factorial(x):
                     reason="FIXME: setrlimit fails with ValueError on MacOS")
 @pytest.mark.skipif(platform.python_implementation() == "PyPy",
                     reason="XXX: bug in PyNumber_ToBase()?")
+@settings(max_examples=300)
 @given(integers(min_value=12811, max_value=24984))
 def test_factorial_outofmemory(x):
     soft, hard = resource.getrlimit(resource.RLIMIT_AS)

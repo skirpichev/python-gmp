@@ -32,5 +32,5 @@ jobs:
       - run: pip install --upgrade pip
       - run: pip --verbose install --editable .[tests]
       - run: ulimit -a
-      - run: time python scripts/bug.py
+      - run: time python scripts/bug.py 300
       - run: time pytest -vs -k test_factorial_outofmemory
