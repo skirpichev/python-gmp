@@ -1,16 +1,7 @@
 name: test
 on: [push, pull_request]
 jobs:
-  linter:
-    uses: ./.github/workflows/linter.yml
-  docs:
-    uses: ./.github/workflows/docs.yml
-  coverage:
-    uses: ./.github/workflows/coverage.yml
   linux:
-    needs:
-      - linter
-      - coverage
     strategy:
       fail-fast: false
       matrix:
@@ -33,5 +24,7 @@ jobs:
       - run: pip install --upgrade pip
       - run: pip --verbose install --editable .[tests]
       - run: ulimit -a
+      - run: time python scripts/bug.py 100
       - run: time python scripts/bug.py 300
-      - run: time pytest -vs -k test_factorial_outofmemory
+      - run: time pytest -vs -k test_factorial_outofmemory1
+      - run: time pytest -vs -k test_factorial_outofmemory2
