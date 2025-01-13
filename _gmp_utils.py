@@ -54,7 +54,12 @@ def powproduct(ns):
     p = powproduct(multi)
     p2 = p**2
     del p
-    return units * p2
+    pp = int(units) * int(p2)
+    del units
+    del p2
+    pp2 = mpz(pp)
+    del pp
+    return pp2
 
 
 def factorial(n, /):
