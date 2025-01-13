@@ -37,7 +37,8 @@ def test_factorial_outofmemory1(n):
         a = mpz(a)
         while True:
             try:
-                factorial(a)
+                b = factorial(a)
+                del b
                 a *= 2
             except MemoryError:
                 break
@@ -57,7 +58,8 @@ def test_factorial_outofmemory2(x):
     x = mpz(x)
     while True:
         try:
-            factorial(x)
+            b = factorial(x)
+            del b
             x *= 2
         except MemoryError:
             break
@@ -77,7 +79,8 @@ def test_factorial_outofmemory3(x):
     x = mpz(x)
     while True:
         try:
-            factorial(x)
+            b = factorial(x)
+            del b
             x *= 2
         except MemoryError:
             break
