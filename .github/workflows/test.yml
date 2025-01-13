@@ -27,4 +27,7 @@ jobs:
       - run: time python scripts/bug.py 100
       - run: time python scripts/bug.py 300
       - run: time pytest -vs -k test_factorial_outofmemory1
+        continue-on-error: true
       - run: time pytest -vs -k test_factorial_outofmemory2
+        continue-on-error: true
+      - run: sudo dmesg
