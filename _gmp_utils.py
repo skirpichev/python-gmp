@@ -54,11 +54,10 @@ def powproduct(ns):
     p = powproduct(multi)
     p2 = p**2
     del p
-    pp = int(units) * int(p2)
+    #pp = int(units) * int(p2)
+    pp2 = units * p2
     del units
     del p2
-    pp2 = mpz(pp)
-    del pp
     return pp2
 
 
