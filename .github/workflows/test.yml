@@ -26,9 +26,9 @@ jobs:
       - run: ulimit -a
       - run: time python scripts/bug.py 100
       - run: time python scripts/bug.py 300
-      - run: time pytest -vs -k test_factorial_outofmemory1
+      - run: time pytest -v -k test_factorial_outofmemory1
         continue-on-error: true
-      - run: time pytest -vs -k test_factorial_outofmemory2
+      - run: time pytest -v -k test_factorial_outofmemory2
         continue-on-error: true
-      - run: time pytest -vs -k test_factorial_outofmemory3
+      - run: time pytest -v -k test_factorial_outofmemory3
         continue-on-error: true

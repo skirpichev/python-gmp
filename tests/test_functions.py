@@ -33,6 +33,7 @@ def test_factorial_outofmemory1(n):
         soft, hard = resource.getrlimit(resource.RLIMIT_AS)
         resource.setrlimit(resource.RLIMIT_AS, (1024*64*1024, hard))
         a = random.randint(12811, 24984)
+        print(a)
         a = mpz(a)
         while True:
             try:
@@ -52,6 +53,7 @@ def test_factorial_outofmemory1(n):
 def test_factorial_outofmemory2(x):
     soft, hard = resource.getrlimit(resource.RLIMIT_AS)
     resource.setrlimit(resource.RLIMIT_AS, (1024*64*1024, hard))
+    print(x)
     x = mpz(x)
     while True:
         try:
@@ -71,6 +73,7 @@ def test_factorial_outofmemory2(x):
 def test_factorial_outofmemory3(x):
     soft, hard = resource.getrlimit(resource.RLIMIT_AS)
     resource.setrlimit(resource.RLIMIT_AS, (1024*64*1024, hard))
+    print(x)
     x = mpz(x)
     while True:
         try:
