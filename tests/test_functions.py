@@ -30,6 +30,7 @@ def test_factorial(x):
 def test_factorial_outofmemory(x):
     soft, hard = resource.getrlimit(resource.RLIMIT_AS)
     resource.setrlimit(resource.RLIMIT_AS, (1024*64*1024, hard))
+    print(x)
     x = mpz(x)
     while True:
         try:
