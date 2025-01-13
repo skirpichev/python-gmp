@@ -30,4 +30,5 @@ jobs:
         continue-on-error: true
       - run: time pytest -vs -k test_factorial_outofmemory2
         continue-on-error: true
-      - run: sudo dmesg
+      - run: time pytest -vs -k test_factorial_outofmemory3
+        continue-on-error: true

@@ -1,5 +1,6 @@
 import math
 import platform
+import random
 import resource
 
 import pytest
@@ -26,9 +27,29 @@ def test_factorial(x):
                     reason="FIXME: setrlimit fails with ValueError on MacOS")
 @pytest.mark.skipif(platform.python_implementation() == "PyPy",
                     reason="XXX: bug in PyNumber_ToBase()?")
+@pytest.mark.parametrize("n", [100, 300])
+def test_factorial_outofmemory1(n):
+    for _ in range(n):
+        soft, hard = resource.getrlimit(resource.RLIMIT_AS)
+        resource.setrlimit(resource.RLIMIT_AS, (1024*64*1024, hard))
+        a = random.randint(12811, 24984)
+        a = mpz(a)
+        while True:
+            try:
+                factorial(a)
+                a *= 2
+            except MemoryError:
+                break
+        resource.setrlimit(resource.RLIMIT_AS, (soft, hard))
+
+
+@pytest.mark.skipif(platform.system() != "Linux",
+                    reason="FIXME: setrlimit fails with ValueError on MacOS")
+@pytest.mark.skipif(platform.python_implementation() == "PyPy",
+                    reason="XXX: bug in PyNumber_ToBase()?")
 @settings(max_examples=100)
 @given(integers(min_value=12811, max_value=24984))
-def test_factorial_outofmemory1(x):
+def test_factorial_outofmemory2(x):
     soft, hard = resource.getrlimit(resource.RLIMIT_AS)
     resource.setrlimit(resource.RLIMIT_AS, (1024*64*1024, hard))
     x = mpz(x)
@@ -47,7 +68,7 @@ def test_factorial_outofmemory1(x):
                     reason="XXX: bug in PyNumber_ToBase()?")
 @settings(max_examples=300)
 @given(integers(min_value=12811, max_value=24984))
-def test_factorial_outofmemory2(x):
+def test_factorial_outofmemory3(x):
     soft, hard = resource.getrlimit(resource.RLIMIT_AS)
     resource.setrlimit(resource.RLIMIT_AS, (1024*64*1024, hard))
     x = mpz(x)
