@@ -757,15 +757,40 @@ MPZ_mul(MPZ_Object *u, MPZ_Object *v)
     if (u->size < v->size) {
         SWAP(MPZ_Object *, u, v);
     }
-    if (u == v) {
+    if (v->size == 1) {
         if (CHECK_NO_MEM_LEAK) {
-            mpn_sqr(res->digits, u->digits, u->size);
+            res->digits[res->size - 1] = mpn_mul_1(res->digits, u->digits,
+                                                   u->size, v->digits[0]);
         }
         else {
             /* LCOV_EXCL_START */
             Py_DECREF(res);
             return (MPZ_Object *)PyErr_NoMemory();
             /* LCOV_EXCL_STOP */
+        }
+    }
+    else if (u->size == v->size) {
+        if (u == v) {
+            if (CHECK_NO_MEM_LEAK) {
+                mpn_sqr(res->digits, u->digits, u->size);
+            }
+            else {
+                /* LCOV_EXCL_START */
+                Py_DECREF(res);
+                return (MPZ_Object *)PyErr_NoMemory();
+                /* LCOV_EXCL_STOP */
+            }
+        }
+        else {
+            if (CHECK_NO_MEM_LEAK) {
+                mpn_mul_n(res->digits, u->digits, v->digits, u->size);
+            }
+            else {
+                /* LCOV_EXCL_START */
+                Py_DECREF(res);
+                return (MPZ_Object *)PyErr_NoMemory();
+                /* LCOV_EXCL_STOP */
+            }
         }
     }
     else {
@@ -779,7 +804,7 @@ MPZ_mul(MPZ_Object *u, MPZ_Object *v)
             /* LCOV_EXCL_STOP */
         }
     }
-    MPZ_normalize(res);
+    res->size -= (res->digits[res->size - 1] == 0);
     return res;
 }
 
