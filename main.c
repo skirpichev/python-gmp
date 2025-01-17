@@ -747,7 +747,7 @@ MPZ_mul(MPZ_Object *u, MPZ_Object *v)
         return MPZ_FromDigitSign(0, 0);
     }
 
-    MPZ_Object *res = MPZ_new(u->size + v->size, u->negative != v->negative);
+    volatile MPZ_Object *res = MPZ_new(u->size + v->size, u->negative != v->negative);
 
     if (!res) {
         /* LCOV_EXCL_START */
@@ -805,7 +805,7 @@ MPZ_mul(MPZ_Object *u, MPZ_Object *v)
         }
     }
     res->size -= (res->digits[res->size - 1] == 0);
-    return res;
+    return (MPZ_Object *)res;
 }
 
 static int
