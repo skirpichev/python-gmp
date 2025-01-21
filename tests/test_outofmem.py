@@ -9,6 +9,10 @@ from hypothesis.strategies import integers
 if platform.system() != "Linux":
     pytest.skip("FIXME: setrlimit fails with ValueError on MacOS",
                 allow_module_level=True)
+if platform.python_implementation() == "GraalVM":
+    pytest.skip("XXX: module 'resource' has no attribute 'setrlimit'",
+                allow_module_level=True)
+
 resource = pytest.importorskip("resource")
 
 

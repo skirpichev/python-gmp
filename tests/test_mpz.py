@@ -364,6 +364,8 @@ def test_divmod_errors():
         divmod(mx, 1j)
 
 
+@pytest.mark.skipif(platform.python_implementation() == "GraalVM",
+                    reason="XXX: oracle/graalpython#474")
 @given(integers(), integers())
 @example(0, -1)
 @example(0, 123)
@@ -417,6 +419,8 @@ def test_truediv_mixed(x, y, z):
                 assert mx / z == r
 
 
+@pytest.mark.skipif(platform.python_implementation() == "GraalVM",
+                    reason="XXX: oracle/graalpython#473")
 @given(integers(), integers(max_value=100000))
 @example(0, 123)
 @example(123, 0)
@@ -655,6 +659,8 @@ def test_to_bytes(x, length, byteorder, signed):
     try:
         rx = x.to_bytes(length, byteorder, signed=signed)
     except OverflowError:
+        if platform.python_implementation() == "GraalVM" and not length:
+            return  # XXX: oracle/graalpython#475
         with pytest.raises(OverflowError):
             mpz(x).to_bytes(length, byteorder, signed=signed)
     else:
@@ -716,7 +722,10 @@ def test_from_bytes(x, length, byteorder, signed):
     else:
         rx = int.from_bytes(bytes, byteorder, signed=signed)
         assert rx == mpz.from_bytes(bytes, byteorder, signed=signed)
-        assert rx == mpz.from_bytes(bytearray(bytes), byteorder, signed=signed)
+        if platform.python_implementation() != "GraalVM":
+            # XXX: oracle/graalpython#476
+            assert rx == mpz.from_bytes(bytearray(bytes), byteorder,
+                                        signed=signed)
         if (platform.python_implementation() == "PyPy"
                 and sys.pypy_version_info < (7, 3, 18)):
             return  # XXX: pypy/pypy#5165
@@ -840,6 +849,8 @@ def test_digits_interface():
     assert x.digits(16, prefix=False) == x.digits(16, False) == x.digits(16)
 
 
+@pytest.mark.skipif(platform.python_implementation() == "GraalVM",
+                    reason="XXX: oracle/graalpython#479")
 @given(integers(), integers(min_value=2, max_value=36))
 def test_digits_frombase(x, base):
     mx = mpz(x)
