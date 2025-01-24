@@ -881,7 +881,7 @@ MPZ_divmod(MPZ_Object **q, MPZ_Object **r, MPZ_Object *u, MPZ_Object *v)
 static MPZ_Object *
 MPZ_quot(MPZ_Object *u, MPZ_Object *v)
 {
-    MPZ_Object *q, *r;
+    MPZ_Object * volatile q, * volatile r;
 
     if (MPZ_divmod(&q, &r, u, v) == -1) {
         /* LCOV_EXCL_START */
@@ -895,7 +895,7 @@ MPZ_quot(MPZ_Object *u, MPZ_Object *v)
 static MPZ_Object *
 MPZ_rem(MPZ_Object *u, MPZ_Object *v)
 {
-    MPZ_Object *q, *r;
+    MPZ_Object * volatile q, * volatile r;
 
     if (MPZ_divmod(&q, &r, u, v) == -1) {
         /* LCOV_EXCL_START */
@@ -1632,7 +1632,7 @@ MPZ_pow(MPZ_Object *u, MPZ_Object *v)
     }
 
     mp_limb_t e = v->digits[0];
-    MPZ_Object *res = MPZ_new(u->size * e, u->negative && e%2);
+    MPZ_Object * volatile res = MPZ_new(u->size * e, u->negative && e%2);
 
     if (!res) {
         /* LCOV_EXCL_START */
@@ -1640,7 +1640,7 @@ MPZ_pow(MPZ_Object *u, MPZ_Object *v)
         /* LCOV_EXCL_STOP */
     }
 
-    mp_limb_t *tmp = PyMem_RawMalloc(sizeof(mp_limb_t)*res->size);
+    mp_limb_t * volatile tmp = PyMem_RawMalloc(sizeof(mp_limb_t)*res->size);
 
     if (!tmp) {
         /* LCOV_EXCL_START */

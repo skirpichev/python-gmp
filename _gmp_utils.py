@@ -55,7 +55,7 @@ def powproduct(ns):
     p2 = p**2
     del p
     #pp = int(units) * int(p2)
-    print(units.bit_length(), p2.bit_length(), flush=True)
+    #print(units.bit_length(), p2.bit_length(), flush=True)
     pp2 = units * p2
     del units
     del p2
