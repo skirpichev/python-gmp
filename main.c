@@ -683,8 +683,8 @@ MPZ_AsDoubleAndExp(MPZ_Object *u, Py_ssize_t *e)
 static MPZ_Object *
 _MPZ_addsub(MPZ_Object *u, MPZ_Object *v, int subtract)
 {
-    MPZ_Object *res;
-    uint8_t negu = u->negative, negv = v->negative;
+    MPZ_Object * volatile res;
+    volatile uint8_t negu = u->negative, negv = v->negative;
 
     if (subtract) {
         negv = !negv;
@@ -830,7 +830,7 @@ MPZ_divmod(MPZ_Object **q, MPZ_Object **r, MPZ_Object *u, MPZ_Object *v)
         }
     }
     else {
-        uint8_t q_negative = (u->negative != v->negative);
+        volatile uint8_t q_negative = (u->negative != v->negative);
 
         *q = MPZ_new(u->size - v->size + 1 + q_negative, q_negative);
         if (!*q) {
@@ -3401,7 +3401,7 @@ gmp_gcd(PyObject *Py_UNUSED(module), PyObject *const *args, Py_ssize_t nargs)
 static PyObject *
 gmp_isqrt(PyObject *Py_UNUSED(module), PyObject *arg)
 {
-    MPZ_Object *x, *res = NULL;
+    MPZ_Object * volatile x, * volatile res = NULL;
 
     if (MPZ_Check(arg)) {
         x = (MPZ_Object *)arg;
