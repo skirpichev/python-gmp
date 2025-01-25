@@ -33,7 +33,9 @@ jobs:
       - run: |
           python setup.py clean
           CFLAGS="-coverage" python setup.py develop
-          pytest --hypothesis-profile=default
+          ls -la
+          ldd *.so
+          LD_LIBRARY_PATH=/usr/local/lib/ pytest --hypothesis-profile=default
           lcov --capture --directory . --no-external \
               --output-file build/coverage-${{ matrix.python-version }}.info
       - uses: actions/upload-artifact@v4
