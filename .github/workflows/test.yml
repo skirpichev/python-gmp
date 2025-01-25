@@ -23,12 +23,13 @@ jobs:
           sudo apt-get install libgmp-dev
       - run: pip install --upgrade pip
       - run: pip --verbose install --editable .[tests]
+      - run: ulimit -s 32768
       - run: ulimit -a
-      - run: time python scripts/bug.py 100
-      - run: time python scripts/bug.py 300
-      - run: time pytest --assert=plain -vs -k test_factorial_outofmemory1
+      - run: python scripts/bug.py 100
+      - run: python scripts/bug.py 300
+      - run: pytest --assert=plain -vs -k test_factorial_outofmemory1
         continue-on-error: true
-      - run: time pytest --assert=plain -vs -k test_factorial_outofmemory2
+      - run: pytest --assert=plain -vs -k test_factorial_outofmemory2
         continue-on-error: true
-      - run: time pytest --assert=plain -vs -k test_factorial_outofmemory3
+      - run: pytest --assert=plain -vs -k test_factorial_outofmemory3
         continue-on-error: true
