@@ -34,7 +34,7 @@ jobs:
           python setup.py clean
           CFLAGS="-coverage" python setup.py develop
           ls -la
-          ldd *.so
+          LD_LIBRARY_PATH=/usr/local/lib/ ldd *.so
           LD_LIBRARY_PATH=/usr/local/lib/ pytest --hypothesis-profile=default
           lcov --capture --directory . --no-external \
               --output-file build/coverage-${{ matrix.python-version }}.info
