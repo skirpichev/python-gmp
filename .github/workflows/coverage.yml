@@ -24,7 +24,8 @@ jobs:
           tar -xf gmp-${GMP_VERSION}.tar.xz
           cd gmp-${GMP_VERSION}
           rm config.guess && mv configfsf.guess config.guess && chmod +x config.guess
-          ./configure --enable-fat --enable-shared --disable-static --with-pic --enable-alloca=no -q
+          #./configure --enable-fat --enable-shared --disable-static --with-pic --enable-alloca=no -q
+          ./configure --enable-fat --enable-shared --disable-static --with-pic -q
           make -s
           sudo make -s install
       - run: pip install --upgrade pip setuptools setuptools_scm
