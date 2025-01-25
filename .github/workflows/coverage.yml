@@ -17,8 +17,16 @@ jobs:
           python-version: ${{ matrix.python-version }}
       - run: |
           sudo apt-get update
-          sudo apt-get install libgmp-dev
           sudo apt-get install lcov
+      - run: |
+          export GMP_VERSION=6.3.0
+          wget -q https://ftp.gnu.org/gnu/gmp/gmp-${GMP_VERSION}.tar.xz
+          tar -xf gmp-${GMP_VERSION}.tar.xz
+          cd gmp-${GMP_VERSION}
+          rm config.guess && mv configfsf.guess config.guess && chmod +x config.guess
+          ./configure --enable-fat --enable-shared --disable-static --with-pic --enable-alloca=no -q
+          make -s
+          sudo make -s install
       - run: pip install --upgrade pip setuptools setuptools_scm
       - run: pip --verbose install --editable .[tests]
       - run: ulimit -s 32768
