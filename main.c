@@ -809,7 +809,8 @@ MPZ_mul(MPZ_Object *u, MPZ_Object *v)
 }
 
 static int
-MPZ_divmod(MPZ_Object **q, MPZ_Object **r, MPZ_Object *u, MPZ_Object *v)
+MPZ_divmod(MPZ_Object * volatile *q, MPZ_Object * volatile *r,
+           MPZ_Object *u, MPZ_Object *v)
 {
     if (!v->size) {
         PyErr_SetString(PyExc_ZeroDivisionError, "division by zero");
