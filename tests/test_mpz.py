@@ -3,7 +3,6 @@ import math
 import operator
 import pickle
 import platform
-import resource
 import string
 import sys
 import warnings
@@ -21,6 +20,12 @@ from hypothesis.strategies import (
     sampled_from,
     text,
 )
+
+
+try:
+    import resource
+except ImportError:
+    pass
 
 
 @given(integers())

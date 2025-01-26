@@ -1,11 +1,16 @@
 import math
 import platform
-import resource
 
 import pytest
 from gmp import factorial, gcd, isqrt, mpz
 from hypothesis import given
 from hypothesis.strategies import integers
+
+
+try:
+    import resource
+except ImportError:
+    pass
 
 
 @given(integers(min_value=0))
