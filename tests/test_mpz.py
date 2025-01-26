@@ -1,3 +1,4 @@
+import cmath
 import math
 import operator
 import pickle
@@ -13,6 +14,7 @@ from hypothesis import assume, example, given
 from hypothesis.strategies import (
     booleans,
     characters,
+    complex_numbers,
     composite,
     floats,
     integers,
@@ -203,6 +205,14 @@ def test_richcompare(x, y):
     assert bool(mx) == bool(x)
 
 
+@given(integers(), floats(allow_nan=False))
+def test_richcompare_mixed(x, y):
+    mx = mpz(x)
+    for op in [operator.eq, operator.ne, operator.lt, operator.le,
+               operator.gt, operator.ge]:
+        assert op(mx, y) == op(x, y)
+
+
 def test_richcompare_errors():
     mx = mpz(123)
     with pytest.raises(TypeError):
@@ -248,6 +258,21 @@ def test_add_sub(x, y):
     assert x - my == r
 
 
+@given(integers(), floats(allow_nan=False), complex_numbers(allow_nan=False))
+def test_add_sub_mixed(x, y, z):
+    mx = mpz(x)
+    r = x + y
+    assert mx + y == y + mx
+    assert mx + y == r
+    r = x - y
+    assert mx - y == r
+    r = x + z
+    assert mx + z == z + mx
+    assert mx + z == r
+    r = x - z
+    assert mx - z == r
+
+
 @given(integers(), integers())
 def test_mul(x, y):
     mx = mpz(x)
@@ -278,6 +303,25 @@ def test_mul_distributivity(x, y, z):
     assert (mx - my) * mz == mx*mz - my*mz
 
 
+@given(integers(), floats(allow_nan=False), complex_numbers(allow_nan=False))
+def test_mul_mixed(x, y, z):
+    mx = mpz(x)
+    r = x * y
+    if math.isnan(r):
+        assert math.isnan(mx * y)
+        assert math.isnan(y * mx)
+    else:
+        assert mx * y == y * mx
+        assert mx * y == r
+    r = x * z
+    if cmath.isnan(r):
+        assert cmath.isnan(mx * z)
+        assert cmath.isnan(z * mx)
+    else:
+        assert mx * z == z * mx
+        assert mx * z == r
+
+
 @given(integers(), integers())
 @example(18446744073709551615, -1)
 @example(-2, 1<<64)
@@ -302,6 +346,17 @@ def test_divmod(x, y):
     assert x % my == r
     r = divmod(x, y)
     assert divmod(mx, my) == r
+
+
+@given(integers(), floats(allow_nan=False))
+def test_divmod_mixed(x, y):
+    mx = mpz(x)
+    if not y:
+        with pytest.raises(ZeroDivisionError):
+            mx // y
+    else:
+        assert mx // y == x // y
+        assert mx % y == x % y
 
 
 def test_divmod_errors():
@@ -333,6 +388,36 @@ def test_truediv(x, y):
         assert x / my == r
 
 
+@given(integers(), floats(allow_nan=False), complex_numbers(allow_nan=False))
+def test_truediv_mixed(x, y, z):
+    mx = mpz(x)
+    if not y:
+        with pytest.raises(ZeroDivisionError):
+            mx / y
+    else:
+        try:
+            r = x / y
+        except OverflowError:
+            with pytest.raises(OverflowError):
+                mx / y
+        else:
+            assert mx / y == r
+    if not z:
+        with pytest.raises(ZeroDivisionError):
+            mx / z
+    else:
+        try:
+            r = x / z
+        except OverflowError:
+            with pytest.raises(OverflowError):
+                mx / z
+        else:
+            if cmath.isnan(r):
+                assert cmath.isnan(mx / z)
+            else:
+                assert mx / z == r
+
+
 @given(integers(), integers(max_value=100000))
 @example(0, 123)
 @example(123, 0)
@@ -360,6 +445,31 @@ def test_power(x, y):
         assert mx**my == r
         assert mx**y == r
         assert x**my == r
+
+
+@given(integers(), floats(allow_nan=False))
+def test_power_mixed(x, y):
+    mx = mpz(x)
+    try:
+        r = x**y
+    except OverflowError:
+        with pytest.raises(OverflowError):
+            mx**y
+    except ZeroDivisionError:
+        with pytest.raises(ZeroDivisionError):
+            mx**y
+    else:
+        assert mx**y == r
+    try:
+        r = y**x
+    except OverflowError:
+        with pytest.raises(OverflowError):
+            y**mx
+    except ZeroDivisionError:
+        with pytest.raises(ZeroDivisionError):
+            y**mx
+    else:
+        assert y**mx == r
 
 
 @given(integers(), integers(max_value=1000000), integers())
