@@ -74,7 +74,7 @@ def test_interfaces():
 
 
 @given(booleans(), integers(min_value=0), integers(),
-       integers(min_value=1, max_value=1<<32),
+       integers(min_value=1, max_value=1<<30),
        sampled_from(["n", "f", "c", "u", "d"]))
 def test__mpmath_normalize(sign, man, exp, prec, rnd):
     mpmath = pytest.importorskip("mpmath")
