@@ -16,22 +16,41 @@ static struct {
 } gmp_tracker;
 
 static void *
-gmp_allocate_function(size_t size)
+gmp_reallocate_function(void *ptr, size_t old_size, size_t new_size)
 {
     if (gmp_tracker.size >= TRACKER_MAX_SIZE) {
         /* LCOV_EXCL_START */
         goto err;
         /* LCOV_EXCL_STOP */
     }
-    void *ret = malloc(size);
+    if (!ptr) {
+        void *ret = malloc(new_size);
+
+        if (!ret) {
+            /* LCOV_EXCL_START */
+            goto err;
+            /* LCOV_EXCL_STOP */
+        }
+        gmp_tracker.ptrs[gmp_tracker.size] = ret;
+        gmp_tracker.size++;
+        return ret;
+    }
+    size_t i = gmp_tracker.size - 1;
+
+    for (;; i--) {
+        if (gmp_tracker.ptrs[i] == ptr) {
+            break;
+        }
+    }
+
+    void *ret = realloc(ptr, new_size);
 
     if (!ret) {
         /* LCOV_EXCL_START */
         goto err;
         /* LCOV_EXCL_STOP */
     }
-    gmp_tracker.ptrs[gmp_tracker.size] = ret;
-    gmp_tracker.size++;
+    gmp_tracker.ptrs[i] = ret;
     return ret;
 err:
     /* LCOV_EXCL_START */
@@ -42,6 +61,12 @@ err:
     gmp_tracker.size = 0;
     longjmp(gmp_env, 1);
     /* LCOV_EXCL_STOP */
+}
+
+static void *
+gmp_allocate_function(size_t size)
+{
+    return gmp_reallocate_function(NULL, 0, size);
 }
 
 static void
@@ -3425,6 +3450,247 @@ end:
     return (PyObject *)res;
 }
 
+static PyObject *
+gmp_factorial(PyObject *Py_UNUSED(module), PyObject *arg)
+{
+    MPZ_Object *x, *res = NULL;
+
+    if (MPZ_Check(arg)) {
+        x = (MPZ_Object *)arg;
+        Py_INCREF(x);
+    }
+    else if (PyLong_Check(arg)) {
+        x = MPZ_from_int(arg);
+        if (!x) {
+            /* LCOV_EXCL_START */
+            goto end;
+            /* LCOV_EXCL_STOP */
+        }
+    }
+    else {
+        PyErr_SetString(PyExc_TypeError,
+                        "factorial() argument must be an integer");
+        return NULL;
+    }
+
+    mpz_t tmp;
+
+    tmp->_mp_d = x->digits;
+    tmp->_mp_size = (x->negative ? -1 : 1) * x->size;
+    tmp->_mp_alloc = x->size;
+    if (x->negative) {
+        PyErr_SetString(PyExc_ValueError,
+                        "factorial() not defined for negative values");
+        goto end;
+    }
+    if (!mpz_fits_ulong_p(tmp)) {
+        PyErr_Format(PyExc_OverflowError,
+                     "factorial() argument should not exceed %ld", LONG_MAX);
+        goto end;
+    }
+
+    unsigned long n = mpz_get_ui(tmp);
+
+    if (CHECK_NO_MEM_LEAK) {
+        mpz_init(tmp);
+        mpz_fac_ui(tmp, n);
+    }
+    else {
+        /* LCOV_EXCL_START */
+        Py_DECREF(x);
+        return PyErr_NoMemory();
+        /* LCOV_EXCL_STOP */
+    }
+    res = MPZ_new(tmp->_mp_size, 0);
+    if (!res) {
+        /* LCOV_EXCL_START */
+        mpz_clear(tmp);
+        goto end;
+        /* LCOV_EXCL_STOP */
+    }
+    mpn_copyi(res->digits, tmp->_mp_d, res->size);
+    mpz_clear(tmp);
+end:
+    Py_XDECREF(x);
+    return (PyObject *)res;
+}
+
+static PyObject *
+build_mpf(long sign, MPZ_Object *man, PyObject *exp, mp_bitcnt_t bc)
+{
+    PyObject *tup, *tsign, *tbc;
+
+    if (!(tup = PyTuple_New(4))) {
+        /* LCOV_EXCL_START */
+        Py_DECREF((PyObject*)man);
+        Py_DECREF(exp);
+        return NULL;
+        /* LCOV_EXCL_STOP */
+    }
+
+    if (!(tsign = PyLong_FromLong(sign))) {
+        /* LCOV_EXCL_START */
+        Py_DECREF((PyObject*)man);
+        Py_DECREF(exp);
+        Py_DECREF(tup);
+        return NULL;
+        /* LCOV_EXCL_STOP */
+    }
+
+    if (!(tbc = PyLong_FromUnsignedLongLong(bc))) {
+        /* LCOV_EXCL_START */
+        Py_DECREF((PyObject*)man);
+        Py_DECREF(exp);
+        Py_DECREF(tup);
+        Py_DECREF(tsign);
+        return NULL;
+        /* LCOV_EXCL_STOP */
+    }
+
+    PyTuple_SET_ITEM(tup, 0, tsign);
+    PyTuple_SET_ITEM(tup, 1, (PyObject*)man);
+    PyTuple_SET_ITEM(tup, 2, (exp)?exp:PyLong_FromLong(0));
+    PyTuple_SET_ITEM(tup, 3, tbc);
+    return tup;
+}
+
+static PyObject *
+gmp__mpmath_normalize(PyObject *self, PyObject *const *args, Py_ssize_t nargs)
+{
+    mp_bitcnt_t zbits;
+    PyObject *newexp = NULL, *tmp = NULL;
+    MPZ_Object *res = NULL;
+
+    if (nargs != 6) {
+        PyErr_SetString(PyExc_TypeError, "6 arguments required");
+        return NULL;
+    }
+
+    long sign = PyLong_AsLong(args[0]);
+    MPZ_Object *man = (MPZ_Object*)args[1];
+    PyObject *exp = args[2];
+    mp_bitcnt_t bc = PyLong_AsUnsignedLongLong(args[3]);
+    mp_bitcnt_t prec = PyLong_AsUnsignedLongLong(args[4]);
+    PyObject *rndstr = args[5];
+
+    if (sign == -1 || bc == (mp_bitcnt_t)(-1) || prec == (mp_bitcnt_t)(-1)) {
+        PyErr_SetString(PyExc_TypeError,
+                        ("arguments long, MPZ_Object*, PyObject*, "
+                         "long, long, char needed"));
+        return NULL;
+    }
+    if (!PyUnicode_Check(rndstr)) {
+        PyErr_SetString(PyExc_ValueError, "invalid rounding mode specified");
+        return NULL;
+    }
+    /* If the mantissa is 0, return the normalized representation. */
+    if (!man->size) {
+        Py_INCREF((PyObject*)man);
+        return build_mpf(0, man, 0, 0);
+    }
+    /* if bc <= prec and the number is odd return it */
+    if ((bc <= prec) && man->digits[0]&1) {
+        Py_INCREF((PyObject*)man);
+        Py_INCREF((PyObject*)exp);
+        return build_mpf(sign, man, exp, bc);
+    }
+    Py_INCREF(exp);
+    if (bc > prec) {
+        Py_UCS4 rnd = PyUnicode_READ_CHAR(rndstr, 0);
+        mp_bitcnt_t shift = bc - prec;
+
+        switch (rnd) {
+            case (Py_UCS4)'f':
+                if(sign) {
+                    res = MPZ_rshift1(man, shift, 1);
+                    res->negative = 0;
+                }
+                else {
+                    res = MPZ_rshift1(man, shift, 0);
+                }
+                break;
+            case (Py_UCS4)'c':
+                if(sign) {
+                    res = MPZ_rshift1(man, shift, 0);
+                }
+                else {
+                    res = MPZ_rshift1(man, shift, 1);
+                    res->negative = 0;
+                }
+                break;
+            case (Py_UCS4)'d':
+                res = MPZ_rshift1(man, shift, 0);
+                break;
+            case (Py_UCS4)'u':
+                res = MPZ_rshift1(man, shift, 1);
+                res->negative = 0;
+                break;
+            case (Py_UCS4)'n':
+            default:
+                res = MPZ_rshift1(man, shift - 1, 0);
+
+                int t = (res->digits[0]&1
+                         && (res->digits[0]&2 || shift >= 2));
+
+                mpn_rshift(res->digits, res->digits, res->size, 1);
+                if (t) {
+                    mpn_add_1(res->digits, res->digits, res->size, 1);
+                }
+                MPZ_normalize(res);
+        }
+        if (!(tmp = PyLong_FromUnsignedLongLong(shift))) {
+            /* LCOV_EXCL_START */
+            Py_DECREF((PyObject*)res);
+            Py_DECREF(exp);
+            return NULL;
+            /* LCOV_EXCL_STOP */
+        }
+        if (!(newexp = PyNumber_Add(exp, tmp))) {
+            /* LCOV_EXCL_START */
+            Py_DECREF((PyObject*)res);
+            Py_DECREF(exp);
+            Py_DECREF(tmp);
+            return NULL;
+            /* LCOV_EXCL_STOP */
+        }
+        Py_SETREF(exp, newexp);
+        Py_DECREF(tmp);
+        bc = prec;
+    }
+    else {
+        res = MPZ_copy(man);
+    }
+    /* Strip trailing 0 bits. */
+    if (res->size && (zbits = mpn_scan1(res->digits, 0))) {
+        mpn_rshift(res->digits, res->digits, res->size, zbits);
+        MPZ_normalize(res);
+    }
+    if (!(tmp = PyLong_FromUnsignedLongLong(zbits))) {
+        /* LCOV_EXCL_START */
+        Py_DECREF((PyObject*)res);
+        Py_DECREF(exp);
+        return NULL;
+        /* LCOV_EXCL_STOP */
+    }
+    if (!(newexp = PyNumber_Add(exp, tmp))) {
+        /* LCOV_EXCL_START */
+        Py_DECREF((PyObject*)res);
+        Py_DECREF(tmp);
+        Py_DECREF(exp);
+        return NULL;
+        /* LCOV_EXCL_STOP */
+    }
+    Py_SETREF(exp, newexp);
+    Py_DECREF(tmp);
+
+    bc -= zbits;
+    /* Check if one less than a power of 2 was rounded up. */
+    if (res->size == 1 && res->digits[0] == 1) {
+        bc = 1;
+    }
+    return build_mpf(sign, res, exp, bc);
+}
+
 static PyMethodDef functions[] = {
     {"gcd", (PyCFunction)gmp_gcd, METH_FASTCALL,
      ("gcd($module, /, *integers)\n--\n\n"
@@ -3432,7 +3698,11 @@ static PyMethodDef functions[] = {
     {"isqrt", gmp_isqrt, METH_O,
      ("isqrt($module, n, /)\n--\n\n"
       "Return the integer part of the square root of the input.")},
+    {"factorial", gmp_factorial, METH_O,
+     ("factorial($module, n, /)\n--\n\n"
+      "Find n!.\n\nRaise a ValueError if n is negative or non-integral.")},
     {"_from_bytes", _from_bytes, METH_O, NULL},
+    {"_mpmath_normalize", (PyCFunction)gmp__mpmath_normalize, METH_FASTCALL, NULL},
     {NULL} /* sentinel */
 };
 
@@ -3463,7 +3733,8 @@ static PyStructSequence_Desc gmp_info_desc = {
 PyMODINIT_FUNC
 PyInit_gmp(void)
 {
-    mp_set_memory_functions(gmp_allocate_function, NULL, gmp_free_function);
+    mp_set_memory_functions(gmp_allocate_function, gmp_reallocate_function,
+                            gmp_free_function);
 #if !defined(PYPY_VERSION)
     /* Query parameters of Python’s internal representation of integers. */
     const PyLongLayout *layout = PyLong_GetNativeLayout();
@@ -3575,45 +3846,6 @@ PyInit_gmp(void)
         /* LCOV_EXCL_STOP */
     }
     Py_DECREF(mpq);
-
-    PyObject *gmp_utils = PyImport_ImportModule("_gmp_utils");
-
-    if (!gmp_utils) {
-        /* LCOV_EXCL_START */
-        Py_DECREF(ns);
-        Py_DECREF(mname);
-        return NULL;
-        /* LCOV_EXCL_STOP */
-    }
-
-    PyObject *factorial = PyObject_GetAttrString(gmp_utils, "factorial");
-
-    if (!factorial) {
-        /* LCOV_EXCL_START */
-        Py_DECREF(ns);
-        Py_DECREF(gmp_utils);
-        Py_DECREF(mname);
-        return NULL;
-        /* LCOV_EXCL_STOP */
-    }
-    Py_DECREF(gmp_utils);
-    if (PyObject_SetAttrString(factorial, "__module__", mname) < 0) {
-        /* LCOV_EXCL_START */
-        Py_DECREF(ns);
-        Py_DECREF(factorial);
-        Py_DECREF(mname);
-        return NULL;
-        /* LCOV_EXCL_STOP */
-    }
-    Py_DECREF(mname);
-    if (PyModule_AddObject(m, "factorial", factorial) < 0) {
-        /* LCOV_EXCL_START */
-        Py_DECREF(ns);
-        Py_DECREF(factorial);
-        return NULL;
-        /* LCOV_EXCL_STOP */
-    }
-    Py_DECREF(factorial);
 
     PyObject *numbers = PyImport_ImportModule("numbers");
 
