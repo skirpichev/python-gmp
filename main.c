@@ -3573,34 +3573,13 @@ build_mpf(long sign, MPZ_Object *man, PyObject *exp, mp_bitcnt_t bc)
 }
 
 static PyObject *
-gmp__mpmath_normalize(PyObject *self, PyObject *const *args, Py_ssize_t nargs)
+normalize_mpf(long sign, MPZ_Object *man, PyObject *exp, mp_bitcnt_t bc,
+              mp_bitcnt_t prec, Py_UCS4 rnd)
 {
     mp_bitcnt_t zbits;
     PyObject *newexp = NULL, *tmp = NULL;
     MPZ_Object *res = NULL;
 
-    if (nargs != 6) {
-        PyErr_SetString(PyExc_TypeError, "6 arguments required");
-        return NULL;
-    }
-
-    long sign = PyLong_AsLong(args[0]);
-    MPZ_Object *man = (MPZ_Object*)args[1];
-    PyObject *exp = args[2];
-    mp_bitcnt_t bc = PyLong_AsUnsignedLongLong(args[3]);
-    mp_bitcnt_t prec = PyLong_AsUnsignedLongLong(args[4]);
-    PyObject *rndstr = args[5];
-
-    if (sign == -1 || bc == (mp_bitcnt_t)(-1) || prec == (mp_bitcnt_t)(-1)) {
-        PyErr_SetString(PyExc_TypeError,
-                        ("arguments long, MPZ_Object*, PyObject*, "
-                         "long, long, char needed"));
-        return NULL;
-    }
-    if (!PyUnicode_Check(rndstr)) {
-        PyErr_SetString(PyExc_ValueError, "invalid rounding mode specified");
-        return NULL;
-    }
     /* If the mantissa is 0, return the normalized representation. */
     if (!man->size) {
         Py_INCREF((PyObject*)man);
@@ -3614,7 +3593,6 @@ gmp__mpmath_normalize(PyObject *self, PyObject *const *args, Py_ssize_t nargs)
     }
     Py_INCREF(exp);
     if (bc > prec) {
-        Py_UCS4 rnd = PyUnicode_READ_CHAR(rndstr, 0);
         mp_bitcnt_t shift = bc - prec;
 
         switch (rnd) {
@@ -3707,6 +3685,38 @@ gmp__mpmath_normalize(PyObject *self, PyObject *const *args, Py_ssize_t nargs)
         bc = 1;
     }
     return build_mpf(sign, res, exp, bc);
+
+}
+
+static PyObject *
+gmp__mpmath_normalize(PyObject *self, PyObject *const *args, Py_ssize_t nargs)
+{
+    if (nargs != 6) {
+        PyErr_SetString(PyExc_TypeError, "6 arguments required");
+        return NULL;
+    }
+
+    long sign = PyLong_AsLong(args[0]);
+    MPZ_Object *man = (MPZ_Object*)args[1];
+    PyObject *exp = args[2];
+    mp_bitcnt_t bc = PyLong_AsUnsignedLongLong(args[3]);
+    mp_bitcnt_t prec = PyLong_AsUnsignedLongLong(args[4]);
+    PyObject *rndstr = args[5];
+
+    if (sign == -1 || bc == (mp_bitcnt_t)(-1) || prec == (mp_bitcnt_t)(-1)) {
+        PyErr_SetString(PyExc_TypeError,
+                        ("arguments long, MPZ_Object*, PyObject*, "
+                         "long, long, char needed"));
+        return NULL;
+    }
+    if (!PyUnicode_Check(rndstr)) {
+        PyErr_SetString(PyExc_ValueError, "invalid rounding mode specified");
+        return NULL;
+    }
+
+    Py_UCS4 rnd = PyUnicode_READ_CHAR(rndstr, 0);
+
+    return normalize_mpf(sign, man, exp, bc, prec, rnd);
 }
 
 static PyMethodDef functions[] = {
