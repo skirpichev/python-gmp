@@ -3,7 +3,7 @@ import platform
 
 import pytest
 from gmp import _mpmath_create, _mpmath_normalize, factorial, gcd, isqrt, mpz
-from hypothesis import given
+from hypothesis import example, given
 from hypothesis.strategies import booleans, integers, sampled_from
 
 
@@ -76,6 +76,8 @@ def test_interfaces():
 @given(booleans(), integers(min_value=0), integers(),
        integers(min_value=1, max_value=1<<30),
        sampled_from(["n", "f", "c", "u", "d"]))
+@example(0, 232, -4, 4, "n")
+@example(0, 9727076909039105, -48, 53, "n")
 def test__mpmath_normalize(sign, man, exp, prec, rnd):
     mpmath = pytest.importorskip("mpmath")
     mman = mpz(man)

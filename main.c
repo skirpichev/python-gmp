@@ -3626,7 +3626,8 @@ normalize_mpf(long sign, MPZ_Object *man, PyObject *exp, mp_bitcnt_t bc,
                 res = MPZ_rshift1(man, shift - 1, 0);
 
                 int t = (res->digits[0]&1
-                         && (res->digits[0]&2 || shift >= 2));
+                         && (res->digits[0]&2
+                             || mpn_scan1(man->digits, 0) + 2 <= shift));
 
                 mpn_rshift(res->digits, res->digits, res->size, 1);
                 if (t) {
