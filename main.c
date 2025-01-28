@@ -3710,7 +3710,9 @@ gmp__mpmath_normalize(PyObject *self, PyObject *const *args, Py_ssize_t nargs)
     mp_bitcnt_t prec = PyLong_AsUnsignedLongLong(args[4]);
     PyObject *rndstr = args[5];
 
-    if (sign == -1 || bc == (mp_bitcnt_t)(-1) || prec == (mp_bitcnt_t)(-1)) {
+    if (sign == -1 || bc == (mp_bitcnt_t)(-1) || prec == (mp_bitcnt_t)(-1)
+        || !MPZ_Check(man))
+    {
         PyErr_SetString(PyExc_TypeError,
                         ("arguments long, MPZ_Object*, PyObject*, "
                          "long, long, char needed"));
@@ -3732,6 +3734,10 @@ gmp__mpmath_create(PyObject *self, PyObject *const *args, Py_ssize_t nargs)
     if (nargs < 2 || nargs > 4) {
         PyErr_Format(PyExc_TypeError,
                      "_mpmath_create() takes from 2 to 4 arguments");
+        return NULL;
+    }
+    if (!MPZ_Check(args[0])) {
+        PyErr_Format(PyExc_TypeError, "_mpmath_create() expects mpz");
         return NULL;
     }
 
