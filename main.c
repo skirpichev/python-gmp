@@ -3658,8 +3658,16 @@ normalize_mpf(long sign, MPZ_Object *man, PyObject *exp, mp_bitcnt_t bc,
     }
     /* Strip trailing 0 bits. */
     if (res->size && (zbits = mpn_scan1(res->digits, 0))) {
-        mpn_rshift(res->digits, res->digits, res->size, zbits);
-        MPZ_normalize(res);
+        tmp = (PyObject *)MPZ_rshift1(res, zbits, 0);
+        if (!tmp) {
+            /* LCOV_EXCL_START */
+            Py_DECREF((PyObject*)res);
+            Py_DECREF(exp);
+            return NULL;
+            /* LCOV_EXCL_STOP */
+        }
+        Py_DECREF((PyObject *)res);
+        res = (MPZ_Object *)tmp;
     }
     if (!(tmp = PyLong_FromUnsignedLongLong(zbits))) {
         /* LCOV_EXCL_START */
@@ -3767,8 +3775,16 @@ gmp__mpmath_create(PyObject *self, PyObject *const *args, Py_ssize_t nargs)
 
         /* Strip trailing 0 bits. */
         if (man->size && (zbits = mpn_scan1(man->digits, 0))) {
-            mpn_rshift(man->digits, man->digits, man->size, zbits);
-            MPZ_normalize(man);
+            tmp = (PyObject *)MPZ_rshift1(man, zbits, 0);
+            if (!tmp) {
+                /* LCOV_EXCL_START */
+                Py_DECREF((PyObject*)man);
+                Py_DECREF(exp);
+                return NULL;
+                /* LCOV_EXCL_STOP */
+            }
+            Py_DECREF((PyObject *)man);
+            man = (MPZ_Object *)tmp;
         }
         if (!(tmp = PyLong_FromUnsignedLongLong(zbits))) {
             /* LCOV_EXCL_START */
