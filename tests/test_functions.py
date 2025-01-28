@@ -2,7 +2,7 @@ import math
 import platform
 
 import pytest
-from gmp import _mpmath_normalize, factorial, gcd, isqrt, mpz
+from gmp import _mpmath_create, _mpmath_normalize, factorial, gcd, isqrt, mpz
 from hypothesis import given
 from hypothesis.strategies import booleans, integers, sampled_from
 
@@ -83,3 +83,13 @@ def test__mpmath_normalize(sign, man, exp, prec, rnd):
     bc = mman.bit_length()
     res = mpmath.libmp.libmpf._normalize(sign, mman, exp, bc, prec, rnd)
     assert _mpmath_normalize(sign, mman, exp, bc, prec, rnd) == res
+
+
+@given(integers(), integers(),
+       integers(min_value=0, max_value=1<<30),
+       sampled_from(["n", "f", "c", "u", "d"]))
+def test__mpmath_create(man, exp, prec, rnd):
+    mpmath = pytest.importorskip("mpmath")
+    mman = mpz(man)
+    res = mpmath.libmp.from_man_exp(man, exp, prec, rnd)
+    assert _mpmath_create(mman, exp, prec, rnd) == res

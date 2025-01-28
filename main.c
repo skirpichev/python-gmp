@@ -3685,7 +3685,6 @@ normalize_mpf(long sign, MPZ_Object *man, PyObject *exp, mp_bitcnt_t bc,
         bc = 1;
     }
     return build_mpf(sign, res, exp, bc);
-
 }
 
 static PyObject *
@@ -3719,6 +3718,87 @@ gmp__mpmath_normalize(PyObject *self, PyObject *const *args, Py_ssize_t nargs)
     return normalize_mpf(sign, man, exp, bc, prec, rnd);
 }
 
+static PyObject *
+gmp__mpmath_create(PyObject *self, PyObject *const *args, Py_ssize_t nargs)
+{
+    if (nargs < 2 || nargs > 4) {
+        PyErr_Format(PyExc_TypeError,
+                     "_mpmath_create() takes from 2 to 4 arguments");
+        return NULL;
+    }
+
+    MPZ_Object *man = MPZ_copy((MPZ_Object *)args[0]);
+    PyObject *exp = args[1];
+    long sign = man->negative;
+
+    if (sign) {
+        man->negative = 0;
+    }
+
+    mp_bitcnt_t bc = man->size ? mpn_sizeinbase(man->digits, man->size, 2) : 0;
+    mp_bitcnt_t prec = 0;
+    Py_UCS4 rnd = 'd';
+
+    if (nargs > 2) {
+        prec = PyLong_AsUnsignedLongLong(args[2]);
+        if (prec == (mp_bitcnt_t)(-1) && PyErr_Occurred()) {
+            PyErr_SetString(PyExc_TypeError, "bad prec argument");
+            return NULL;
+        }
+    }
+    if (nargs > 3) {
+        PyObject *rndstr = args[3];
+
+        if (!PyUnicode_Check(rndstr)) {
+            PyErr_SetString(PyExc_ValueError,
+                            "invalid rounding mode specified");
+            return NULL;
+        }
+        rnd = PyUnicode_READ_CHAR(rndstr, 0);
+    }
+
+    if (!prec) {
+        if (!man->size) {
+            return build_mpf(0, man, 0, 0);
+        }
+
+        mp_bitcnt_t zbits = 0;
+        PyObject *tmp, *newexp;
+
+        /* Strip trailing 0 bits. */
+        if (man->size && (zbits = mpn_scan1(man->digits, 0))) {
+            mpn_rshift(man->digits, man->digits, man->size, zbits);
+            MPZ_normalize(man);
+        }
+        if (!(tmp = PyLong_FromUnsignedLongLong(zbits))) {
+            /* LCOV_EXCL_START */
+            Py_DECREF((PyObject*)man);
+            Py_DECREF(exp);
+            return NULL;
+            /* LCOV_EXCL_STOP */
+        }
+        Py_INCREF(exp);
+        if (!(newexp = PyNumber_Add(exp, tmp))) {
+            /* LCOV_EXCL_START */
+            Py_DECREF((PyObject*)man);
+            Py_DECREF(tmp);
+            Py_DECREF(exp);
+            return NULL;
+            /* LCOV_EXCL_STOP */
+        }
+        Py_SETREF(exp, newexp);
+        Py_DECREF(tmp);
+        bc -= zbits;
+        PyObject *res = build_mpf(sign, man, exp, bc);
+        return res;
+    }
+
+    PyObject *res = normalize_mpf(sign, man, exp, bc, prec, rnd);
+
+    Py_DECREF(man);
+    return res;
+}
+
 static PyMethodDef functions[] = {
     {"gcd", (PyCFunction)gmp_gcd, METH_FASTCALL,
      ("gcd($module, /, *integers)\n--\n\n"
@@ -3731,6 +3811,7 @@ static PyMethodDef functions[] = {
       "Find n!.\n\nRaise a ValueError if n is negative or non-integral.")},
     {"_from_bytes", _from_bytes, METH_O, NULL},
     {"_mpmath_normalize", (PyCFunction)gmp__mpmath_normalize, METH_FASTCALL, NULL},
+    {"_mpmath_create", (PyCFunction)gmp__mpmath_create, METH_FASTCALL, NULL},
     {NULL} /* sentinel */
 };
 
