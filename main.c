@@ -3469,6 +3469,74 @@ end:
 }
 
 static PyObject *
+gmp_isqrt_rem(PyObject *Py_UNUSED(module), PyObject *arg)
+{
+    MPZ_Object *x, *res = NULL, *res2 = NULL;
+    PyObject *tup;
+
+    if (MPZ_Check(arg)) {
+        x = (MPZ_Object *)arg;
+        Py_INCREF(x);
+    }
+    else if (PyLong_Check(arg)) {
+        x = MPZ_from_int(arg);
+        if (!x) {
+            /* LCOV_EXCL_START */
+            goto err;
+            /* LCOV_EXCL_STOP */
+        }
+    }
+    else {
+        PyErr_SetString(PyExc_TypeError,
+                        "isqrt() argument must be an integer");
+        return NULL;
+    }
+    if (x->negative) {
+        PyErr_SetString(PyExc_ValueError,
+                        "isqrt() argument must be nonnegative");
+        goto err;
+    }
+    else if (!x->size) {
+        res = MPZ_FromDigitSign(0, 0);
+        res2 = MPZ_copy(res);
+        if (!res || !res2) {
+            /* LCOV_EXCL_START */
+            goto err;
+            /* LCOV_EXCL_STOP */
+        }
+        goto end;
+    }
+    res = MPZ_new((x->size + 1)/2, 0);
+    res2 = MPZ_new(x->size, 0);
+    if (!res || !res2) {
+        /* LCOV_EXCL_START */
+        goto err;
+        /* LCOV_EXCL_STOP */
+    }
+    if (CHECK_NO_MEM_LEAK) {
+        res2->size = mpn_sqrtrem(res->digits, res2->digits, x->digits, x->size);
+    }
+    else {
+        /* LCOV_EXCL_START */
+        Py_DECREF(res);
+        Py_DECREF(res2);
+        Py_DECREF(x);
+        return PyErr_NoMemory();
+        /* LCOV_EXCL_STOP */
+    }
+end:
+    tup = PyTuple_Pack(2, res, res2);
+    Py_DECREF(res);
+    Py_DECREF(res2);
+    return tup;
+err:
+    Py_XDECREF(x);
+    Py_XDECREF(res);
+    Py_XDECREF(res2);
+    return NULL;
+}
+
+static PyObject *
 gmp_factorial(PyObject *Py_UNUSED(module), PyObject *arg)
 {
     MPZ_Object *x, *res = NULL;
@@ -3829,6 +3897,9 @@ static PyMethodDef functions[] = {
     {"isqrt", gmp_isqrt, METH_O,
      ("isqrt($module, n, /)\n--\n\n"
       "Return the integer part of the square root of the input.")},
+    {"isqrt_rem", gmp_isqrt_rem, METH_O,
+     ("isqrt_rem($module, n, /)\n--\n\n"
+      "Return a 2-element tuple (s,t) such that s=isqrt(x) and t=x-s*s.")},
     {"factorial", gmp_factorial, METH_O,
      ("factorial($module, n, /)\n--\n\n"
       "Find n!.\n\nRaise a ValueError if n is negative or non-integral.")},

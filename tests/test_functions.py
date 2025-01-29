@@ -2,7 +2,15 @@ import math
 import platform
 
 import pytest
-from gmp import _mpmath_create, _mpmath_normalize, factorial, gcd, isqrt, mpz
+from gmp import (
+    _mpmath_create,
+    _mpmath_normalize,
+    factorial,
+    gcd,
+    isqrt,
+    isqrt_rem,
+    mpz,
+)
 from hypothesis import example, given
 from hypothesis.strategies import booleans, integers, sampled_from
 
@@ -18,6 +26,14 @@ def test_isqrt(x):
     mx = mpz(x)
     r = math.isqrt(x)
     assert isqrt(mx) == isqrt(x) == r
+
+
+@given(integers(min_value=0))
+def test_isqrt_rem(x):
+    mpmath = pytest.importorskip("mpmath")
+    mx = mpz(x)
+    r = mpmath.libmp.libintmath.sqrtrem_python(x)
+    assert isqrt_rem(mx) == isqrt_rem(x) == r
 
 
 @given(integers(min_value=0, max_value=12345))
