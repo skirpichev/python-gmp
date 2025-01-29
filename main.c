@@ -3604,6 +3604,8 @@ end:                                                                 \
 }
 
 MAKE_MPZ_UI_FUN(factorial, fac_ui)
+MAKE_MPZ_UI_FUN(double_fac, 2fac_ui)
+MAKE_MPZ_UI_FUN(fib, fib_ui)
 
 static PyObject *
 build_mpf(long sign, MPZ_Object *man, PyObject *exp, mp_bitcnt_t bc)
@@ -3907,6 +3909,12 @@ static PyMethodDef functions[] = {
     {"factorial", gmp_factorial, METH_O,
      ("factorial($module, n, /)\n--\n\n"
       "Find n!.\n\nRaise a ValueError if n is negative or non-integral.")},
+    {"double_fac", gmp_double_fac, METH_O,
+     ("double_fac($module, n, /)\n--\n\n"
+      "Return the exact double factorial (n!!) of n.")},
+    {"fib", gmp_fib, METH_O,
+     ("fib($module, n, /)\n--\n\n"
+      "Return the n-th Fibonacci number.")},
     {"_from_bytes", _from_bytes, METH_O, NULL},
     {"_mpmath_normalize", (PyCFunction)gmp__mpmath_normalize, METH_FASTCALL, NULL},
     {"_mpmath_create", (PyCFunction)gmp__mpmath_create, METH_FASTCALL, NULL},
