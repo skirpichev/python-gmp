@@ -5,7 +5,9 @@ import pytest
 from gmp import (
     _mpmath_create,
     _mpmath_normalize,
+    double_fac,
     factorial,
+    fib,
     gcd,
     isqrt,
     isqrt_rem,
@@ -34,6 +36,23 @@ def test_isqrt_rem(x):
     mx = mpz(x)
     r = mpmath.libmp.libintmath.sqrtrem_python(x)
     assert isqrt_rem(mx) == isqrt_rem(x) == r
+
+
+@given(integers(min_value=0, max_value=12345))
+def test_double_fac(x):
+    mpmath = pytest.importorskip("mpmath")
+    mx = mpz(x)
+    r = mpmath.libmp.libintmath.ifac2_python(x)
+    assert double_fac(mx) == double_fac(x) == r
+
+
+@given(integers(min_value=0, max_value=12345))
+def test_fib(x):
+    mpmath = pytest.importorskip("mpmath")
+    mx = mpz(x)
+    r = mpmath.libmp.libintmath.ifib_python(x)
+    assert fib(mx) == fib(x) == r
+
 
 
 @given(integers(min_value=0, max_value=12345))
