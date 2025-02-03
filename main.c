@@ -91,7 +91,7 @@ gmp_free_function(void *ptr, size_t size)
     }
 }
 
-typedef struct _mpzobject {
+typedef struct {
     PyObject_HEAD
     uint8_t negative;
     mp_size_t size;
