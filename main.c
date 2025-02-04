@@ -8,7 +8,7 @@
 #include <setjmp.h>
 
 static jmp_buf gmp_env;
-#define CHECK_NO_MEM_LEAK (setjmp(gmp_env) != 1)
+#define ENOUGH_MEMORY (setjmp(gmp_env) != 1)
 #define TRACKER_MAX_SIZE 64
 static struct {
     size_t size;
@@ -282,7 +282,7 @@ MPZ_to_str(MPZ_Object *u, int base, int options)
             *(p++) = 'x';
         }
     }
-    if (CHECK_NO_MEM_LEAK) {
+    if (ENOUGH_MEMORY) {
         len -= (mpn_get_str(p, base, u->digits, u->size) != len);
     }
     else {
@@ -443,7 +443,7 @@ MPZ_from_str(PyObject *obj, int base)
         return NULL;
         /* LCOV_EXCL_STOP */
     }
-    if (CHECK_NO_MEM_LEAK) {
+    if (ENOUGH_MEMORY) {
         res->size = mpn_set_str(res->digits, p, len, base);
     }
     else {
@@ -788,7 +788,7 @@ MPZ_mul(MPZ_Object *u, MPZ_Object *v)
     }
     else if (u->size == v->size) {
         if (u != v) {
-            if (CHECK_NO_MEM_LEAK) {
+            if (ENOUGH_MEMORY) {
                 mpn_mul_n(res->digits, u->digits, v->digits, u->size);
             }
             else {
@@ -799,7 +799,7 @@ MPZ_mul(MPZ_Object *u, MPZ_Object *v)
             }
         }
         else {
-            if (CHECK_NO_MEM_LEAK) {
+            if (ENOUGH_MEMORY) {
                 mpn_sqr(res->digits, u->digits, u->size);
             }
             else {
@@ -811,7 +811,7 @@ MPZ_mul(MPZ_Object *u, MPZ_Object *v)
         }
     }
     else {
-        if (CHECK_NO_MEM_LEAK) {
+        if (ENOUGH_MEMORY) {
             mpn_mul(res->digits, u->digits, u->size, v->digits, v->size);
         }
         else {
@@ -866,7 +866,7 @@ MPZ_divmod(MPZ_Object **q, MPZ_Object **r, MPZ_Object *u, MPZ_Object *v)
             return -1;
             /* LCOV_EXCL_STOP */
         }
-        if (CHECK_NO_MEM_LEAK) {
+        if (ENOUGH_MEMORY) {
             mpn_tdiv_qr((*q)->digits, (*r)->digits, 0, u->digits, u->size,
                         v->digits, v->size);
         }
@@ -1666,7 +1666,7 @@ MPZ_pow(MPZ_Object *u, MPZ_Object *v)
         return (MPZ_Object *)PyErr_NoMemory();
         /* LCOV_EXCL_STOP */
     }
-    if (CHECK_NO_MEM_LEAK) {
+    if (ENOUGH_MEMORY) {
         res->size = mpn_pow_1(res->digits, u->digits, u->size, e, tmp);
     }
     else {
@@ -1706,7 +1706,7 @@ MPZ_powm(MPZ_Object *u, MPZ_Object *v, MPZ_Object *w)
         m->_mp_d = w->digits;
         m->_mp_size = w->size;
         m->_mp_alloc = w->size;
-        if (CHECK_NO_MEM_LEAK) {
+        if (ENOUGH_MEMORY) {
             mpz_init(tmp);
             mpz_powm(tmp, b, e, m);
         }
@@ -1747,7 +1747,7 @@ MPZ_powm(MPZ_Object *u, MPZ_Object *v, MPZ_Object *w)
         return (MPZ_Object *)PyErr_NoMemory();
         /* LCOV_EXCL_STOP */
     }
-    if (CHECK_NO_MEM_LEAK) {
+    if (ENOUGH_MEMORY) {
         mpn_sec_powm(res->digits, u->digits, u->size, v->digits, enb,
                      w->digits, w->size, tmp);
     }
@@ -3367,7 +3367,7 @@ gmp_gcd(PyObject *Py_UNUSED(module), PyObject *const *args, Py_ssize_t nargs)
         mp_size_t newsize;
 
         if (tmp->size >= arg->size) {
-            if (CHECK_NO_MEM_LEAK) {
+            if (ENOUGH_MEMORY) {
                 newsize = mpn_gcd(res->digits, tmp->digits, tmp->size,
                                   arg->digits, arg->size);
             }
@@ -3381,7 +3381,7 @@ gmp_gcd(PyObject *Py_UNUSED(module), PyObject *const *args, Py_ssize_t nargs)
             }
         }
         else {
-            if (CHECK_NO_MEM_LEAK) {
+            if (ENOUGH_MEMORY) {
                 newsize = mpn_gcd(res->digits, arg->digits, arg->size,
                                   tmp->digits, tmp->size);
             }
@@ -3453,7 +3453,7 @@ gmp_isqrt(PyObject *Py_UNUSED(module), PyObject *arg)
         goto end;
         /* LCOV_EXCL_STOP */
     }
-    if (CHECK_NO_MEM_LEAK) {
+    if (ENOUGH_MEMORY) {
         mpn_sqrtrem(res->digits, NULL, x->digits, x->size);
     }
     else {
@@ -3513,7 +3513,7 @@ gmp_isqrt_rem(PyObject *Py_UNUSED(module), PyObject *arg)
         goto err;
         /* LCOV_EXCL_STOP */
     }
-    if (CHECK_NO_MEM_LEAK) {
+    if (ENOUGH_MEMORY) {
         res2->size = mpn_sqrtrem(res->digits, res2->digits, x->digits, x->size);
     }
     else {
@@ -3579,7 +3579,7 @@ gmp_##name(PyObject *Py_UNUSED(module), PyObject *arg)               \
                                                                      \
     unsigned long n = mpz_get_ui(tmp);                               \
                                                                      \
-    if (CHECK_NO_MEM_LEAK) {                                         \
+    if (ENOUGH_MEMORY) {                                             \
         mpz_init(tmp);                                               \
         mpz_##fsuff(tmp, n);                                         \
     }                                                                \
