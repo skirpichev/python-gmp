@@ -1987,6 +1987,66 @@ MPZ_from_bytes(PyObject *obj, int is_little, int is_signed)
     return res;
 }
 
+static int8_t
+MPZ_sqrtrem(MPZ_Object **root, MPZ_Object **rem, const MPZ_Object *u)
+{
+    if (u->negative) {
+        return -2;
+    }
+    if (!u->size) {
+        *root = MPZ_FromDigitSign(0, 0);
+        if (*root && rem) {
+            *rem = MPZ_FromDigitSign(0, 0);
+            if (!*rem) {
+                /* LCOV_EXCL_START */
+                Py_DECREF(*root);
+                return -1;
+                /* LCOV_EXCL_STOP */
+            }
+        }
+        return *root ? 0 : -1;
+    }
+    *root = MPZ_new((u->size + 1)/2, 0);
+    if (!*root) {
+        /* LCOV_EXCL_START */
+        return -1;
+        /* LCOV_EXCL_STOP */
+    }
+    if (rem) {
+        *rem = MPZ_new(u->size, 0);
+        if (!*rem) {
+            /* LCOV_EXCL_START */
+            Py_DECREF(*root);
+            return -1;
+            /* LCOV_EXCL_STOP */
+        }
+        if (ENOUGH_MEMORY) {
+            (*rem)->size = mpn_sqrtrem((*root)->digits, (*rem)->digits,
+                                       u->digits, u->size);
+            return 0;
+        }
+        else {
+            /* LCOV_EXCL_START */
+            Py_DECREF(*root);
+            Py_DECREF(*rem);
+            return -1;
+            /* LCOV_EXCL_STOP */
+        }
+    }
+    else {
+        if (ENOUGH_MEMORY) {
+            mpn_sqrtrem((*root)->digits, NULL, u->digits, u->size);
+            return 0;
+        }
+        else {
+            /* LCOV_EXCL_START */
+            Py_DECREF(*root);
+            return -1;
+            /* LCOV_EXCL_STOP */
+        }
+    }
+}
+
 #define MPZ_Check(u) PyObject_TypeCheck((u), &MPZ_Type)
 
 #if PY_VERSION_HEX >= 0x030D0000 || defined(PYPY_VERSION)
@@ -3419,7 +3479,7 @@ gmp_gcd(PyObject *Py_UNUSED(module), PyObject *const *args, Py_ssize_t nargs)
 static PyObject *
 gmp_isqrt(PyObject *Py_UNUSED(module), PyObject *arg)
 {
-    MPZ_Object *x, *res = NULL;
+    MPZ_Object *x, *root = NULL;
 
     if (MPZ_Check(arg)) {
         x = (MPZ_Object *)arg;
@@ -3429,7 +3489,7 @@ gmp_isqrt(PyObject *Py_UNUSED(module), PyObject *arg)
         x = MPZ_from_int(arg);
         if (!x) {
             /* LCOV_EXCL_START */
-            goto end;
+            return (PyObject *)root;
             /* LCOV_EXCL_STOP */
         }
     }
@@ -3438,41 +3498,26 @@ gmp_isqrt(PyObject *Py_UNUSED(module), PyObject *arg)
                         "isqrt() argument must be an integer");
         return NULL;
     }
-    if (x->negative) {
+
+    int8_t ret = MPZ_sqrtrem(&root, NULL, x);
+
+    if (ret == -2) {
         PyErr_SetString(PyExc_ValueError,
                         "isqrt() argument must be nonnegative");
-        goto end;
     }
-    else if (!x->size) {
-        res = MPZ_FromDigitSign(0, 0);
-        goto end;
-    }
-    res = MPZ_new((x->size + 1)/2, 0);
-    if (!res) {
+    else if (ret == -1) {
         /* LCOV_EXCL_START */
-        goto end;
+        PyErr_NoMemory();
         /* LCOV_EXCL_STOP */
     }
-    if (ENOUGH_MEMORY) {
-        mpn_sqrtrem(res->digits, NULL, x->digits, x->size);
-    }
-    else {
-        /* LCOV_EXCL_START */
-        Py_DECREF(res);
-        Py_DECREF(x);
-        return PyErr_NoMemory();
-        /* LCOV_EXCL_STOP */
-    }
-end:
-    Py_XDECREF(x);
-    return (PyObject *)res;
+    Py_DECREF(x);
+    return (PyObject *)root;
 }
 
 static PyObject *
 gmp_isqrt_rem(PyObject *Py_UNUSED(module), PyObject *arg)
 {
-    MPZ_Object *x, *res = NULL, *res2 = NULL;
-    PyObject *tup;
+    MPZ_Object *x, *root = NULL, *rem = NULL;
 
     if (MPZ_Check(arg)) {
         x = (MPZ_Object *)arg;
@@ -3482,7 +3527,7 @@ gmp_isqrt_rem(PyObject *Py_UNUSED(module), PyObject *arg)
         x = MPZ_from_int(arg);
         if (!x) {
             /* LCOV_EXCL_START */
-            goto err;
+            return (PyObject *)root;
             /* LCOV_EXCL_STOP */
         }
     }
@@ -3491,49 +3536,25 @@ gmp_isqrt_rem(PyObject *Py_UNUSED(module), PyObject *arg)
                         "isqrt() argument must be an integer");
         return NULL;
     }
-    if (x->negative) {
+
+    int8_t ret = MPZ_sqrtrem(&root, &rem, x);
+
+    if (ret == -2) {
         PyErr_SetString(PyExc_ValueError,
                         "isqrt() argument must be nonnegative");
-        goto err;
     }
-    else if (!x->size) {
-        res = MPZ_FromDigitSign(0, 0);
-        res2 = MPZ_copy(res);
-        if (!res || !res2) {
-            /* LCOV_EXCL_START */
-            goto err;
-            /* LCOV_EXCL_STOP */
-        }
-        goto end;
-    }
-    res = MPZ_new((x->size + 1)/2, 0);
-    res2 = MPZ_new(x->size, 0);
-    if (!res || !res2) {
+    else if (ret == -1) {
         /* LCOV_EXCL_START */
-        goto err;
+        PyErr_NoMemory();
         /* LCOV_EXCL_STOP */
     }
-    if (ENOUGH_MEMORY) {
-        res2->size = mpn_sqrtrem(res->digits, res2->digits, x->digits, x->size);
-    }
-    else {
-        /* LCOV_EXCL_START */
-        Py_DECREF(res);
-        Py_DECREF(res2);
-        Py_DECREF(x);
-        return PyErr_NoMemory();
-        /* LCOV_EXCL_STOP */
-    }
-end:
-    tup = PyTuple_Pack(2, res, res2);
-    Py_DECREF(res);
-    Py_DECREF(res2);
+    Py_DECREF(x);
+
+    PyObject *tup = PyTuple_Pack(2, root, rem);
+
+    Py_DECREF(root);
+    Py_DECREF(rem);
     return tup;
-err:
-    Py_XDECREF(x);
-    Py_XDECREF(res);
-    Py_XDECREF(res2);
-    return NULL;
 }
 
 #define MAKE_MPZ_UI_FUN(name, fsuff)                                 \
