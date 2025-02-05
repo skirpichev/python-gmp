@@ -81,6 +81,7 @@ def test_factorial_outofmemory(x):
 
 
 @given(integers(), integers())
+@example(1<<(67*2), 1<<65)
 def test_gcd(x, y):
     mx = mpz(x)
     my = mpz(y)
