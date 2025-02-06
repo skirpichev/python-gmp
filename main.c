@@ -925,7 +925,7 @@ MPZ_rem(MPZ_Object *u, MPZ_Object *v)
 }
 
 static MPZ_Object *
-MPZ_rshift1(MPZ_Object *u, mp_limb_t rshift, uint8_t negative)
+MPZ_rshift1(const MPZ_Object *u, mp_limb_t rshift, uint8_t negative)
 {
     mp_size_t whole = rshift / GMP_NUMB_BITS;
     mp_size_t size = u->size;
@@ -1985,6 +1985,52 @@ MPZ_from_bytes(PyObject *obj, int is_little, int is_signed)
         MPZ_normalize(res);
     }
     return res;
+}
+
+static int8_t
+MPZ_gcd(MPZ_Object **gcd, mp_limb_t *shift, const MPZ_Object *u)
+{
+    MPZ_Object *tmp, *arg;
+
+    if (!u->size) {
+        return 0;
+    }
+    *shift = Py_MIN(*shift, mpn_scan1(u->digits, 0));
+    if (*shift) {
+        arg = MPZ_rshift1(u, *shift, 0);
+    }
+    else {
+        arg = MPZ_copy(u);
+    }
+    if (!arg) {
+        /* LCOV_EXCL_START */
+        return -1;
+        /* LCOV_EXCL_STOP */
+    }
+    tmp = MPZ_copy(*gcd);
+    if (!tmp) {
+        /* LCOV_EXCL_START */
+        Py_DECREF(arg);
+        return -1;
+        /* LCOV_EXCL_STOP */
+    }
+    if (tmp->size < arg->size) {
+        SWAP(MPZ_Object *, tmp, arg);
+    }
+    if (ENOUGH_MEMORY) {
+        (*gcd)->size = mpn_gcd((*gcd)->digits, tmp->digits, tmp->size,
+                               arg->digits, arg->size);
+    }
+    else {
+        /* LCOV_EXCL_START */
+        Py_DECREF(tmp);
+        Py_DECREF(arg);
+        return -1;
+        /* LCOV_EXCL_STOP */
+    }
+    Py_DECREF(arg);
+    Py_DECREF(tmp);
+    return 0;
 }
 
 static int8_t
@@ -3393,25 +3439,17 @@ gmp_gcd(PyObject *Py_UNUSED(module), PyObject *const *args, Py_ssize_t nargs)
         MPZ_Object *arg;
 
         if (MPZ_Check(args[i])) {
-            arg = MPZ_abs((MPZ_Object *)args[i]);
+            arg = (MPZ_Object *)args[i];
+            Py_INCREF(arg);
         }
         else if (PyLong_Check(args[i])) {
-            tmp = MPZ_from_int(args[i]);
-            if (!tmp) {
-                /* LCOV_EXCL_START */
-                Py_DECREF(res);
-                return NULL;
-                /* LCOV_EXCL_STOP */
-            }
-            arg = MPZ_abs(tmp);
+            arg = MPZ_from_int(args[i]);
             if (!arg) {
                 /* LCOV_EXCL_START */
-                Py_DECREF(tmp);
                 Py_DECREF(res);
                 return NULL;
                 /* LCOV_EXCL_STOP */
             }
-            Py_DECREF(tmp);
         }
         else {
             Py_DECREF(res);
@@ -3419,73 +3457,35 @@ gmp_gcd(PyObject *Py_UNUSED(module), PyObject *const *args, Py_ssize_t nargs)
                             "gcd() arguments must be integers");
             return NULL;
         }
-        if (res->size == 1 && res->digits[0] == 1) {
+        if (res->size == 1 && res->digits[0] == 1 && !shift) {
             Py_DECREF(arg);
             continue;
         }
         if (!res->size) {
-            Py_DECREF(res);
-            res = MPZ_abs(arg);
-            if (!res) {
-                /* LCOV_EXCL_START */
-                Py_DECREF(arg);
-                return NULL;
-                /* LCOV_EXCL_STOP */
+            if (arg->size) {
+                shift = mpn_scan1(arg->digits, 0);
+                tmp = MPZ_rshift1(arg, shift, 0);
+                if (!tmp) {
+                    /* LCOV_EXCL_START */
+                    Py_DECREF(res);
+                    Py_DECREF(arg);
+                    return NULL;
+                    /* LCOV_EXCL_STOP */
+                }
+                Py_SETREF(res, tmp);
+                res->negative = 0;
             }
             Py_DECREF(arg);
             continue;
         }
-        shift = mpn_scan1(res->digits, 0);
-        if (shift) {
-            tmp = MPZ_rshift1(res, shift, 0);
-            if (!tmp) {
-                /* LCOV_EXCL_START */
-                Py_DECREF(res);
-                Py_DECREF(arg);
-                /* LCOV_EXCL_STOP */
-            }
-            Py_SETREF(res, tmp);
-        }
-        if (!arg->size) {
-            Py_DECREF(arg);
-            continue;
-        }
-        shift = Py_MIN(shift, mpn_scan1(arg->digits, 0));
-        if (shift) {
-            tmp = MPZ_rshift1(arg, shift, 0);
-            if (!tmp) {
-                /* LCOV_EXCL_START */
-                Py_DECREF(res);
-                Py_DECREF(arg);
-                /* LCOV_EXCL_STOP */
-            }
-            Py_SETREF(arg, tmp);
-        }
-        tmp = MPZ_copy(res);
-        if (!tmp) {
+        if (MPZ_gcd(&res, &shift, arg) == -1) {
             /* LCOV_EXCL_START */
-            Py_DECREF(res);
-            Py_DECREF(arg);
-            return NULL;
-            /* LCOV_EXCL_STOP */
-        }
-        if (tmp->size < arg->size) {
-            SWAP(MPZ_Object *, tmp, arg);
-        }
-        if (ENOUGH_MEMORY) {
-            res->size = mpn_gcd(res->digits, tmp->digits, tmp->size,
-                                arg->digits, arg->size);
-        }
-        else {
-            /* LCOV_EXCL_START */
-            Py_DECREF(tmp);
             Py_DECREF(res);
             Py_DECREF(arg);
             return PyErr_NoMemory();
             /* LCOV_EXCL_STOP */
         }
         Py_DECREF(arg);
-        Py_DECREF(tmp);
     }
 
     mp_limb_t *tmp_limbs = res->digits;
