@@ -205,7 +205,7 @@ MPZ_FromDigitSign(mp_limb_t digit, uint8_t negative)
 }
 
 static MPZ_Object *
-MPZ_copy(MPZ_Object *u)
+MPZ_copy(const MPZ_Object *u)
 {
     if (!u->size) {
         return MPZ_FromDigitSign(0, 0);
