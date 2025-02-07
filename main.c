@@ -474,6 +474,13 @@ err:
     return NULL;
 }
 
+#define TMP_MPZ(z, u)                               \
+    mpz_t z;                                        \
+                                                    \
+    z->_mp_d = u->digits;                           \
+    z->_mp_size = (u->negative ? -1 : 1) * u->size; \
+    z->_mp_alloc = u->size;
+
 #if !defined(PYPY_VERSION)
 #  define BITS_TO_LIMBS(n) (((n) + (GMP_NUMB_BITS - 1))/GMP_NUMB_BITS)
 
@@ -504,11 +511,7 @@ MPZ_from_int(PyObject *obj)
             /* LCOV_EXCL_STOP */
         }
 
-        mpz_t z;
-
-        z->_mp_d = res->digits;
-        z->_mp_size = (res->negative ? -1 : 1)*res->size;
-        z->_mp_alloc = res->size;
+        TMP_MPZ(z, res)
         mpz_import(z, ndigits, int_digits_order, int_digit_size,
                    int_endianness, int_nails, long_export.digits);
         PyLong_FreeExport(&long_export);
@@ -523,11 +526,7 @@ MPZ_from_int(PyObject *obj)
             /* LCOV_EXCL_STOP */
         }
 
-        mpz_t z;
-
-        z->_mp_d = res->digits;
-        z->_mp_size = (res->negative ? -1 : 1)*res->size;
-        z->_mp_alloc = res->size;
+        TMP_MPZ(z, res)
         if (res->negative) {
             value = -value;
         }
@@ -555,11 +554,7 @@ static PyObject *
 MPZ_to_int(MPZ_Object *u)
 {
 #if !defined(PYPY_VERSION)
-    mpz_t z;
-
-    z->_mp_d = u->digits;
-    z->_mp_size = (u->negative ? -1 : 1)*u->size;
-    z->_mp_alloc = u->size;
+    TMP_MPZ(z, u)
     if (mpz_fits_slong_p(z)) {
         return PyLong_FromLong(mpz_get_si(z));
     }
@@ -1695,20 +1690,13 @@ static MPZ_Object *
 MPZ_powm(MPZ_Object *u, MPZ_Object *v, MPZ_Object *w)
 {
     if (mpn_scan1(w->digits, 0)) {
-        mpz_t tmp, b, e, m;
-
-        b->_mp_d = u->digits;
-        b->_mp_size = u->size;
-        b->_mp_alloc = u->size;
-        e->_mp_d = v->digits;
-        e->_mp_size = v->size;
-        e->_mp_alloc = v->size;
-        m->_mp_d = w->digits;
-        m->_mp_size = w->size;
-        m->_mp_alloc = w->size;
+        mpz_t z;
+        TMP_MPZ(b, u)
+        TMP_MPZ(e, v)
+        TMP_MPZ(m, w)
         if (ENOUGH_MEMORY) {
-            mpz_init(tmp);
-            mpz_powm(tmp, b, e, m);
+            mpz_init(z);
+            mpz_powm(z, b, e, m);
         }
         else {
             /* LCOV_EXCL_START */
@@ -1716,16 +1704,16 @@ MPZ_powm(MPZ_Object *u, MPZ_Object *v, MPZ_Object *w)
             /* LCOV_EXCL_STOP */
         }
 
-        MPZ_Object *res = MPZ_new(tmp->_mp_size, 0);
+        MPZ_Object *res = MPZ_new(z->_mp_size, 0);
 
         if (!res) {
             /* LCOV_EXCL_START */
-            mpz_clear(tmp);
+            mpz_clear(z);
             return NULL;
             /* LCOV_EXCL_STOP */
         }
-        mpn_copyi(res->digits, tmp->_mp_d, res->size);
-        mpz_clear(tmp);
+        mpn_copyi(res->digits, z->_mp_d, res->size);
+        mpz_clear(z);
         return res;
     }
 
@@ -2132,52 +2120,45 @@ MPZ_sqrtrem(MPZ_Object **root, MPZ_Object **rem, const MPZ_Object *u)
     }
 }
 
-#define TMP_MPZ(u)                                     \
-    mpz_t tmp;                                         \
-                                                       \
-    tmp->_mp_d = u->digits;                            \
-    tmp->_mp_size = (u->negative ? -1 : 1) * u->size;  \
-    tmp->_mp_alloc = u->size;
-
 static MPZ_err
 MPZ_get_ul(unsigned long *n, const MPZ_Object *u)
 {
-    TMP_MPZ(u)
+    TMP_MPZ(z, u)
     if (u->negative) {
         return MPZ_VAL;
     }
-    if (!mpz_fits_ulong_p(tmp)) {
+    if (!mpz_fits_ulong_p(z)) {
         return MPZ_BUF;
     }
-    *n = mpz_get_ui(tmp);
+    *n = mpz_get_ui(z);
     return MPZ_OK;
 }
 
-#define MK_MPZ_func_ul(name, mpz_suff)                        \
-    static MPZ_err                                            \
-    MPZ_##name##_ul(MPZ_Object **res, unsigned long n)        \
-    {                                                         \
-        mpz_t tmp;                                            \
-                                                              \
-        if (ENOUGH_MEMORY) {                                  \
-            mpz_init(tmp);                                    \
-            mpz_##mpz_suff(tmp, n);                           \
-        }                                                     \
-        else {                                                \
-            /* LCOV_EXCL_START */                             \
-            return MPZ_MEM;                                   \
-            /* LCOV_EXCL_STOP */                              \
-        }                                                     \
-        *res = MPZ_new(tmp->_mp_size, 0);                     \
-        if (!*res) {                                          \
-            /* LCOV_EXCL_START */                             \
-            mpz_clear(tmp);                                   \
-            return MPZ_MEM;                                   \
-            /* LCOV_EXCL_STOP */                              \
-        }                                                     \
-        mpn_copyi((*res)->digits, tmp->_mp_d, tmp->_mp_size); \
-        mpz_clear(tmp);                                       \
-        return MPZ_OK;                                        \
+#define MK_MPZ_func_ul(name, mpz_suff)                    \
+    static MPZ_err                                        \
+    MPZ_##name##_ul(MPZ_Object **res, unsigned long n)    \
+    {                                                     \
+        mpz_t z;                                          \
+                                                          \
+        if (ENOUGH_MEMORY) {                              \
+            mpz_init(z);                                  \
+            mpz_##mpz_suff(z, n);                         \
+        }                                                 \
+        else {                                            \
+            /* LCOV_EXCL_START */                         \
+            return MPZ_MEM;                               \
+            /* LCOV_EXCL_STOP */                          \
+        }                                                 \
+        *res = MPZ_new(z->_mp_size, 0);                   \
+        if (!*res) {                                      \
+            /* LCOV_EXCL_START */                         \
+            mpz_clear(z);                                 \
+            return MPZ_MEM;                               \
+            /* LCOV_EXCL_STOP */                          \
+        }                                                 \
+        mpn_copyi((*res)->digits, z->_mp_d, z->_mp_size); \
+        mpz_clear(z);                                     \
+        return MPZ_OK;                                    \
     }
 
 MK_MPZ_func_ul(factorial, fac_ui)
