@@ -3530,7 +3530,7 @@ gmp_isqrt(PyObject *Py_UNUSED(module), PyObject *arg)
         return NULL;
     }
 
-    int8_t ret = MPZ_sqrtrem(&root, NULL, x);
+    MPZ_err ret = MPZ_sqrtrem(&root, NULL, x);
 
     if (ret == MPZ_VAL) {
         PyErr_SetString(PyExc_ValueError,
@@ -3568,7 +3568,7 @@ gmp_isqrt_rem(PyObject *Py_UNUSED(module), PyObject *arg)
         return NULL;
     }
 
-    int8_t ret = MPZ_sqrtrem(&root, &rem, x);
+    MPZ_err ret = MPZ_sqrtrem(&root, &rem, x);
 
     if (ret == MPZ_VAL) {
         PyErr_SetString(PyExc_ValueError,
@@ -3613,7 +3613,7 @@ gmp_isqrt_rem(PyObject *Py_UNUSED(module), PyObject *arg)
         }                                                                \
                                                                          \
         unsigned long n;                                                 \
-        int8_t ret = MPZ_get_ul(&n, x);                                  \
+        MPZ_err ret = MPZ_get_ul(&n, x);                                 \
                                                                          \
         Py_XDECREF(x);                                                   \
         if (ret == MPZ_VAL) {                                            \
