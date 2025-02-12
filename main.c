@@ -159,21 +159,11 @@ MPZ_new(mp_size_t size, uint8_t negative)
 
     if (global.gmp_cache_size && size <= MAX_CACHE_MPZ_LIMBS) {
         res = global.gmp_cache[--(global.gmp_cache_size)];
-        if (res->size < size) {
-#if defined(__GNUC__) && !defined(__clang__)
-#  pragma GCC diagnostic push
-#  pragma GCC diagnostic ignored "-Wsequence-point"
-#endif
-            res->digits = PyMem_Resize(res->digits, mp_limb_t, size);
-#if defined(__GNUC__) && !defined(__clang__)
-#  pragma GCC diagnostic pop
-#endif
-            if (!res->digits) {
-                /* LCOV_EXCL_START */
-                Py_DECREF(res);
-                return (MPZ_Object *)PyErr_NoMemory();
-                /* LCOV_EXCL_STOP */
-            }
+        if (res->size < size && MPZ_resize(res, size) == MPZ_MEM) {
+            /* LCOV_EXCL_START */
+            global.gmp_cache[(global.gmp_cache_size)++] = res;
+            return (MPZ_Object *)PyErr_NoMemory();
+            /* LCOV_EXCL_STOP */
         }
         Py_INCREF((PyObject *) res);
     }
