@@ -117,6 +117,41 @@ static gmp_global global = {
     .gmp_cache_size = 0,
 };
 
+typedef int8_t MPZ_err;
+
+#define MPZ_OK    0
+#define MPZ_MEM  -1
+#define MPZ_VAL  -2
+#define MPZ_BUF  -3
+
+static void
+MPZ_normalize(MPZ_Object *u)
+{
+    while (u->size && u->digits[u->size - 1] == 0) {
+        u->size--;
+    }
+    if (!u->size) {
+        u->negative = 0;
+    }
+}
+
+static MPZ_err
+MPZ_resize(MPZ_Object *u, mp_size_t size)
+{
+    mp_limb_t *tmp = u->digits;
+
+    u->digits = PyMem_Resize(tmp, mp_limb_t, size);
+    if (!u->digits) {
+        /* LCOV_EXCL_START */
+        u->digits = tmp;
+        return MPZ_MEM;
+        /* LCOV_EXCL_STOP */
+    }
+    u->size = size;
+    MPZ_normalize(u);
+    return MPZ_OK;
+}
+
 static MPZ_Object *
 MPZ_new(mp_size_t size, uint8_t negative)
 {
@@ -175,17 +210,6 @@ MPZ_dealloc(MPZ_Object *u)
     else {
         PyMem_Free(u->digits);
         Py_TYPE((PyObject *)u)->tp_free((PyObject *)u);
-    }
-}
-
-static void
-MPZ_normalize(MPZ_Object *u)
-{
-    while (u->size && u->digits[u->size - 1] == 0) {
-        u->size--;
-    }
-    if (!u->size) {
-        u->negative = 0;
     }
 }
 
@@ -454,18 +478,12 @@ MPZ_from_str(PyObject *obj, int base)
         /* LCOV_EXCL_STOP */
     }
     PyMem_Free(buf);
-
-    mp_limb_t *tmp = res->digits;
-
-    res->digits = PyMem_Resize(tmp, mp_limb_t, res->size);
-    if (!res->digits) {
+    if (MPZ_resize(res, res->size) == MPZ_MEM) {
         /* LCOV_EXCL_START */
-        res->digits = tmp;
         Py_DECREF(res);
         return (MPZ_Object *)PyErr_NoMemory();
         /* LCOV_EXCL_STOP */
     }
-    MPZ_normalize(res);
     return res;
 err:
     PyMem_Free(buf);
@@ -1672,11 +1690,8 @@ MPZ_pow(MPZ_Object *u, MPZ_Object *v)
         /* LCOV_EXCL_STOP */
     }
     PyMem_Free(tmp);
-    tmp = res->digits;
-    res->digits = PyMem_Resize(tmp, mp_limb_t, res->size);
-    if (!res->digits) {
+    if (MPZ_resize(res, res->size) == MPZ_MEM) {
         /* LCOV_EXCL_START */
-        res->digits = tmp;
         Py_DECREF(res);
         return (MPZ_Object *)PyErr_NoMemory();
         /* LCOV_EXCL_STOP */
@@ -1941,18 +1956,12 @@ MPZ_from_bytes(PyObject *obj, int is_little, int is_signed)
     if (is_little) {
         PyMem_Free(buffer);
     }
-
-    mp_limb_t *tmp = res->digits;
-
-    res->digits = PyMem_Resize(tmp, mp_limb_t, res->size);
-    if (!res->digits) {
+    if (MPZ_resize(res, res->size) == MPZ_MEM) {
         /* LCOV_EXCL_START */
-        res->digits = tmp;
         Py_DECREF(res);
         return (MPZ_Object *)PyErr_NoMemory();
         /* LCOV_EXCL_STOP */
     }
-    MPZ_normalize(res);
     if (is_signed && mpn_sizeinbase(res->digits, res->size,
                                     2) == 8*(size_t)length)
     {
@@ -1974,13 +1983,6 @@ MPZ_from_bytes(PyObject *obj, int is_little, int is_signed)
     }
     return res;
 }
-
-typedef int8_t MPZ_err;
-
-#define MPZ_OK    0
-#define MPZ_MEM  -1
-#define MPZ_VAL  -2
-#define MPZ_BUF  -3
 
 static MPZ_err
 MPZ_gcd(MPZ_Object **gcd, const MPZ_Object *u, const MPZ_Object *v)
@@ -3493,13 +3495,8 @@ gmp_gcd(PyObject *Py_UNUSED(module), PyObject *const *args, Py_ssize_t nargs)
         Py_DECREF(arg);
         Py_SETREF(res, tmp);
     }
-
-    mp_limb_t *tmp_limbs = res->digits;
-
-    res->digits = PyMem_Resize(tmp_limbs, mp_limb_t, res->size);
-    if (!res->digits) {
+    if (MPZ_resize(res, res->size) == MPZ_MEM) {
         /* LCOV_EXCL_START */
-        res->digits = tmp_limbs;
         Py_DECREF(res);
         return PyErr_NoMemory();
         /* LCOV_EXCL_STOP */
