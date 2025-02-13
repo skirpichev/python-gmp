@@ -12,8 +12,6 @@ if platform.system() != "Linux":
 resource = pytest.importorskip("resource")
 
 
-@pytest.mark.skipif(platform.python_implementation() == "PyPy",
-                    reason="XXX: bug in PyNumber_ToBase()?")
 @given(integers(min_value=12811, max_value=24984))
 def test_factorial_outofmem(x):
     soft, hard = resource.getrlimit(resource.RLIMIT_AS)
