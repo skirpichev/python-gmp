@@ -148,7 +148,6 @@ MPZ_resize(MPZ_Object *u, mp_size_t size)
         /* LCOV_EXCL_STOP */
     }
     u->size = size;
-    MPZ_normalize(u);
     return MPZ_OK;
 }
 
@@ -474,6 +473,7 @@ MPZ_from_str(PyObject *obj, int base)
         return (MPZ_Object *)PyErr_NoMemory();
         /* LCOV_EXCL_STOP */
     }
+    MPZ_normalize(res);
     return res;
 err:
     PyMem_Free(buf);
@@ -1952,6 +1952,7 @@ MPZ_from_bytes(PyObject *obj, int is_little, int is_signed)
         return (MPZ_Object *)PyErr_NoMemory();
         /* LCOV_EXCL_STOP */
     }
+    MPZ_normalize(res);
     if (is_signed && mpn_sizeinbase(res->digits, res->size,
                                     2) == 8*(size_t)length)
     {

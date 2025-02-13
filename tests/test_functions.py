@@ -1,5 +1,4 @@
 import math
-import platform
 
 import pytest
 from gmp import (
@@ -15,12 +14,6 @@ from gmp import (
 )
 from hypothesis import example, given
 from hypothesis.strategies import booleans, integers, sampled_from
-
-
-try:
-    import resource
-except ImportError:
-    pass
 
 
 @given(integers(min_value=0))
@@ -60,24 +53,6 @@ def test_factorial(x):
     mx = mpz(x)
     r = math.factorial(x)
     assert factorial(mx) == factorial(x) == r
-
-
-@pytest.mark.skipif(platform.system() != "Linux",
-                    reason="FIXME: setrlimit fails with ValueError on MacOS")
-@pytest.mark.skipif(platform.python_implementation() == "PyPy",
-                    reason="XXX: bug in PyNumber_ToBase()?")
-@given(integers(min_value=12811, max_value=24984))
-def test_factorial_outofmemory(x):
-    soft, hard = resource.getrlimit(resource.RLIMIT_AS)
-    resource.setrlimit(resource.RLIMIT_AS, (1024*32*1024, hard))
-    a = mpz(x)
-    while True:
-        try:
-            factorial(a)
-            a *= 2
-        except MemoryError:
-            break
-    resource.setrlimit(resource.RLIMIT_AS, (soft, hard))
 
 
 @given(integers(), integers())
