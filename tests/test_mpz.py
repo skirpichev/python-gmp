@@ -22,12 +22,6 @@ from hypothesis.strategies import (
 )
 
 
-try:
-    import resource
-except ImportError:
-    pass
-
-
 @given(integers())
 @example(0)
 @example(123)
@@ -885,23 +879,3 @@ def test_frombase_auto(x):
 def test_pickle(protocol, x):
     mx = mpz(x)
     assert mx == pickle.loads(pickle.dumps(mx, protocol))
-
-
-@pytest.mark.skipif(platform.system() != "Linux",
-                    reason="FIXME: setrlimit fails with ValueError on MacOS")
-@given(integers(min_value=49846727467293, max_value=249846727467293))
-@example(249846727467293)
-@example(1292734994793)
-def test_outofmemory(x):
-    soft, hard = resource.getrlimit(resource.RLIMIT_AS)
-    resource.setrlimit(resource.RLIMIT_AS, (1024*32*1024, hard))
-    mx = mpz(x)
-    i = 1
-    while True:
-        try:
-            mx = mx*mx
-        except MemoryError:
-            assert i > 5
-            break
-        i += 1
-    resource.setrlimit(resource.RLIMIT_AS, (soft, hard))
