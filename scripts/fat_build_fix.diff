@@ -1,18 +1,37 @@
---- mpn/x86_64/fat/fat.c
-+++ mpn/x86_64/fat/fat.c
-@@ -375,6 +375,7 @@ __gmpn_cpuvec_init (void)
-	      CPUVEC_SETUP_core2;
-	      CPUVEC_SETUP_coreinhm;
-	      CPUVEC_SETUP_coreisbr;
-+         __gmpn_cpuid (dummy_string, 7);
-	      if ((dummy_string[0 + BMI2_BIT / 8] & (1 << (BMI2_BIT % 8))) == 0)
-		break;
-	      CPUVEC_SETUP_coreihwl;
-@@ -388,6 +389,7 @@ __gmpn_cpuvec_init (void)
-	      CPUVEC_SETUP_core2;
-	      CPUVEC_SETUP_coreinhm;
-	      CPUVEC_SETUP_coreisbr;
-+         __gmpn_cpuid (dummy_string, 7);
-	      if ((dummy_string[0 + BMI2_BIT / 8] & (1 << (BMI2_BIT % 8))) == 0)
-		break;
-	      if (gmp_workaround_skylake_cpuid_bug ())
+# HG changeset patch
+# User Torbjorn Granlund <tg@gmplib.org>
+# Date 1715799071 -7200
+# Node ID ca451d583385d5e3a9bd4b9fb5517bf0c559cf86
+# Parent  1040c63034550fe624e12f5517fbc7f8ad069161
+Fix bug in BMI2 detection.
+
+#diff -r 1040c6303455 -r ca451d583385 ChangeLog
+#--- a/ChangeLog	Mon Mar 25 17:57:27 2024 +0100
+#+++ b/ChangeLog	Wed May 15 20:51:11 2024 +0200
+#@@ -1,3 +1,7 @@
+#+2024-05-15 Sven Anderson <sven@anderson.de>
+#+
+#+	* mpn/x86_64/fat/fat.c: Fix bug in BMI2 detection.
+#+
+# 2024-03-25 Marco Bodrato <bodrato@mail.dm.unipi.it>
+#
+# 	* mpz/millerrabin.c: Swap function order to avoid a (wrong) prototype,
+diff -r 1040c6303455 -r ca451d583385 mpn/x86_64/fat/fat.c
+--- a/mpn/x86_64/fat/fat.c	Mon Mar 25 17:57:27 2024 +0100
++++ b/mpn/x86_64/fat/fat.c	Wed May 15 20:51:11 2024 +0200
+@@ -375,6 +375,7 @@
+ 	      CPUVEC_SETUP_core2;
+ 	      CPUVEC_SETUP_coreinhm;
+ 	      CPUVEC_SETUP_coreisbr;
++	      __gmpn_cpuid (dummy_string, 7);
+ 	      if ((dummy_string[0 + BMI2_BIT / 8] & (1 << (BMI2_BIT % 8))) == 0)
+ 		break;
+ 	      CPUVEC_SETUP_coreihwl;
+@@ -388,6 +389,7 @@
+ 	      CPUVEC_SETUP_core2;
+ 	      CPUVEC_SETUP_coreinhm;
+ 	      CPUVEC_SETUP_coreisbr;
++	      __gmpn_cpuid (dummy_string, 7);
+ 	      if ((dummy_string[0 + BMI2_BIT / 8] & (1 << (BMI2_BIT % 8))) == 0)
+ 		break;
+ 	      if (gmp_workaround_skylake_cpuid_bug ())
