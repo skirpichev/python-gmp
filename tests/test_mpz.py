@@ -498,7 +498,7 @@ def test_power_mod(x, y, z):
         assert pow(mx, my, z) == r
         assert pow(mx, y, mz) == r
         if platform.python_implementation() == "PyPy":  # FIXME
-            return
+            return  # XXX: pypy/pypy#5207
         assert pow(x, my, mz) == r
 
 
