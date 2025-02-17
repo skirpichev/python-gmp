@@ -699,9 +699,10 @@ class mpq(numbers.Rational):
 
         """
         def forward(a, b):
+            import gmp
             if isinstance(b, mpq):
                 return monomorphic_operator(a, b)
-            elif isinstance(b, int):
+            elif isinstance(b, (int, gmp.mpz)):
                 return monomorphic_operator(a, mpq(b))
             elif isinstance(b, float):
                 return fallback_operator(float(a), b)
