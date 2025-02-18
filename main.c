@@ -265,7 +265,6 @@ MPZ_to_str(MPZ_Object *u, int base, int options)
     }
 
     size_t len = mpn_sizeinbase(u->digits, u->size, base);
-
     /*                                tag sign prefix        )   \0 */
     unsigned char *buf = PyMem_Malloc(4 + 1   + 2    + len + 1 + 1), *p = buf;
 
@@ -295,14 +294,30 @@ MPZ_to_str(MPZ_Object *u, int base, int options)
             *(p++) = 'x';
         }
     }
-    if (ENOUGH_MEMORY) {
+    if ((base & (base - 1)) == 0) {
         len -= (mpn_get_str(p, base, u->digits, u->size) != len);
     }
-    else {
-        /* LCOV_EXCL_START */
-        PyMem_Free(buf);
-        return PyErr_NoMemory();
-        /* LCOV_EXCL_STOP */
+    else { /* generic base, not power of 2, input might be clobbered */
+        mp_limb_t *tmp = PyMem_New(mp_limb_t, u->size);
+
+        if (!tmp) {
+            /* LCOV_EXCL_START */
+            PyMem_Free(buf);
+            return PyErr_NoMemory();
+            /* LCOV_EXCL_STOP */
+        }
+        mpn_copyi(tmp, u->digits, u->size);
+        if (ENOUGH_MEMORY) {
+            len -= (mpn_get_str(p, base, tmp, u->size) != len);
+        }
+        else {
+            /* LCOV_EXCL_START */
+            PyMem_Free(buf);
+            PyMem_Free(tmp);
+            return PyErr_NoMemory();
+            /* LCOV_EXCL_STOP */
+        }
+        PyMem_Free(tmp);
     }
     for (size_t i = 0; i < len; i++) {
         *p = num_to_text[*p];
