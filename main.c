@@ -724,7 +724,7 @@ MPZ_AsDoubleAndExp(MPZ_Object *u, Py_ssize_t *e)
     } while (0);
 
 static MPZ_Object *
-_MPZ_addsub(MPZ_Object *u, MPZ_Object *v, int subtract)
+_MPZ_addsub(const MPZ_Object *u, const MPZ_Object *v, int subtract)
 {
     MPZ_Object *res;
     uint8_t negu = u->negative, negv = v->negative;
@@ -733,7 +733,7 @@ _MPZ_addsub(MPZ_Object *u, MPZ_Object *v, int subtract)
         negv = !negv;
     }
     if (u->size < v->size) {
-        SWAP(MPZ_Object *, u, v);
+        SWAP(const MPZ_Object *, u, v);
         SWAP(uint8_t, negu, negv);
     }
     if (negu == negv) {
@@ -772,7 +772,7 @@ _MPZ_addsub(MPZ_Object *u, MPZ_Object *v, int subtract)
 }
 
 static MPZ_Object *
-MPZ_add(MPZ_Object *u, MPZ_Object *v)
+MPZ_add(const MPZ_Object *u, const MPZ_Object *v)
 {
     return _MPZ_addsub(u, v, 0);
 }
@@ -784,7 +784,7 @@ MPZ_sub(MPZ_Object *u, MPZ_Object *v)
 }
 
 static MPZ_Object *
-MPZ_mul(MPZ_Object *u, MPZ_Object *v)
+MPZ_mul(const MPZ_Object *u, const MPZ_Object *v)
 {
     if (!u->size || !v->size) {
         return MPZ_FromDigitSign(0, 0);
@@ -798,7 +798,7 @@ MPZ_mul(MPZ_Object *u, MPZ_Object *v)
         /* LCOV_EXCL_STOP */
     }
     if (u->size < v->size) {
-        SWAP(MPZ_Object *, u, v);
+        SWAP(const MPZ_Object *, u, v);
     }
     if (v->size == 1) {
         res->digits[res->size - 1] = mpn_mul_1(res->digits, u->digits,
@@ -845,7 +845,8 @@ MPZ_mul(MPZ_Object *u, MPZ_Object *v)
 }
 
 static int
-MPZ_divmod(MPZ_Object **q, MPZ_Object **r, MPZ_Object *u, MPZ_Object *v)
+MPZ_divmod(MPZ_Object **q, MPZ_Object **r,
+           const MPZ_Object *u, const MPZ_Object *v)
 {
     if (!v->size) {
         PyErr_SetString(PyExc_ZeroDivisionError, "division by zero");
@@ -915,7 +916,7 @@ MPZ_divmod(MPZ_Object **q, MPZ_Object **r, MPZ_Object *u, MPZ_Object *v)
 }
 
 static MPZ_Object *
-MPZ_quot(MPZ_Object *u, MPZ_Object *v)
+MPZ_quot(const MPZ_Object *u, const MPZ_Object *v)
 {
     MPZ_Object *q, *r;
 
@@ -1769,6 +1770,142 @@ MPZ_powm(MPZ_Object *u, MPZ_Object *v, MPZ_Object *w)
     PyMem_Free(tmp);
     MPZ_normalize(res);
     return res;
+}
+
+MPZ_err
+MPZ_gcdext(const MPZ_Object *u, const MPZ_Object *v,
+           MPZ_Object *g, MPZ_Object *s, MPZ_Object *t)
+{
+    if (u->size < v->size) {
+        SWAP(const MPZ_Object *, u, v);
+        SWAP(MPZ_Object *, s, t);
+    }
+    if (!v->size) {
+        if (g) {
+            if (MPZ_resize(g, u->size) == MPZ_MEM) {
+                return MPZ_MEM;  /* LCOV_EXCL_LINE */
+            }
+            g->negative = 0;
+            mpn_copyi(g->digits, u->digits, u->size);
+        }
+        if (s) {
+            if (MPZ_resize(s, 1) == MPZ_MEM) {
+                return MPZ_MEM;  /* LCOV_EXCL_LINE */
+            }
+            s->digits[0] = 1;
+            s->size = u->size > 0;
+            s->negative = u->negative;
+        }
+        if (t) {
+            t->size = 0;
+            t->negative = 0;
+        }
+        return MPZ_OK;
+    }
+
+    MPZ_Object *arg_u = MPZ_copy(u), *arg_v = MPZ_copy(v);
+    MPZ_Object *tmp_g = MPZ_new(v->size, 0);
+    MPZ_Object *tmp_s = MPZ_new(v->size + 1, 0);
+
+    if (!arg_u || !arg_v || !tmp_g || !tmp_s) {
+        /* LCOV_EXCL_START */
+        Py_XDECREF(arg_u);
+        Py_XDECREF(arg_v);
+        Py_XDECREF(tmp_g);
+        Py_XDECREF(tmp_s);
+        return MPZ_MEM;
+        /* LCOV_EXCL_STOP */
+    }
+    if (ENOUGH_MEMORY) {
+        mp_size_t ssize;
+
+        tmp_g->size = mpn_gcdext(tmp_g->digits, tmp_s->digits, &ssize,
+                                 arg_u->digits, u->size,
+                                 arg_v->digits, v->size);
+        tmp_g->negative = 0;
+        tmp_s->size = Py_ABS(ssize);
+        tmp_s->negative = ((u->negative && ssize > 0)
+                           || (!u->negative && ssize < 0));
+    }
+    else {
+        /* LCOV_EXCL_START */
+        Py_DECREF(arg_u);
+        Py_DECREF(arg_v);
+        Py_XDECREF(tmp_g);
+        Py_XDECREF(tmp_s);
+        return MPZ_MEM;
+        /* LCOV_EXCL_STOP */
+    }
+    Py_DECREF(arg_u);
+    Py_DECREF(arg_v);
+    if (t) {
+        MPZ_Object *us = MPZ_mul(u, tmp_s);
+
+        if (!us) {
+            /* LCOV_EXCL_START */
+            Py_XDECREF(tmp_g);
+            Py_XDECREF(tmp_s);
+            return MPZ_MEM;
+            /* LCOV_EXCL_STOP */
+        }
+
+        MPZ_Object *x = MPZ_sub(tmp_g, us);
+
+        Py_DECREF(us);
+        if (!x) {
+            /* LCOV_EXCL_START */
+            Py_XDECREF(tmp_g);
+            Py_XDECREF(tmp_s);
+            return MPZ_MEM;
+            /* LCOV_EXCL_STOP */
+        }
+
+        MPZ_Object *q = MPZ_quot(x, v);
+
+        Py_DECREF(x);
+        if (!q) {
+            /* LCOV_EXCL_START */
+            Py_XDECREF(tmp_g);
+            Py_XDECREF(tmp_s);
+            return MPZ_MEM;
+            /* LCOV_EXCL_STOP */
+        }
+        if (MPZ_resize(t, q->size) == MPZ_MEM) {
+            /* LCOV_EXCL_START */
+            Py_XDECREF(tmp_g);
+            Py_XDECREF(tmp_s);
+            Py_XDECREF(q);
+            return MPZ_MEM;
+            /* LCOV_EXCL_STOP */
+        }
+        mpn_copyi(t->digits, q->digits, q->size);
+        t->negative = q->negative;
+        Py_XDECREF(q);
+    }
+    if (s) {
+        if (MPZ_resize(s, tmp_s->size) == MPZ_MEM) {
+            /* LCOV_EXCL_START */
+            Py_XDECREF(tmp_g);
+            Py_XDECREF(tmp_s);
+            return MPZ_MEM;
+            /* LCOV_EXCL_STOP */
+        }
+        mpn_copyi(s->digits, tmp_s->digits, tmp_s->size);
+        s->negative = tmp_s->negative;
+        Py_XDECREF(tmp_s);
+    }
+    if (g) {
+        if (MPZ_resize(g, tmp_g->size) == MPZ_MEM) {
+            /* LCOV_EXCL_START */
+            Py_XDECREF(tmp_g);
+            return MPZ_MEM;
+            /* LCOV_EXCL_STOP */
+        }
+        mpn_copyi(g->digits, tmp_g->digits, tmp_g->size);
+        g->negative = 0;
+        Py_XDECREF(tmp_g);
+    }
+    return MPZ_OK;
 }
 
 /* XXX: use mpn_gcdext() */
@@ -3487,6 +3624,82 @@ gmp_gcd(PyObject *Py_UNUSED(module), PyObject *const *args, Py_ssize_t nargs)
 }
 
 static PyObject *
+gmp_gcdext(PyObject *Py_UNUSED(module), PyObject *const *args,
+           Py_ssize_t nargs)
+{
+    if (nargs != 2) {
+        PyErr_SetString(PyExc_TypeError, "gcdext() expects two arguments");
+        return NULL;
+    }
+    MPZ_Object *x, *y;
+
+    if (MPZ_Check(args[0])) {
+        x = (MPZ_Object *)args[0];
+        Py_INCREF(x);
+    }
+    else if (PyLong_Check(args[0])) {
+        x = MPZ_from_int(args[0]);
+        if (!x) {
+            goto err;  /* LCOV_EXCL_LINE */
+        }
+    }
+    else {
+        PyErr_SetString(PyExc_TypeError,
+                        "gcdext() expects integer arguments");
+        goto err;
+    }
+    if (MPZ_Check(args[1])) {
+        y = (MPZ_Object *)args[1];
+        Py_INCREF(y);
+    }
+    else if (PyLong_Check(args[1])) {
+        y = MPZ_from_int(args[1]);
+        if (!y) {
+            goto err;  /* LCOV_EXCL_LINE */
+        }
+    }
+    else {
+        PyErr_SetString(PyExc_TypeError,
+                        "gcdext() expects integer arguments");
+        goto err;
+    }
+
+    MPZ_Object *g = MPZ_new(0, 0), *s = MPZ_new(0, 0), *t = MPZ_new(0, 0);
+
+    if (!g || !s || !t) {
+        /* LCOV_EXCL_START */
+        Py_XDECREF(g);
+        Py_XDECREF(s);
+        Py_XDECREF(t);
+        return PyErr_NoMemory();
+        /* LCOV_EXCL_STOP */
+    }
+
+    MPZ_err ret = MPZ_gcdext(x, y, g, s, t);
+
+    Py_XDECREF(x);
+    Py_XDECREF(y);
+    if (ret == MPZ_OK) {
+        PyObject *tup = PyTuple_Pack(3, g, s, t);
+
+        Py_DECREF(g);
+        Py_DECREF(s);
+        Py_DECREF(t);
+        return tup;
+    }
+    else if (ret == MPZ_MEM) {
+        PyErr_NoMemory();  /* LCOV_EXCL_LINE */
+    }
+err:
+    Py_DECREF(g);
+    Py_DECREF(s);
+    Py_DECREF(t);
+    Py_XDECREF(x);
+    Py_XDECREF(y);
+    return NULL;
+}
+
+static PyObject *
 gmp_isqrt(PyObject *Py_UNUSED(module), PyObject *arg)
 {
     MPZ_Object *x, *root = MPZ_new(0, 0);
@@ -3924,6 +4137,9 @@ static PyMethodDef functions[] = {
     {"gcd", (PyCFunction)gmp_gcd, METH_FASTCALL,
      ("gcd($module, /, *integers)\n--\n\n"
       "Greatest Common Divisor.")},
+    {"gcdext", (PyCFunction)gmp_gcdext, METH_FASTCALL,
+     ("gcdext($module, x, y, /)\n--\n\n"
+      "Compute extended GCD.")},
     {"isqrt", gmp_isqrt, METH_O,
      ("isqrt($module, n, /)\n--\n\n"
       "Return the integer part of the square root of the input.")},

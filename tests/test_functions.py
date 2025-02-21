@@ -8,6 +8,7 @@ from gmp import (
     factorial,
     fib,
     gcd,
+    gcdext,
     isqrt,
     isqrt_rem,
     mpz,
@@ -47,7 +48,6 @@ def test_fib(x):
     assert fib(mx) == fib(x) == r
 
 
-
 @given(integers(min_value=0, max_value=12345))
 def test_factorial(x):
     mx = mpz(x)
@@ -64,6 +64,40 @@ def test_gcd(x, y):
     assert gcd(mx, my) == r
     assert gcd(x, my) == r
     assert gcd(mx, y) == r
+
+
+def python_gcdext(a, b):
+    if not a and not b:
+        return 0, 0, 0
+    if not a:
+        return 0, b//abs(b), abs(b)
+    if not b:
+        return a//abs(a), 0, abs(a)
+    if a < 0:
+        a, x_sign = -a, -1
+    else:
+        x_sign = 1
+    if b < 0:
+        b, y_sign = -b, -1
+    else:
+        y_sign = 1
+    x, y, r, s = 1, 0, 0, 1
+    while b:
+        c, q = a % b, a // b
+        a, b, r, s, x, y = b, c, x - q*r, y - q*s, r, s
+    return x*x_sign, y*y_sign, a
+
+
+@given(integers(), integers())
+@example(1<<(67*2), 1<<65)
+def test_gcdext(x, y):
+    mx = mpz(x)
+    my = mpz(y)
+    r = python_gcdext(x, y)
+    r = r[2], r[0], r[1]
+    assert gcdext(mx, my) == r
+    assert gcdext(x, my) == r
+    assert gcdext(mx, y) == r
 
 
 def test_interfaces():
