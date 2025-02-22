@@ -498,6 +498,9 @@ def test_power_mod(x, y, z):
         if platform.python_implementation() == "PyPy":  # FIXME
             return  # XXX: pypy/pypy#5207
         assert pow(x, my, mz) == r
+        assert pow(mx, y, z) == r
+        assert pow(x, my, z) == r
+        assert pow(x, y, mz) == r
 
 
 @given(integers())
