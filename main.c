@@ -1705,7 +1705,7 @@ MPZ_pow(MPZ_Object *u, MPZ_Object *v)
     return res;
 }
 
-/* XXX: don't use mpz_powm() for odd w, replace
+/* XXX: don't use mpz_powm() for even w, replace
    mpn_sec_powm() by mpn_powm(). */
 static MPZ_Object *
 MPZ_powm(MPZ_Object *u, MPZ_Object *v, MPZ_Object *w)
@@ -3383,7 +3383,7 @@ __reduce_ex__(PyObject *self, PyObject *Py_UNUSED(args))
                          MPZ_to_bytes(u, (len + 7)/8 + 1, 0, 1));
 }
 
-/* FIXME: replace this stub */
+/* XXX: replace this stub */
 static PyObject *
 __format__(PyObject *self, PyObject *format_spec)
 {
