@@ -150,9 +150,14 @@ def test_mpz_interface():
         mpz("0x", 0)
     with pytest.raises(TypeError):
         mpz(1j, 10)
+    with pytest.raises(TypeError):
+        mpz(123, spam=321)
+    with pytest.raises(OverflowError):
+        mpz("1", base=10**1000)
     assert mpz() == mpz(0) == 0
     assert mpz("+123") == 123
     assert mpz("١٢٣٤") == 1234  # unicode decimal digits
+    assert mpz("١23") == 123
 
     class with_int:
         def __init__(self, value):
@@ -187,6 +192,27 @@ def test_mpz_subclasses():
     assert mpz2() == 0
     assert mpz2("123", 16) == int("123", 16)
 
+    with pytest.raises(TypeError):
+        mpz2(1, spam=2)
+
+    class with_int:
+        def __init__(self, value):
+            self.value = value
+        def __int__(self):
+            return self.value
+    class int2(int):
+        pass
+
+    assert mpz2(with_int(123)) == 123
+    with pytest.deprecated_call():
+        assert mpz2(with_int(int2(123))) == 123
+    with warnings.catch_warnings():
+        warnings.simplefilter("error", DeprecationWarning)
+        with pytest.raises(DeprecationWarning):
+            mpz2(with_int(int2(123)))
+    with pytest.raises(TypeError):
+        mpz2(with_int(1j))
+
 
 @given(integers())
 def test_repr(x):
@@ -210,12 +236,19 @@ def test_richcompare_mixed(x, y):
     for op in [operator.eq, operator.ne, operator.lt, operator.le,
                operator.gt, operator.ge]:
         assert op(mx, y) == op(x, y)
+        assert op(y, mx) == op(y, x)
 
 
 def test_richcompare_errors():
     mx = mpz(123)
     with pytest.raises(TypeError):
         mx > 1j
+    with pytest.raises(TypeError):
+        mx > object()
+    with pytest.raises(OverflowError):
+        1.1 > mpz(10**1000)
+    with pytest.raises(OverflowError):
+        mpz(10**1000) > 1.1
 
 
 @given(integers())
@@ -364,6 +397,8 @@ def test_divmod_errors():
     mx = mpz(123)
     with pytest.raises(TypeError):
         divmod(mx, 1j)
+    with pytest.raises(TypeError):
+        divmod(mx, object())
 
 
 @pytest.mark.skipif(platform.python_implementation() == "GraalVM",
@@ -503,6 +538,18 @@ def test_power_mod(x, y, z):
         assert pow(mx, y, z) == r
         assert pow(x, my, z) == r
         assert pow(x, y, mz) == r
+
+
+def test_power_errors():
+    with pytest.raises(TypeError):
+        pow(123, mpz(321), 1.23)
+    assert pow(1j, mpz(2)) == -1
+    with pytest.raises(OverflowError):
+        pow(1j, mpz(10**1000))
+    with pytest.raises(OverflowError):
+        pow(mpz(10**1000), 1j)
+    with pytest.raises(TypeError):
+        pow(object(), mpz(321))
 
 
 @given(integers())

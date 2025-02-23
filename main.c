@@ -2292,10 +2292,6 @@ MK_MPZ_func_ul(fib, fib_ui)
 static PyObject *
 PyUnicode_TransformDecimalAndSpaceToASCII(PyObject *unicode)
 {
-    if (!PyUnicode_Check(unicode)) {
-        PyErr_BadInternalCall();
-        return NULL;
-    }
     if (PyUnicode_IS_ASCII(unicode)) {
         return Py_NewRef(unicode);
     }
@@ -2304,7 +2300,7 @@ PyUnicode_TransformDecimalAndSpaceToASCII(PyObject *unicode)
     PyObject *result = PyUnicode_New(len, 127);
 
     if (result == NULL) {
-        return NULL;
+        return NULL;  /* LCOV_EXCL_LINE */
     }
 
     Py_UCS1 *out = PyUnicode_1BYTE_DATA(result);
@@ -3677,6 +3673,9 @@ gmp_gcdext(PyObject *Py_UNUSED(module), PyObject *const *args,
 
     Py_XDECREF(x);
     Py_XDECREF(y);
+    if (ret == MPZ_MEM) {
+        PyErr_NoMemory();  /* LCOV_EXCL_LINE */
+    }
     if (ret == MPZ_OK) {
         PyObject *tup = PyTuple_Pack(3, g, s, t);
 
@@ -3684,9 +3683,6 @@ gmp_gcdext(PyObject *Py_UNUSED(module), PyObject *const *args,
         Py_DECREF(s);
         Py_DECREF(t);
         return tup;
-    }
-    if (ret == MPZ_MEM) {
-        PyErr_NoMemory();  /* LCOV_EXCL_LINE */
     }
 err:
     Py_DECREF(g);

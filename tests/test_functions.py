@@ -105,6 +105,12 @@ def test_gcdext(x, y):
        sampled_from(["n", "f", "c", "u", "d"]))
 @example(0, 232, -4, 4, "n")
 @example(0, 9727076909039105, -48, 53, "n")
+@example(0, 9727076909039105, -48, 53, "f")
+@example(1, 9727076909039105, -48, 53, "f")
+@example(0, 9727076909039105, -48, 53, "c")
+@example(1, 9727076909039105, -48, 53, "c")
+@example(1, 9727076909039105, -48, 53, "d")
+@example(1, 9727076909039105, -48, 53, "u")
 def test__mpmath_normalize(sign, man, exp, prec, rnd):
     mpmath = pytest.importorskip("mpmath")
     mman = mpz(man)
