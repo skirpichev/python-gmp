@@ -6,11 +6,10 @@ shouldn't crash the interpreter!  It requires Python 3.9 or later versions and
 has been tested with CPython 3.9 through 3.14 and for PyPy 3.10 and 3.11.
 
 This module can be used as a gmpy2/python-flint replacement to provide
-CPython-compatible integer (mpz) and rational (mpq) types.  The module includes
-also few functions (factorial, gcd and isqrt), compatible with the stdlib's
-module math.
+CPython-compatible integer (mpz) and rational (mpq) types.  It includes few
+functions (factorial, gcd and isqrt), compatible with the stdlib's module math.
 
-Releases are available in the Python Package Index at
+Releases are available in the Python Package Index (PyPI) at
 https://pypi.org/project/python-gmp/
 
 
@@ -21,6 +20,8 @@ Most GMP packages enable using alloca() for temporary workspace allocation.
 This module can't prevent a crash in case of a stack overflow.  To avoid this,
 you should compile the GMP library with '--disable-alloca' configure option to
 use rather the heap for all temporary allocations.
+
+Of course, published on the PyPI binary wheels aren't affected by this issue.
 
 
 Warning on using mp_set_memory_functions()

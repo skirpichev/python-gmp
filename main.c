@@ -839,7 +839,6 @@ MPZ_mul(const MPZ_Object *u, const MPZ_Object *v)
             /* LCOV_EXCL_STOP */
         }
     }
-    MPZ_normalize(res);
     res->size -= (res->digits[res->size - 1] == 0);
     return res;
 }
