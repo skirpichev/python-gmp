@@ -9,6 +9,7 @@
 
 static jmp_buf gmp_env;
 #define ENOUGH_MEMORY (setjmp(gmp_env) != 1)
+#define TMP_OVERFLOW (setjmp(gmp_env) == 1)
 #define TRACKER_MAX_SIZE 64
 static struct {
     size_t size;
@@ -786,19 +787,20 @@ MPZ_sub(MPZ_Object *u, MPZ_Object *v)
 static MPZ_Object *
 MPZ_mul(const MPZ_Object *u, const MPZ_Object *v)
 {
-    if (!u->size || !v->size) {
+    if (u->size < v->size) {
+        SWAP(const MPZ_Object *, u, v);
+    }
+    if (!v->size) {
         return MPZ_FromDigitSign(0, 0);
     }
 
     MPZ_Object *res = MPZ_new(u->size + v->size, u->negative != v->negative);
 
-    if (!res) {
+    if (!res || TMP_OVERFLOW) {
         /* LCOV_EXCL_START */
-        return NULL;
+        Py_XDECREF(res);
+        return (MPZ_Object *)PyErr_NoMemory();
         /* LCOV_EXCL_STOP */
-    }
-    if (u->size < v->size) {
-        SWAP(const MPZ_Object *, u, v);
     }
     if (v->size == 1) {
         res->digits[res->size - 1] = mpn_mul_1(res->digits, u->digits,
@@ -806,40 +808,16 @@ MPZ_mul(const MPZ_Object *u, const MPZ_Object *v)
     }
     else if (u->size == v->size) {
         if (u != v) {
-            if (ENOUGH_MEMORY) {
-                mpn_mul_n(res->digits, u->digits, v->digits, u->size);
-            }
-            else {
-                /* LCOV_EXCL_START */
-                Py_DECREF(res);
-                return (MPZ_Object *)PyErr_NoMemory();
-                /* LCOV_EXCL_STOP */
-            }
+            mpn_mul_n(res->digits, u->digits, v->digits, u->size);
         }
         else {
-            if (ENOUGH_MEMORY) {
-                mpn_sqr(res->digits, u->digits, u->size);
-            }
-            else {
-                /* LCOV_EXCL_START */
-                Py_DECREF(res);
-                return (MPZ_Object *)PyErr_NoMemory();
-                /* LCOV_EXCL_STOP */
-            }
+            mpn_sqr(res->digits, u->digits, u->size);
         }
     }
     else {
-        if (ENOUGH_MEMORY) {
-            mpn_mul(res->digits, u->digits, u->size, v->digits, v->size);
-        }
-        else {
-            /* LCOV_EXCL_START */
-            Py_DECREF(res);
-            return (MPZ_Object *)PyErr_NoMemory();
-            /* LCOV_EXCL_STOP */
-        }
+        mpn_mul(res->digits, u->digits, u->size, v->digits, v->size);
     }
-    res->size -= (res->digits[res->size - 1] == 0);
+    res->size -= res->digits[res->size - 1] == 0;
     return res;
 }
 
