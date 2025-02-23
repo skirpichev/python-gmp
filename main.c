@@ -2122,46 +2122,28 @@ MPZ_gcd(const MPZ_Object *u, const MPZ_Object *v, MPZ_Object *gcd)
 
     mp_limb_t shift = Py_MIN(mpn_scan1(u->digits, 0),
                              mpn_scan1(v->digits, 0));
-    MPZ_Object *arg_u = NULL, *arg_v = NULL;
 
     if (shift) {
-        arg_u = MPZ_rshift1(u, shift, 0);
-        arg_v = MPZ_rshift1(v, shift, 0);
+        u = MPZ_rshift1(u, shift, 0);
+        v = MPZ_rshift1(v, shift, 0);
     }
     else {
-        arg_u = MPZ_copy(u);
-        arg_v = MPZ_copy(v);
+        u = MPZ_copy(u);
+        v = MPZ_copy(v);
     }
-    if (!arg_u || !arg_v) {
+    if (u->size < v->size) {
+        SWAP(const MPZ_Object *, u, v);
+    }
+    if (!u || !v || MPZ_resize(gcd, v->size) == MPZ_MEM || TMP_OVERFLOW) {
         /* LCOV_EXCL_START */
-        Py_XDECREF(arg_u);
-        Py_XDECREF(arg_v);
+        Py_XDECREF(u);
+        Py_XDECREF(v);
         return MPZ_MEM;
         /* LCOV_EXCL_STOP */
     }
-    if (arg_u->size < arg_v->size) {
-        SWAP(MPZ_Object *, arg_u, arg_v);
-    }
-    if (MPZ_resize(gcd, arg_v->size) == MPZ_MEM) {
-        /* LCOV_EXCL_START */
-        Py_DECREF(arg_u);
-        Py_DECREF(arg_v);
-        return MPZ_MEM;
-        /* LCOV_EXCL_STOP */
-    }
-    if (ENOUGH_MEMORY) {
-        gcd->size = mpn_gcd(gcd->digits, arg_u->digits, arg_u->size,
-                            arg_v->digits, arg_v->size);
-    }
-    else {
-        /* LCOV_EXCL_START */
-        Py_DECREF(arg_u);
-        Py_DECREF(arg_v);
-        return MPZ_MEM;
-        /* LCOV_EXCL_STOP */
-    }
-    Py_DECREF(arg_u);
-    Py_DECREF(arg_v);
+    gcd->size = mpn_gcd(gcd->digits, u->digits, u->size, v->digits, v->size);
+    Py_DECREF(u);
+    Py_DECREF(v);
     if (shift) {
         MPZ_Object *tmp = MPZ_lshift1(gcd, shift, 0);
 
