@@ -3196,7 +3196,7 @@ to_bytes(PyObject *self, PyObject *const *args, Py_ssize_t nargs,
             const char *byteorder = PyUnicode_AsUTF8(arg);
 
             if (!byteorder) {
-                return NULL;
+                return NULL;  /* LCOV_EXCL_LINE */
             }
             else if (strcmp(byteorder, "big") == 0) {
                 is_little = 0;
@@ -3255,7 +3255,7 @@ from_bytes(PyTypeObject *Py_UNUSED(type), PyObject *const *args,
             const char *byteorder = PyUnicode_AsUTF8(arg);
 
             if (!byteorder) {
-                return NULL;
+                return NULL;  /* LCOV_EXCL_LINE */
             }
             else if (strcmp(byteorder, "big") == 0) {
                 is_little = 0;
@@ -3351,7 +3351,7 @@ __round__(PyObject *self, PyObject *const *args, Py_ssize_t nargs)
     Py_DECREF(ten);
     Py_DECREF(ndigits);
     if (!p) {
-        return NULL;
+        return NULL; /* LCOV_EXCL_LINE */
     }
 
     MPZ_Object *q, *r;
@@ -3631,8 +3631,17 @@ gmp_gcdext(PyObject *Py_UNUSED(module), PyObject *const *args,
         PyErr_SetString(PyExc_TypeError, "gcdext() expects two arguments");
         return NULL;
     }
-    MPZ_Object *x, *y;
+    MPZ_Object *x = NULL, *y = NULL;
+    MPZ_Object *g = MPZ_new(0, 0), *s = MPZ_new(0, 0), *t = MPZ_new(0, 0);
 
+    if (!g || !s || !t) {
+        /* LCOV_EXCL_START */
+        Py_XDECREF(g);
+        Py_XDECREF(s);
+        Py_XDECREF(t);
+        return PyErr_NoMemory();
+        /* LCOV_EXCL_STOP */
+    }
     if (MPZ_Check(args[0])) {
         x = (MPZ_Object *)args[0];
         Py_INCREF(x);
@@ -3662,17 +3671,6 @@ gmp_gcdext(PyObject *Py_UNUSED(module), PyObject *const *args,
         PyErr_SetString(PyExc_TypeError,
                         "gcdext() expects integer arguments");
         goto err;
-    }
-
-    MPZ_Object *g = MPZ_new(0, 0), *s = MPZ_new(0, 0), *t = MPZ_new(0, 0);
-
-    if (!g || !s || !t) {
-        /* LCOV_EXCL_START */
-        Py_XDECREF(g);
-        Py_XDECREF(s);
-        Py_XDECREF(t);
-        return PyErr_NoMemory();
-        /* LCOV_EXCL_STOP */
     }
 
     MPZ_err ret = MPZ_gcdext(x, y, g, s, t);
@@ -4246,7 +4244,7 @@ PyInit_gmp(void)
     PyObject *ns = PyDict_New();
 
     if (!ns) {
-        return NULL;
+        return NULL; /* LCOV_EXCL_LINE */
     }
     if (PyDict_SetItemString(ns, "gmp", m) < 0) {
         /* LCOV_EXCL_START */

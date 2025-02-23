@@ -798,6 +798,8 @@ def test___round__interface():
     x = mpz(133)
     with pytest.raises(TypeError):
         x.__round__(1, 2)
+    with pytest.raises(TypeError):
+        x.__round__(1j)
 
 
 @pytest.mark.skipif(platform.python_implementation() == "PyPy",
@@ -850,6 +852,8 @@ def test_digits_interface():
         x.digits(spam=1)
     with pytest.raises(TypeError):
         x.digits(a=1, b=2, c=3)
+    with pytest.raises(OverflowError):
+        x.digits(base=10**100)
     assert x.digits(10) == x.digits(base=10) == x.digits()
     assert x.digits(16, prefix=True) == x.digits(16, True)
     assert x.digits(16, prefix=False) == x.digits(16, False) == x.digits(16)

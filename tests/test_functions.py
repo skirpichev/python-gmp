@@ -100,24 +100,6 @@ def test_gcdext(x, y):
     assert gcdext(mx, y) == r
 
 
-def test_interfaces():
-    assert gcd() == 0
-    with pytest.raises(TypeError):
-        gcd(1j)
-    with pytest.raises(TypeError):
-        gcd(1, 1j)
-    with pytest.raises(TypeError):
-        isqrt(1j)
-    with pytest.raises(ValueError):
-        isqrt(-1)
-    with pytest.raises(TypeError):
-        factorial(1j)
-    with pytest.raises(ValueError):
-        factorial(-1)
-    with pytest.raises(OverflowError):
-        factorial(2**1000)
-
-
 @given(booleans(), integers(min_value=0), integers(),
        integers(min_value=1, max_value=1<<30),
        sampled_from(["n", "f", "c", "u", "d"]))
@@ -140,3 +122,43 @@ def test__mpmath_create(man, exp, prec, rnd):
     mman = mpz(man)
     res = mpmath.libmp.from_man_exp(man, exp, prec, rnd)
     assert _mpmath_create(mman, exp, prec, rnd) == res
+
+
+def test_interfaces():
+    assert gcd() == 0
+    with pytest.raises(TypeError):
+        gcd(1j)
+    with pytest.raises(TypeError):
+        gcd(1, 1j)
+    with pytest.raises(TypeError):
+        gcdext(1)
+    with pytest.raises(TypeError):
+        gcdext(2, 1j)
+    with pytest.raises(TypeError):
+        gcdext(2j, 2)
+    with pytest.raises(TypeError):
+        isqrt(1j)
+    with pytest.raises(TypeError):
+        isqrt_rem(1j)
+    with pytest.raises(ValueError):
+        isqrt(-1)
+    with pytest.raises(ValueError):
+        isqrt_rem(-1)
+    with pytest.raises(TypeError):
+        factorial(1j)
+    with pytest.raises(ValueError):
+        factorial(-1)
+    with pytest.raises(OverflowError):
+        factorial(2**1000)
+    with pytest.raises(TypeError):
+        _mpmath_create(123)
+    with pytest.raises(TypeError):
+        _mpmath_create(mpz(123), 10, 1j)
+    with pytest.raises(ValueError):
+        _mpmath_create(mpz(123), 10, 3, 1j)
+    with pytest.raises(TypeError):
+        _mpmath_normalize(123)
+    with pytest.raises(TypeError):
+        _mpmath_normalize(1, 111, 11, 12, 13, "c")
+    with pytest.raises(ValueError):
+        _mpmath_normalize(1, mpz(111), 11, 12, 13, 1j)
