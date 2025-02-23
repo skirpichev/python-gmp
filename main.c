@@ -727,45 +727,42 @@ MPZ_AsDoubleAndExp(MPZ_Object *u, Py_ssize_t *e)
 static MPZ_Object *
 _MPZ_addsub(const MPZ_Object *u, const MPZ_Object *v, int subtract)
 {
-    MPZ_Object *res;
-    uint8_t negu = u->negative, negv = v->negative;
+    uint8_t negu = u->negative, negv = subtract ? !v->negative : v->negative;
+    uint8_t same_sign = negu == negv;
 
-    if (subtract) {
-        negv = !negv;
-    }
     if (u->size < v->size) {
         SWAP(const MPZ_Object *, u, v);
         SWAP(uint8_t, negu, negv);
     }
-    if (negu == negv) {
-        res = MPZ_new(Py_MAX(u->size, v->size) + 1, negu);
-        if (!res) {
-            /* LCOV_EXCL_START */
-            return NULL;
-            /* LCOV_EXCL_STOP */
-        }
+
+    MPZ_Object *res = MPZ_new(u->size + same_sign, negu);
+
+    if (!res || TMP_OVERFLOW) {
+        /* LCOV_EXCL_START */
+        Py_XDECREF(res);
+        return (MPZ_Object *)PyErr_NoMemory();
+        /* LCOV_EXCL_STOP */
+    }
+    if (same_sign) {
         res->digits[res->size - 1] = mpn_add(res->digits,
                                              u->digits, u->size,
                                              v->digits, v->size);
     }
+    else if (u->size != v->size) {
+        mpn_sub(res->digits, u->digits, u->size, v->digits, v->size);
+    }
     else {
-        if (u->size > v->size || mpn_cmp(u->digits, v->digits, u->size) >= 0) {
-            res = MPZ_new(Py_MAX(u->size, v->size), negu);
-            if (!res) {
-                /* LCOV_EXCL_START */
-                return NULL;
-                /* LCOV_EXCL_STOP */
-            }
-            mpn_sub(res->digits, u->digits, u->size, v->digits, v->size);
+        int8_t cmp = mpn_cmp(u->digits, v->digits, u->size);
+
+        if (cmp < 0) {
+            mpn_sub_n(res->digits, v->digits, u->digits, u->size);
+            res->negative = negv;
+        }
+        else if (cmp > 0) {
+            mpn_sub_n(res->digits, u->digits, v->digits, u->size);
         }
         else {
-            res = MPZ_new(Py_MAX(u->size, v->size), negv);
-            if (!res) {
-                /* LCOV_EXCL_START */
-                return NULL;
-                /* LCOV_EXCL_STOP */
-            }
-            mpn_sub_n(res->digits, v->digits, u->digits, u->size);
+            res->size = 0;
         }
     }
     MPZ_normalize(res);
