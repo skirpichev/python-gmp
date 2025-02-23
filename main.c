@@ -3685,7 +3685,7 @@ gmp_gcdext(PyObject *Py_UNUSED(module), PyObject *const *args,
         Py_DECREF(t);
         return tup;
     }
-    else if (ret == MPZ_MEM) {
+    if (ret == MPZ_MEM) {
         PyErr_NoMemory();  /* LCOV_EXCL_LINE */
     }
 err:
@@ -3727,11 +3727,11 @@ gmp_isqrt(PyObject *Py_UNUSED(module), PyObject *arg)
     if (ret == MPZ_OK) {
         return (PyObject *)root;
     }
-    else if (ret == MPZ_VAL) {
+    if (ret == MPZ_VAL) {
         PyErr_SetString(PyExc_ValueError,
                         "isqrt() argument must be nonnegative");
     }
-    else if (ret == MPZ_MEM) {
+    if (ret == MPZ_MEM) {
         PyErr_NoMemory();  /* LCOV_EXCL_LINE */
     }
 err:
@@ -3774,11 +3774,11 @@ gmp_isqrt_rem(PyObject *Py_UNUSED(module), PyObject *arg)
     if (ret == MPZ_OK) {
         tup = PyTuple_Pack(2, root, rem);
     }
-    else if (ret == MPZ_VAL) {
+    if (ret == MPZ_VAL) {
         PyErr_SetString(PyExc_ValueError,
                         "isqrt() argument must be nonnegative");
     }
-    else if (ret == MPZ_MEM) {
+    if (ret == MPZ_MEM) {
         PyErr_NoMemory();  /* LCOV_EXCL_LINE */
     }
 err:

@@ -153,6 +153,8 @@ def test_interfaces():
     with pytest.raises(TypeError):
         _mpmath_create(123)
     with pytest.raises(TypeError):
+        _mpmath_create(123, 1)
+    with pytest.raises(TypeError):
         _mpmath_create(mpz(123), 10, 1j)
     with pytest.raises(ValueError):
         _mpmath_create(mpz(123), 10, 3, 1j)
