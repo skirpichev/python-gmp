@@ -2177,7 +2177,7 @@ MPZ_sqrtrem(const MPZ_Object *u, MPZ_Object *root, MPZ_Object *rem)
         }
         return MPZ_OK;
     }
-    if (MPZ_resize(root, (u->size + 1)/2) == MPZ_MEM) {
+    if (MPZ_resize(root, (u->size + 1)/2) == MPZ_MEM || TMP_OVERFLOW) {
         return MPZ_MEM;  /* LCOV_EXCL_LINE */
     }
     if (rem) {
@@ -2185,21 +2185,10 @@ MPZ_sqrtrem(const MPZ_Object *u, MPZ_Object *root, MPZ_Object *rem)
         if (MPZ_resize(rem, u->size) == MPZ_MEM) {
             return MPZ_MEM;  /* LCOV_EXCL_LINE */
         }
-        if (ENOUGH_MEMORY) {
-            rem->size = mpn_sqrtrem(root->digits, rem->digits,
-                                    u->digits, u->size);
-        }
-        else {
-            return MPZ_MEM;  /* LCOV_EXCL_LINE */
-        }
+        rem->size = mpn_sqrtrem(root->digits, rem->digits, u->digits, u->size);
     }
     else {
-        if (ENOUGH_MEMORY) {
-            mpn_sqrtrem(root->digits, NULL, u->digits, u->size);
-        }
-        else {
-            return MPZ_MEM;  /* LCOV_EXCL_LINE */
-        }
+        mpn_sqrtrem(root->digits, NULL, u->digits, u->size);
     }
     return MPZ_OK;
 }
