@@ -1882,75 +1882,24 @@ MPZ_gcdext(const MPZ_Object *u, const MPZ_Object *v,
     return MPZ_OK;
 }
 
-/* XXX: use mpn_gcdext() */
 static MPZ_Object *
 MPZ_inverse(MPZ_Object *u, MPZ_Object *v)
 {
-    MPZ_Object *a = MPZ_copy(u);
-    MPZ_Object *n = MPZ_copy(v);
-    MPZ_Object *b = MPZ_FromDigitSign(1, 0);
-    MPZ_Object *c = MPZ_FromDigitSign(0, 0);
+    MPZ_Object *g = MPZ_new(0, 0), *s = MPZ_new(0, 0);
 
-    if (!a || !n || !b || !c) {
+    if (!g || !s || MPZ_gcdext(u, v, g, s, NULL) == MPZ_MEM) {
         /* LCOV_EXCL_START */
-        Py_XDECREF(a);
-        Py_XDECREF(n);
-        Py_XDECREF(b);
-        Py_XDECREF(c);
-        return NULL;
+        Py_XDECREF(g);
+        Py_XDECREF(s);
+        return (MPZ_Object *)PyErr_NoMemory();
         /* LCOV_EXCL_STOP */
     }
-    while (n->size) {
-        MPZ_Object *q, *r;
-
-        if (MPZ_divmod(&q, &r, a, n) == -1) {
-            /* LCOV_EXCL_START */
-            Py_DECREF(a);
-            Py_DECREF(n);
-            Py_DECREF(b);
-            Py_DECREF(c);
-            return NULL;
-            /* LCOV_EXCL_STOP */
-        }
-        Py_SETREF(a, n);
-        n = r;
-
-        MPZ_Object *t = MPZ_mul(q, c);
-
-        if (!t) {
-            /* LCOV_EXCL_START */
-            Py_DECREF(a);
-            Py_DECREF(n);
-            Py_DECREF(b);
-            Py_DECREF(c);
-            return NULL;
-            /* LCOV_EXCL_STOP */
-        }
-
-        MPZ_Object *s = MPZ_sub(b, t);
-
-        if (!s) {
-            /* LCOV_EXCL_START */
-            Py_DECREF(t);
-            Py_DECREF(a);
-            Py_DECREF(n);
-            Py_DECREF(b);
-            Py_DECREF(c);
-            return NULL;
-            /* LCOV_EXCL_STOP */
-        }
-        Py_DECREF(t);
-        Py_SETREF(b, c);
-        c = s;
+    if (g->size == 1 && g->digits[0] == 1) {
+        Py_DECREF(g);
+        return s;
     }
-    Py_DECREF(c);
-    Py_DECREF(n);
-    if (a->size == 1 && a->digits[0] == 1) {
-        Py_DECREF(a);
-        return b;
-    }
-    Py_DECREF(a);
-    Py_DECREF(b);
+    Py_DECREF(g);
+    Py_DECREF(s);
     PyErr_SetString(PyExc_ValueError,
                     "base is not invertible for the given modulus");
     return NULL;
