@@ -3339,7 +3339,7 @@ PyTypeObject MPZ_Type = {
 static PyObject *
 gmp_gcd(PyObject *Py_UNUSED(module), PyObject *const *args, Py_ssize_t nargs)
 {
-    MPZ_Object *res = MPZ_FromDigitSign(0, 0), *tmp;
+    MPZ_Object *res = MPZ_FromDigitSign(0, 0);
 
     if (!res) {
         return (PyObject *)res; /* LCOV_EXCL_LINE */
