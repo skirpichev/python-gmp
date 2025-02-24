@@ -283,23 +283,15 @@ MPZ_to_str(MPZ_Object *u, int base, int options)
     else { /* generic base, not power of 2, input might be clobbered */
         mp_limb_t *tmp = PyMem_New(mp_limb_t, u->size);
 
-        if (!tmp) {
+        if (!tmp || TMP_OVERFLOW) {
             /* LCOV_EXCL_START */
+            PyMem_Free(tmp);
             PyMem_Free(buf);
             return PyErr_NoMemory();
             /* LCOV_EXCL_STOP */
         }
         mpn_copyi(tmp, u->digits, u->size);
-        if (ENOUGH_MEMORY) {
-            len -= (mpn_get_str(p, base, tmp, u->size) != len);
-        }
-        else {
-            /* LCOV_EXCL_START */
-            PyMem_Free(buf);
-            PyMem_Free(tmp);
-            return PyErr_NoMemory();
-            /* LCOV_EXCL_STOP */
-        }
+        len -= (mpn_get_str(p, base, tmp, u->size) != len);
         PyMem_Free(tmp);
     }
     for (size_t i = 0; i < len; i++) {
@@ -444,22 +436,14 @@ MPZ_from_str(PyObject *obj, int base)
 
     MPZ_Object *res = MPZ_new(1 + len/2, negative);
 
-    if (!res) {
+    if (!res || TMP_OVERFLOW) {
         /* LCOV_EXCL_START */
+        Py_XDECREF(res);
         PyMem_Free(buf);
         return NULL;
         /* LCOV_EXCL_STOP */
     }
-    if (ENOUGH_MEMORY) {
-        res->size = mpn_set_str(res->digits, p, len, base);
-    }
-    else {
-        /* LCOV_EXCL_START */
-        Py_DECREF(res);
-        PyMem_Free(buf);
-        return (MPZ_Object *)PyErr_NoMemory();
-        /* LCOV_EXCL_STOP */
-    }
+    res->size = mpn_set_str(res->digits, p, len, base);
     PyMem_Free(buf);
     if (MPZ_resize(res, res->size) == MPZ_MEM) {
         /* LCOV_EXCL_START */
