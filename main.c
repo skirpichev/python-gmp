@@ -1136,7 +1136,7 @@ MPZ_invert(MPZ_Object *u)
             return NULL; /* LCOV_EXCL_LINE */
         }
         res->digits[u->size] = mpn_add_1(res->digits, u->digits, u->size, 1);
-        MPZ_normalize(res);
+        res->size -= res->digits[u->size] == 0;
     }
     return res;
 }
@@ -1408,9 +1408,6 @@ MPZ_or(MPZ_Object *u, MPZ_Object *v)
     if (u->size != v->size) {
         mpn_copyi(&res->digits[v->size], &u->digits[v->size],
                   u->size - v->size);
-    }
-    else {
-        MPZ_normalize(res);
     }
     return res;
 }
