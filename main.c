@@ -3,9 +3,11 @@
 #define PY_SSIZE_T_CLEAN
 #include <Python.h>
 
-#include <float.h>
 #include <gmp.h>
+
+#include <float.h>
 #include <setjmp.h>
+#include <stdbool.h>
 
 static jmp_buf gmp_env;
 #define ENOUGH_MEMORY (setjmp(gmp_env) != 1)
@@ -88,7 +90,7 @@ gmp_free_function(void *ptr, size_t size)
 
 typedef struct {
     PyObject_HEAD
-    uint8_t negative;
+    bool negative;
     mp_size_t size;
     /* XXX: add alloc field? */
     mp_limb_t *digits;
@@ -147,7 +149,7 @@ MPZ_resize(MPZ_Object *u, mp_size_t size)
 }
 
 static MPZ_Object *
-MPZ_new(mp_size_t size, uint8_t negative)
+MPZ_new(mp_size_t size, bool negative)
 {
     MPZ_Object *res;
 
@@ -194,7 +196,7 @@ MPZ_dealloc(MPZ_Object *u)
 }
 
 static MPZ_Object *
-MPZ_FromDigitSign(mp_limb_t digit, uint8_t negative)
+MPZ_FromDigitSign(mp_limb_t digit, bool negative)
 {
     MPZ_Object *res = MPZ_new(1, negative);
 
@@ -371,7 +373,7 @@ MPZ_from_str(PyObject *obj, int base)
         goto err;
     }
 
-    int8_t negative = (p[0] == '-');
+    bool negative = (p[0] == '-');
 
     p += negative;
     len -= negative;
@@ -677,12 +679,12 @@ MPZ_AsDoubleAndExp(MPZ_Object *u, Py_ssize_t *e)
 static MPZ_Object *
 _MPZ_addsub(const MPZ_Object *u, const MPZ_Object *v, int subtract)
 {
-    uint8_t negu = u->negative, negv = subtract ? !v->negative : v->negative;
-    uint8_t same_sign = negu == negv;
+    bool negu = u->negative, negv = subtract ? !v->negative : v->negative;
+    bool same_sign = negu == negv;
 
     if (u->size < v->size) {
         SWAP(const MPZ_Object *, u, v);
-        SWAP(uint8_t, negu, negv);
+        SWAP(bool, negu, negv);
     }
 
     MPZ_Object *res = MPZ_new(u->size + same_sign, negu);
@@ -702,7 +704,7 @@ _MPZ_addsub(const MPZ_Object *u, const MPZ_Object *v, int subtract)
         mpn_sub(res->digits, u->digits, u->size, v->digits, v->size);
     }
     else {
-        int8_t cmp = mpn_cmp(u->digits, v->digits, u->size);
+        int cmp = mpn_cmp(u->digits, v->digits, u->size);
 
         if (cmp < 0) {
             mpn_sub_n(res->digits, v->digits, u->digits, u->size);
@@ -791,7 +793,7 @@ MPZ_divmod(MPZ_Object **q, MPZ_Object **r,
         }
     }
     else {
-        uint8_t q_negative = (u->negative != v->negative);
+        bool q_negative = (u->negative != v->negative);
 
         *q = MPZ_new(u->size - v->size + 1 + q_negative, q_negative);
         if (!*q) {
@@ -860,7 +862,7 @@ MPZ_rem(MPZ_Object *u, MPZ_Object *v)
 }
 
 static MPZ_Object *
-MPZ_rshift1(const MPZ_Object *u, mp_limb_t rshift, uint8_t negative)
+MPZ_rshift1(const MPZ_Object *u, mp_limb_t rshift, bool negative)
 {
     mp_size_t whole = rshift / GMP_NUMB_BITS;
     mp_size_t size = u->size;
@@ -871,7 +873,7 @@ MPZ_rshift1(const MPZ_Object *u, mp_limb_t rshift, uint8_t negative)
     }
     size -= whole;
 
-    uint8_t carry = 0, extra = 1;
+    bool carry = 0, extra = 1;
 
     for (mp_size_t i = 0; i < whole; i++) {
         if (u->digits[i]) {
@@ -971,7 +973,7 @@ MPZ_divmod_near(MPZ_Object **q, MPZ_Object **r, MPZ_Object *u, MPZ_Object *v)
 }
 
 static MPZ_Object *
-MPZ_lshift1(MPZ_Object *u, mp_limb_t lshift, uint8_t negative)
+MPZ_lshift1(MPZ_Object *u, mp_limb_t lshift, bool negative)
 {
     mp_size_t whole = lshift / GMP_NUMB_BITS;
     mp_size_t size = u->size + whole;
