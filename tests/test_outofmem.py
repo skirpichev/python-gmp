@@ -1,7 +1,7 @@
 import platform
 
 import pytest
-from gmp import factorial, mpz
+from gmp import fac, mpz
 from hypothesis import given
 from hypothesis.strategies import integers
 
@@ -17,13 +17,13 @@ resource = pytest.importorskip("resource")
 
 
 @given(integers(min_value=12811, max_value=24984))
-def test_factorial_outofmem(x):
+def test_fac_outofmem(x):
     soft, hard = resource.getrlimit(resource.RLIMIT_AS)
     resource.setrlimit(resource.RLIMIT_AS, (1024*32*1024, hard))
     a = mpz(x)
     while True:
         try:
-            factorial(a)
+            fac(a)
             a *= 2
         except MemoryError:
             break

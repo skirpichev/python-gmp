@@ -5,7 +5,7 @@ from gmp import (
     _mpmath_create,
     _mpmath_normalize,
     double_fac,
-    factorial,
+    fac,
     fib,
     gcd,
     gcdext,
@@ -49,10 +49,10 @@ def test_fib(x):
 
 
 @given(integers(min_value=0, max_value=12345))
-def test_factorial(x):
+def test_fac(x):
     mx = mpz(x)
     r = math.factorial(x)
-    assert factorial(mx) == factorial(x) == r
+    assert fac(mx) == fac(x) == r
 
 
 @given(integers(), integers())
@@ -151,11 +151,11 @@ def test_interfaces():
     with pytest.raises(ValueError):
         isqrt_rem(-1)
     with pytest.raises(TypeError):
-        factorial(1j)
+        fac(1j)
     with pytest.raises(ValueError):
-        factorial(-1)
+        fac(-1)
     with pytest.raises(OverflowError):
-        factorial(2**1000)
+        fac(2**1000)
     with pytest.raises(TypeError):
         _mpmath_create(123)
     with pytest.raises(TypeError):

@@ -2079,7 +2079,7 @@ MPZ_sqrtrem(const MPZ_Object *u, MPZ_Object *root, MPZ_Object *rem)
         return MPZ_OK;                                    \
     }
 
-MK_MPZ_func_ul(factorial, fac_ui)
+MK_MPZ_func_ul(fac, fac_ui)
 MK_MPZ_func_ul(double_fac, 2fac_ui)
 MK_MPZ_func_ul(fib, fib_ui)
 
@@ -3607,7 +3607,7 @@ err:
         return NULL;                                                     \
     }
 
-MAKE_MPZ_UI_FUN(factorial)
+MAKE_MPZ_UI_FUN(fac)
 MAKE_MPZ_UI_FUN(double_fac)
 MAKE_MPZ_UI_FUN(fib)
 
@@ -3913,8 +3913,8 @@ static PyMethodDef functions[] = {
     {"isqrt_rem", gmp_isqrt_rem, METH_O,
      ("isqrt_rem($module, n, /)\n--\n\n"
       "Return a 2-element tuple (s,t) such that s=isqrt(x) and t=x-s*s.")},
-    {"factorial", gmp_factorial, METH_O,
-     ("factorial($module, n, /)\n--\n\n"
+    {"fac", gmp_fac, METH_O,
+     ("fac($module, n, /)\n--\n\n"
       "Find n!.\n\nRaise a ValueError if n is negative or non-integral.")},
     {"double_fac", gmp_double_fac, METH_O,
      ("double_fac($module, n, /)\n--\n\n"
