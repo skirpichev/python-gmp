@@ -1840,6 +1840,9 @@ MPZ_to_bytes(MPZ_Object *u, Py_ssize_t length, int is_little, int is_signed)
         if (!tmp) {
             return NULL; /* LCOV_EXCL_LINE */
         }
+        if (tmp->size < u->size) {
+            goto overflow;
+        }
         mpn_zero(tmp->digits, tmp->size);
         tmp->digits[tmp->size - 1] = 1;
         tmp->digits[tmp->size - 1] <<= (8*length) % (GMP_NUMB_BITS*tmp->size);
@@ -1854,6 +1857,7 @@ MPZ_to_bytes(MPZ_Object *u, Py_ssize_t length, int is_little, int is_signed)
         || (is_signed && nbits
             && (nbits == 8 * length ? !is_negative : is_negative)))
     {
+overflow:
         Py_XDECREF(tmp);
         PyErr_SetString(PyExc_OverflowError, "int too big to convert");
         return NULL;
