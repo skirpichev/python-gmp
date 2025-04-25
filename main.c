@@ -3905,7 +3905,7 @@ gmp__mpmath_create(PyObject *self, PyObject *const *args, Py_ssize_t nargs)
     return res;
 }
 
-static PyMethodDef functions[] = {
+static PyMethodDef gmp_functions[] = {
     {"gcd", (PyCFunction)gmp_gcd, METH_FASTCALL,
      ("gcd($module, /, *integers)\n--\n\n"
       "Greatest Common Divisor.")},
@@ -3933,14 +3933,6 @@ static PyMethodDef functions[] = {
     {NULL} /* sentinel */
 };
 
-static struct PyModuleDef gmp_module = {
-    PyModuleDef_HEAD_INIT,
-    "gmp",
-    "Bindings to the GNU GMP for Python.",
-    -1,
-    functions,
-};
-
 PyDoc_STRVAR(gmp_info__doc__,
              "gmp.gmplib_info\n\
 \n\
@@ -3957,8 +3949,8 @@ static PyStructSequence_Field gmp_info_fields[] = {
 static PyStructSequence_Desc gmp_info_desc = {
     "gmp.gmplib_info", gmp_info__doc__, gmp_info_fields, 3};
 
-PyMODINIT_FUNC
-PyInit_gmp(void)
+static int
+gmp_exec(PyObject *m)
 {
     mp_set_memory_functions(gmp_allocate_function, gmp_reallocate_function,
                             gmp_free_function);
@@ -3972,26 +3964,21 @@ PyInit_gmp(void)
     int_nails = int_digit_size*8 - int_bits_per_digit;
     int_endianness = layout->digit_endianness;
 #endif
-    PyObject *m = PyModule_Create(&gmp_module);
-
-#if Py_GIL_DISABLED
-    PyUnstable_Module_SetGIL(m, Py_MOD_GIL_NOT_USED);
-#endif
     if (PyModule_AddType(m, &MPZ_Type) < 0) {
-        return NULL; /* LCOV_EXCL_LINE */
+        return -1; /* LCOV_EXCL_LINE */
     }
 
     PyTypeObject *GMP_InfoType = PyStructSequence_NewType(&gmp_info_desc);
 
     if (!GMP_InfoType) {
-        return NULL; /* LCOV_EXCL_LINE */
+        return -1; /* LCOV_EXCL_LINE */
     }
 
     PyObject *gmp_info = PyStructSequence_New(GMP_InfoType);
 
     Py_DECREF(GMP_InfoType);
     if (gmp_info == NULL) {
-        return NULL; /* LCOV_EXCL_LINE */
+        return -1; /* LCOV_EXCL_LINE */
     }
     PyStructSequence_SET_ITEM(gmp_info, 0, PyLong_FromLong(GMP_LIMB_BITS));
     PyStructSequence_SET_ITEM(gmp_info, 1, PyLong_FromLong(sizeof(mp_limb_t)));
@@ -3999,25 +3986,25 @@ PyInit_gmp(void)
     if (PyErr_Occurred()) {
         /* LCOV_EXCL_START */
         Py_DECREF(gmp_info);
-        return NULL;
+        return -1;
         /* LCOV_EXCL_STOP */
     }
     if (PyModule_AddObject(m, "gmp_info", gmp_info) < 0) {
         /* LCOV_EXCL_START */
         Py_DECREF(gmp_info);
-        return NULL;
+        return -1;
         /* LCOV_EXCL_STOP */
     }
 
     PyObject *ns = PyDict_New();
 
     if (!ns) {
-        return NULL; /* LCOV_EXCL_LINE */
+        return -1; /* LCOV_EXCL_LINE */
     }
     if (PyDict_SetItemString(ns, "gmp", m) < 0) {
         /* LCOV_EXCL_START */
         Py_DECREF(ns);
-        return NULL;
+        return -1;
         /* LCOV_EXCL_STOP */
     }
 
@@ -4026,7 +4013,7 @@ PyInit_gmp(void)
     if (!gmp_fractions) {
         /* LCOV_EXCL_START */
         Py_DECREF(ns);
-        return NULL;
+        return -1;
         /* LCOV_EXCL_STOP */
     }
 
@@ -4036,7 +4023,7 @@ PyInit_gmp(void)
         /* LCOV_EXCL_START */
         Py_DECREF(ns);
         Py_DECREF(gmp_fractions);
-        return NULL;
+        return -1;
         /* LCOV_EXCL_STOP */
     }
     Py_DECREF(gmp_fractions);
@@ -4047,7 +4034,7 @@ PyInit_gmp(void)
         /* LCOV_EXCL_START */
         Py_DECREF(ns);
         Py_DECREF(mpq);
-        return NULL;
+        return -1;
         /* LCOV_EXCL_STOP */
     }
     if (PyObject_SetAttrString(mpq, "__module__", mname) < 0) {
@@ -4055,7 +4042,7 @@ PyInit_gmp(void)
         Py_DECREF(ns);
         Py_DECREF(mpq);
         Py_DECREF(mname);
-        return NULL;
+        return -1;
         /* LCOV_EXCL_STOP */
     }
     if (PyModule_AddType(m, (PyTypeObject *)mpq) < 0) {
@@ -4063,7 +4050,7 @@ PyInit_gmp(void)
         Py_DECREF(ns);
         Py_DECREF(mpq);
         Py_DECREF(mname);
-        return NULL;
+        return -1;
         /* LCOV_EXCL_STOP */
     }
     Py_DECREF(mpq);
@@ -4073,7 +4060,7 @@ PyInit_gmp(void)
     if (!numbers) {
         /* LCOV_EXCL_START */
         Py_DECREF(ns);
-        return NULL;
+        return -1;
         /* LCOV_EXCL_STOP */
     }
 
@@ -4084,7 +4071,7 @@ PyInit_gmp(void)
         /* LCOV_EXCL_START */
         Py_DECREF(numbers);
         Py_DECREF(ns);
-        return NULL;
+        return -1;
         /* LCOV_EXCL_STOP */
     }
 
@@ -4094,7 +4081,7 @@ PyInit_gmp(void)
         /* LCOV_EXCL_START */
         Py_DECREF(numbers);
         Py_DECREF(ns);
-        return NULL;
+        return -1;
         /* LCOV_EXCL_STOP */
     }
     Py_DECREF(res);
@@ -4104,14 +4091,14 @@ PyInit_gmp(void)
     if (!importlib) {
         /* LCOV_EXCL_START */
         Py_DECREF(ns);
-        return NULL;
+        return -1;
         /* LCOV_EXCL_STOP */
     }
     if (PyDict_SetItemString(ns, "importlib", importlib) < 0) {
         /* LCOV_EXCL_START */
         Py_DECREF(ns);
         Py_DECREF(importlib);
-        return NULL;
+        return -1;
         /* LCOV_EXCL_STOP */
     }
     str = "gmp.__version__ = importlib.version('python-gmp')\n";
@@ -4120,7 +4107,7 @@ PyInit_gmp(void)
         /* LCOV_EXCL_START */
         Py_DECREF(ns);
         Py_DECREF(importlib);
-        return NULL;
+        return -1;
         /* LCOV_EXCL_STOP */
     }
     Py_DECREF(ns);
@@ -4128,5 +4115,35 @@ PyInit_gmp(void)
     Py_DECREF(res);
     from_bytes_func = PyObject_GetAttrString(m, "_from_bytes");
     Py_INCREF(from_bytes_func);
-    return m;
+    return 0;
+}
+
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wpedantic"
+static PyModuleDef_Slot gmp_slots[] = {
+    {Py_mod_exec, gmp_exec},
+#  if PY_VERSION_HEX >= 0x030C0000
+    {Py_mod_multiple_interpreters,
+     Py_MOD_MULTIPLE_INTERPRETERS_NOT_SUPPORTED},
+#  endif
+#  if PY_VERSION_HEX >= 0x030D0000
+    {Py_mod_gil, Py_MOD_GIL_NOT_USED},
+#  endif
+    {0, NULL}
+};
+#pragma GCC diagnostic pop
+
+static struct PyModuleDef gmp_module = {
+    PyModuleDef_HEAD_INIT,
+    .m_name = "gmp",
+    .m_doc = "Bindings to the GNU GMP for Python.",
+    .m_size = 0,
+    .m_methods = gmp_functions,
+    .m_slots = gmp_slots,
+};
+
+PyMODINIT_FUNC
+PyInit_gmp(void)
+{
+    return PyModuleDef_Init(&gmp_module);
 }
