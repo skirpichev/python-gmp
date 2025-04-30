@@ -3659,7 +3659,7 @@ static PyObject *
 normalize_mpf(long sign, MPZ_Object *man, PyObject *exp, mp_bitcnt_t bc,
               mp_bitcnt_t prec, Py_UCS4 rnd)
 {
-    mp_bitcnt_t zbits;
+    mp_bitcnt_t zbits = 0;
     PyObject *newexp = NULL, *tmp = NULL;
     MPZ_Object *res = NULL;
 
