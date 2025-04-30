@@ -126,7 +126,7 @@ def test__mpmath_normalize(sign, man, exp, prec, rnd):
 def test__mpmath_create(man, exp, prec, rnd):
     mpmath = pytest.importorskip("mpmath")
     mman = mpz(man)
-    res = mpmath.libmp.from_man_exp(man, exp, prec, rnd)
+    res = mpmath.libmp.from_man_exp(mman, exp, prec, rnd)
     assert _mpmath_create(mman, exp, prec, rnd) == res
 
 
