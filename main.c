@@ -4008,53 +4008,6 @@ gmp_exec(PyObject *m)
         /* LCOV_EXCL_STOP */
     }
 
-    PyObject *gmp_fractions = PyImport_ImportModule("_gmp_fractions");
-
-    if (!gmp_fractions) {
-        /* LCOV_EXCL_START */
-        Py_DECREF(ns);
-        return -1;
-        /* LCOV_EXCL_STOP */
-    }
-
-    PyObject *mpq = PyObject_GetAttrString(gmp_fractions, "mpq");
-
-    if (!mpq) {
-        /* LCOV_EXCL_START */
-        Py_DECREF(ns);
-        Py_DECREF(gmp_fractions);
-        return -1;
-        /* LCOV_EXCL_STOP */
-    }
-    Py_DECREF(gmp_fractions);
-
-    PyObject *mname = PyUnicode_FromString("gmp");
-
-    if (!mname) {
-        /* LCOV_EXCL_START */
-        Py_DECREF(ns);
-        Py_DECREF(mpq);
-        return -1;
-        /* LCOV_EXCL_STOP */
-    }
-    if (PyObject_SetAttrString(mpq, "__module__", mname) < 0) {
-        /* LCOV_EXCL_START */
-        Py_DECREF(ns);
-        Py_DECREF(mpq);
-        Py_DECREF(mname);
-        return -1;
-        /* LCOV_EXCL_STOP */
-    }
-    if (PyModule_AddType(m, (PyTypeObject *)mpq) < 0) {
-        /* LCOV_EXCL_START */
-        Py_DECREF(ns);
-        Py_DECREF(mpq);
-        Py_DECREF(mname);
-        return -1;
-        /* LCOV_EXCL_STOP */
-    }
-    Py_DECREF(mpq);
-
     PyObject *numbers = PyImport_ImportModule("numbers");
 
     if (!numbers) {
@@ -4065,7 +4018,19 @@ gmp_exec(PyObject *m)
     }
 
     const char *str = ("numbers.Integral.register(gmp.mpz)\n"
-                       "numbers.Rational.register(gmp.mpq)\n");
+                       "import fractions\n"
+                       "class mpq(fractions.Fraction):\n"
+                       "    '''Subclass of the fractions.Fraction.'''\n"
+                       "    def __new__(cls, numerator=0, denominator=None):\n"
+                       "        self = super(mpq, cls).__new__(cls, numerator, denominator)\n"
+                       "        self._numerator = gmp.mpz(self._numerator)\n"
+                       "        self._denominator = gmp.mpz(self._denominator)\n"
+                       "        return self\n"
+                       "\n"
+                       "gmp.mpq = mpq\n"
+                       "gmp.mpq.__module__ = 'gmp'\n"
+                       "gmp.mpq.__new__.__module__ = 'gmp'\n"
+                       "del fractions\n");
 
     if (PyDict_SetItemString(ns, "numbers", numbers) < 0) {
         /* LCOV_EXCL_START */
