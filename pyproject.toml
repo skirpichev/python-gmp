@@ -44,9 +44,6 @@ Homepage = "https://github.com/diofant/python-gmp"
 "Bug Tracker" = "https://github.com/diofant/python-gmp/issues"
 Documentation = "https://python-gmp.readthedocs.io/en/latest/"
 
-[tool.setuptools]
-py-modules = ["_gmp_fractions"]
-
 [tool.setuptools.dynamic]
 version = {attr = "setuptools_scm.get_version"}
 
@@ -66,7 +63,7 @@ norecursedirs = ["build", ".eggs", ".git", ".venv", ".hypothesis"]
 xfail_strict = true
 
 [tool.ruff]
-exclude = [".venv", "_gmp_fractions.py"]
+exclude = [".venv"]
 line-length = 79
 
 [tool.ruff.lint]
