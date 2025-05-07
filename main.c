@@ -477,6 +477,34 @@ static int int_digits_order, int_endianness;
 #endif
 
 static MPZ_Object *
+MPZ_from_i64(int64_t v)
+{
+    if (!v) {
+        return MPZ_FromDigitSign(0, 0);
+    }
+
+    bool negative = v < 0;
+    uint64_t uv = (negative ? -((uint64_t)(v + 1) - 1) : (uint64_t)(v));
+#if GMP_NUMB_BITS < 64
+    mp_size_t size = 1 + (uv > GMP_NUMB_MAX);
+#else
+    mp_size_t size = 1;
+#endif
+    MPZ_Object *res = MPZ_new(size, negative);
+
+    if (!res) {
+        return NULL; /* LCOV_EXCL_LINE */
+    }
+    res->digits[0] = uv & GMP_NUMB_MASK;
+#if GMP_NUMB_BITS < 64
+    if (size == 2) {
+        res->digits[1] = uv >> GMP_NUMB_BITS;
+    }
+#endif
+    return res;
+}
+
+static MPZ_Object *
 MPZ_from_int(PyObject *obj)
 {
 #if !defined(PYPY_VERSION) && !defined(GRAALVM_PYTHON)
@@ -486,7 +514,6 @@ MPZ_from_int(PyObject *obj)
     if (PyLong_Export(obj, &long_export) < 0) {
         return res; /* LCOV_EXCL_LINE */
     }
-
     if (long_export.digits) {
         mp_size_t ndigits = long_export.ndigits;
         mp_size_t size = BITS_TO_LIMBS(ndigits*(8*int_digit_size - int_nails));
@@ -498,25 +525,21 @@ MPZ_from_int(PyObject *obj)
         TMP_MPZ(z, res)
         mpz_import(z, ndigits, int_digits_order, int_digit_size,
                    int_endianness, int_nails, long_export.digits);
+        MPZ_normalize(res);
         PyLong_FreeExport(&long_export);
     }
     else {
-        int64_t value = long_export.value;
-        mp_size_t size = BITS_TO_LIMBS(8*sizeof(int64_t) - int_nails);
-        res = MPZ_new(size, value < 0);
-        if (!res) {
-            return res; /* LCOV_EXCL_LINE */
-        }
-
-        TMP_MPZ(z, res)
-        if (res->negative) {
-            value = -value;
-        }
-        mpz_import(z, 1, -1, sizeof(int64_t), 0, 0, &value);
+        res = MPZ_from_i64(long_export.value);
     }
-    MPZ_normalize(res);
     return res;
 #else
+    int64_t value;
+
+    if (!PyLong_AsInt64(obj, &value)) {
+        return MPZ_from_i64(value);
+    }
+    PyErr_Clear();
+
     PyObject *str = PyNumber_ToBase(obj, 16);
 
     if (!str) {
@@ -530,15 +553,60 @@ MPZ_from_int(PyObject *obj)
 #endif
 }
 
+#define MAX_INT64 ((1ULL<<63) - 1)
+
+static MPZ_err
+MPZ_to_i64(const MPZ_Object *u, int64_t *v)
+{
+    mp_size_t n = u->size;
+
+    if (!n) {
+        *v = 0;
+        return MPZ_OK;
+    }
+    if (n > 2) {
+        return MPZ_VAL;
+    }
+
+    uint64_t uv = u->digits[0];
+
+#if GMP_NUMB_BITS < 64
+    if (n == 2) {
+        if (u->digits[1] >> GMP_NAIL_BITS) {
+            return MPZ_VAL;
+        }
+        uv += u->digits[1] << GMP_NUMB_BITS;
+    }
+#else
+    if (n > 1) {
+        return MPZ_VAL;
+    }
+#endif
+    if (u->negative) {
+        if (uv <= MAX_INT64 + 1) {
+            *v = -1 - (int64_t)((uv - 1) & MAX_INT64);
+            return MPZ_OK;
+        }
+    }
+    else {
+        if (uv <= MAX_INT64) {
+            *v = (int64_t)uv;
+            return MPZ_OK;
+        }
+    }
+    return MPZ_VAL;
+}
+
 static PyObject *
 MPZ_to_int(MPZ_Object *u)
 {
-#if !defined(PYPY_VERSION) && !defined(GRAALVM_PYTHON)
-    TMP_MPZ(z, u)
-    if (mpz_fits_slong_p(z)) {
-        return PyLong_FromLong(mpz_get_si(z));
+    int64_t value;
+
+    if (MPZ_to_i64(u, &value) == MPZ_OK) {
+        return PyLong_FromInt64(value);
     }
 
+#if !defined(PYPY_VERSION) && !defined(GRAALVM_PYTHON)
     size_t size = (mpn_sizeinbase(u->digits, u->size, 2) +
                    int_bits_per_digit - 1)/int_bits_per_digit;
     void *digits;
@@ -547,6 +615,8 @@ MPZ_to_int(MPZ_Object *u)
     if (!writer) {
         return NULL; /* LCOV_EXCL_LINE */
     }
+
+    TMP_MPZ(z, u);
     mpz_export(digits, NULL, int_digits_order, int_digit_size, int_endianness,
                int_nails, z);
     return PyLongWriter_Finish(writer);
