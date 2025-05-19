@@ -553,8 +553,6 @@ MPZ_from_int(PyObject *obj)
 #endif
 }
 
-#define MAX_INT64 ((1ULL<<63) - 1)
-
 static MPZ_err
 MPZ_to_i64(const MPZ_Object *u, int64_t *v)
 {
@@ -583,13 +581,13 @@ MPZ_to_i64(const MPZ_Object *u, int64_t *v)
     }
 #endif
     if (u->negative) {
-        if (uv <= MAX_INT64 + 1) {
-            *v = -1 - (int64_t)((uv - 1) & MAX_INT64);
+        if (uv <= INT64_MAX + 1ULL) {
+            *v = -1 - (int64_t)((uv - 1) & INT64_MAX);
             return MPZ_OK;
         }
     }
     else {
-        if (uv <= MAX_INT64) {
+        if (uv <= INT64_MAX) {
             *v = (int64_t)uv;
             return MPZ_OK;
         }
