@@ -196,15 +196,30 @@ MPZ_dealloc(MPZ_Object *u)
 }
 
 static MPZ_Object *
-MPZ_FromDigitSign(mp_limb_t digit, bool negative)
+MPZ_from_i64(int64_t v)
 {
-    MPZ_Object *res = MPZ_new(1, negative);
+    if (!v) {
+        return MPZ_new(0, 0);
+    }
+
+    bool negative = v < 0;
+    uint64_t uv = (negative ? -((uint64_t)(v + 1) - 1) : (uint64_t)(v));
+#if GMP_NUMB_BITS < 64
+    mp_size_t size = 1 + (uv > GMP_NUMB_MAX);
+#else
+    mp_size_t size = 1;
+#endif
+    MPZ_Object *res = MPZ_new(size, negative);
 
     if (!res) {
         return NULL; /* LCOV_EXCL_LINE */
     }
-    res->digits[0] = digit;
-    res->size = digit != 0;
+    res->digits[0] = uv & GMP_NUMB_MASK;
+#if GMP_NUMB_BITS < 64
+    if (size == 2) {
+        res->digits[1] = uv >> GMP_NUMB_BITS;
+    }
+#endif
     return res;
 }
 
@@ -212,7 +227,7 @@ static MPZ_Object *
 MPZ_copy(const MPZ_Object *u)
 {
     if (!u->size) {
-        return MPZ_FromDigitSign(0, 0);
+        return MPZ_from_i64(0);
     }
 
     MPZ_Object *res = MPZ_new(u->size, u->negative);
@@ -475,34 +490,6 @@ err:
 static size_t int_digit_size, int_nails, int_bits_per_digit;
 static int int_digits_order, int_endianness;
 #endif
-
-static MPZ_Object *
-MPZ_from_i64(int64_t v)
-{
-    if (!v) {
-        return MPZ_FromDigitSign(0, 0);
-    }
-
-    bool negative = v < 0;
-    uint64_t uv = (negative ? -((uint64_t)(v + 1) - 1) : (uint64_t)(v));
-#if GMP_NUMB_BITS < 64
-    mp_size_t size = 1 + (uv > GMP_NUMB_MAX);
-#else
-    mp_size_t size = 1;
-#endif
-    MPZ_Object *res = MPZ_new(size, negative);
-
-    if (!res) {
-        return NULL; /* LCOV_EXCL_LINE */
-    }
-    res->digits[0] = uv & GMP_NUMB_MASK;
-#if GMP_NUMB_BITS < 64
-    if (size == 2) {
-        res->digits[1] = uv >> GMP_NUMB_BITS;
-    }
-#endif
-    return res;
-}
 
 static MPZ_Object *
 MPZ_from_int(PyObject *obj)
@@ -808,7 +795,7 @@ MPZ_mul(const MPZ_Object *u, const MPZ_Object *v)
         SWAP(const MPZ_Object *, u, v);
     }
     if (!v->size) {
-        return MPZ_FromDigitSign(0, 0);
+        return MPZ_from_i64(0);
     }
 
     MPZ_Object *res = MPZ_new(u->size + v->size, u->negative != v->negative);
@@ -847,16 +834,16 @@ MPZ_divmod(MPZ_Object **q, MPZ_Object **r,
         return -1;
     }
     if (!u->size) {
-        *q = MPZ_FromDigitSign(0, 0);
-        *r = MPZ_FromDigitSign(0, 0);
+        *q = MPZ_from_i64(0);
+        *r = MPZ_from_i64(0);
     }
     else if (u->size < v->size) {
         if (u->negative != v->negative) {
-            *q = MPZ_FromDigitSign(1, 1);
+            *q = MPZ_from_i64(-1);
             *r = MPZ_add(u, v);
         }
         else {
-            *q = MPZ_FromDigitSign(0, 0);
+            *q = MPZ_from_i64(0);
             *r = MPZ_copy(u);
         }
     }
@@ -937,7 +924,7 @@ MPZ_rshift1(const MPZ_Object *u, mp_limb_t rshift, bool negative)
 
     rshift %= GMP_NUMB_BITS;
     if (whole >= size) {
-        return MPZ_FromDigitSign(u->negative, negative);
+        return MPZ_from_i64((negative ? -1 : 1) * u->negative);
     }
     size -= whole;
 
@@ -1010,7 +997,7 @@ MPZ_divmod_near(MPZ_Object **q, MPZ_Object **r, MPZ_Object *u, MPZ_Object *v)
     }
     if (cmp == unexpect) {
         MPZ_Object *tmp = *q;
-        MPZ_Object *one = MPZ_FromDigitSign(1, 0);
+        MPZ_Object *one = MPZ_from_i64(1);
 
         if (!one) {
             return -1; /* LCOV_EXCL_LINE */
@@ -1049,13 +1036,6 @@ MPZ_lshift1(MPZ_Object *u, mp_limb_t lshift, bool negative)
     lshift %= GMP_NUMB_BITS;
     if (lshift) {
         size++;
-    }
-    if (u->size == 1 && !whole) {
-        mp_limb_t t = u->digits[0] << lshift;
-
-        if (t >> lshift == u->digits[0]) {
-            return MPZ_FromDigitSign(t, negative);
-        }
     }
 
     MPZ_Object *res = MPZ_new(size, negative);
@@ -1198,7 +1178,7 @@ MPZ_invert(MPZ_Object *u)
         res->size -= res->digits[u->size - 1] == 0;
     }
     else if (!u->size) {
-        return MPZ_FromDigitSign(1, 1);
+        return MPZ_from_i64(-1);
     }
     else {
         res = MPZ_new(u->size + 1, 1);
@@ -1219,7 +1199,7 @@ MPZ_lshift(MPZ_Object *u, MPZ_Object *v)
         return NULL;
     }
     if (!u->size) {
-        return MPZ_FromDigitSign(0, 0);
+        return MPZ_from_i64(0);
     }
     if (!v->size) {
         return MPZ_copy(u);
@@ -1239,17 +1219,17 @@ MPZ_rshift(MPZ_Object *u, MPZ_Object *v)
         return NULL;
     }
     if (!u->size) {
-        return MPZ_FromDigitSign(0, 0);
+        return MPZ_from_i64(0);
     }
     if (!v->size) {
         return MPZ_copy(u);
     }
     if (v->size > 1) {
         if (u->negative) {
-            return MPZ_FromDigitSign(1, 1);
+            return MPZ_from_i64(-1);
         }
         else {
-            return MPZ_FromDigitSign(0, 0);
+            return MPZ_from_i64(0);
         }
     }
     return MPZ_rshift1(u, v->digits[0], u->negative);
@@ -1259,7 +1239,7 @@ static MPZ_Object *
 MPZ_and(MPZ_Object *u, MPZ_Object *v)
 {
     if (!u->size || !v->size) {
-        return MPZ_FromDigitSign(0, 0);
+        return MPZ_from_i64(0);
     }
 
     MPZ_Object *res;
@@ -1295,7 +1275,7 @@ MPZ_and(MPZ_Object *u, MPZ_Object *v)
             if (!u->size) {
                 Py_DECREF(u);
                 Py_DECREF(v);
-                return MPZ_FromDigitSign(1, 1);
+                return MPZ_from_i64(-1);
             }
             res = MPZ_new(u->size + 1, 1);
             if (!res) {
@@ -1407,7 +1387,7 @@ MPZ_or(MPZ_Object *u, MPZ_Object *v)
             if (!v->size) {
                 Py_DECREF(u);
                 Py_DECREF(v);
-                return MPZ_FromDigitSign(1, 1);
+                return MPZ_from_i64(-1);
             }
             res = MPZ_new(v->size + 1, 1);
             if (!res) {
@@ -1525,7 +1505,7 @@ MPZ_xor(MPZ_Object *u, MPZ_Object *v)
             if (!u->size) {
                 Py_DECREF(u);
                 Py_DECREF(v);
-                return MPZ_FromDigitSign(0, 0);
+                return MPZ_from_i64(0);
             }
             res = MPZ_new(u->size, 0);
             if (!res) {
@@ -1608,17 +1588,17 @@ static MPZ_Object *
 MPZ_pow(MPZ_Object *u, MPZ_Object *v)
 {
     if (!v->size) {
-        return MPZ_FromDigitSign(1, 0);
+        return MPZ_from_i64(1);
     }
     if (!u->size) {
-        return MPZ_FromDigitSign(0, 0);
+        return MPZ_from_i64(0);
     }
     if (u->size == 1 && u->digits[0] == 1) {
         if (u->negative) {
-            return MPZ_FromDigitSign(1, v->digits[0] % 2);
+            return MPZ_from_i64((v->digits[0] % 2) ? -1 : 1);
         }
         else {
-            return MPZ_FromDigitSign(1, 0);
+            return MPZ_from_i64(1);
         }
     }
     if (v->size > 1 || v->negative) {
@@ -1970,7 +1950,7 @@ MPZ_from_bytes(PyObject *obj, int is_little, int is_signed)
     }
     if (!length) {
         Py_DECREF(bytes);
-        return MPZ_FromDigitSign(0, 0);
+        return MPZ_from_i64(0);
     }
 
     MPZ_Object *res = MPZ_new(1 + length/2, 0);
@@ -2335,7 +2315,7 @@ new(PyTypeObject *type, PyObject *args, PyObject *keywds)
         return (PyObject *)newobj;
     }
     if (argc == 0) {
-        return (PyObject *)MPZ_FromDigitSign(0, 0);
+        return (PyObject *)MPZ_from_i64(0);
     }
     if (argc == 1 && !keywds) {
         arg = PyTuple_GET_ITEM(args, 0);
@@ -2450,7 +2430,7 @@ vectorcall(PyObject *type, PyObject *const *args, size_t nargsf,
         return new_impl((PyTypeObject *)type, args[argidx[0]], Py_None);
     }
     else {
-        return (PyObject *)MPZ_FromDigitSign(0, 0);
+        return (PyObject *)MPZ_from_i64(0);
     }
 }
 
@@ -2859,16 +2839,16 @@ power(PyObject *self, PyObject *other, PyObject *module)
             Py_SETREF(u, tmp);
         }
         if (w->size == 1 && w->digits[0] == 1) {
-            res = MPZ_FromDigitSign(0, 0);
+            res = MPZ_from_i64(0);
         }
         else if (!v->size) {
-            res = MPZ_FromDigitSign(1, 0);
+            res = MPZ_from_i64(1);
         }
         else if (!u->size) {
-            res = MPZ_FromDigitSign(0, 0);
+            res = MPZ_from_i64(0);
         }
         else if (u->size == 1 && u->digits[0] == 1) {
-            res = MPZ_FromDigitSign(1, 0);
+            res = MPZ_from_i64(1);
         }
         else {
             res = MPZ_powm(u, v, w);
@@ -2958,13 +2938,13 @@ get_copy(PyObject *self, void *Py_UNUSED(closure))
 static PyObject *
 get_one(PyObject *Py_UNUSED(self), void *Py_UNUSED(closure))
 {
-    return (PyObject *)MPZ_FromDigitSign(1, 0);
+    return (PyObject *)MPZ_from_i64(1);
 }
 
 static PyObject *
 get_zero(PyObject *Py_UNUSED(self), void *Py_UNUSED(closure))
 {
-    return (PyObject *)MPZ_FromDigitSign(0, 0);
+    return (PyObject *)MPZ_from_i64(0);
 }
 
 static PyGetSetDef getsetters[] = {
@@ -3132,7 +3112,7 @@ from_bytes(PyTypeObject *Py_UNUSED(type), PyObject *const *args,
 static PyObject *
 as_integer_ratio(PyObject *self, PyObject *Py_UNUSED(args))
 {
-    PyObject *one = (PyObject *)MPZ_FromDigitSign(1, 0);
+    PyObject *one = (PyObject *)MPZ_from_i64(1);
 
     if (!one) {
         return NULL; /* LCOV_EXCL_LINE */
@@ -3181,7 +3161,7 @@ __round__(PyObject *self, PyObject *const *args, Py_ssize_t nargs)
     }
     Py_SETREF(ndigits, tmp);
 
-    PyObject *ten = (PyObject *)MPZ_FromDigitSign(10, 0);
+    PyObject *ten = (PyObject *)MPZ_from_i64(10);
 
     if (!ten) {
         /* LCOV_EXCL_START */
@@ -3412,7 +3392,7 @@ PyTypeObject MPZ_Type = {
 static PyObject *
 gmp_gcd(PyObject *Py_UNUSED(module), PyObject *const *args, Py_ssize_t nargs)
 {
-    MPZ_Object *res = MPZ_FromDigitSign(0, 0);
+    MPZ_Object *res = MPZ_from_i64(0);
 
     if (!res) {
         return (PyObject *)res; /* LCOV_EXCL_LINE */
