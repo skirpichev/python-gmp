@@ -128,6 +128,7 @@ def test__mpmath_create(man, exp, prec, rnd):
     mman = mpz(man)
     res = mpmath.libmp.from_man_exp(mman, exp, prec, rnd)
     assert _mpmath_create(mman, exp, prec, rnd) == res
+    assert _mpmath_create(man, exp, prec, rnd) == res
 
 
 def test_interfaces():
@@ -157,9 +158,9 @@ def test_interfaces():
     with pytest.raises(OverflowError):
         fac(2**1000)
     with pytest.raises(TypeError):
-        _mpmath_create(123)
+        _mpmath_create(1j)
     with pytest.raises(TypeError):
-        _mpmath_create(123, 1)
+        _mpmath_create(mpz(123))
     with pytest.raises(TypeError):
         _mpmath_create(mpz(123), 10, 1j)
     with pytest.raises(ValueError):

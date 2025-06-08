@@ -4245,12 +4245,20 @@ gmp__mpmath_create(PyObject *self, PyObject *const *args, Py_ssize_t nargs)
                      "_mpmath_create() takes from 2 to 4 arguments");
         return NULL;
     }
+
+    MPZ_Object *man;
+
     if (!MPZ_Check(args[0])) {
-        PyErr_Format(PyExc_TypeError, "_mpmath_create() expects mpz");
-        return NULL;
+        man = MPZ_from_int(args[0]);
+        if (!man) {
+            PyErr_Format(PyExc_TypeError, "_mpmath_create() expects an integer");
+            return NULL;
+        }
+    }
+    else {
+        man = MPZ_copy((MPZ_Object *)args[0]);
     }
 
-    MPZ_Object *man = MPZ_copy((MPZ_Object *)args[0]);
     PyObject *exp = args[1];
     long sign = ISNEG(man);
 
