@@ -4248,15 +4248,18 @@ gmp__mpmath_create(PyObject *self, PyObject *const *args, Py_ssize_t nargs)
 
     MPZ_Object *man;
 
-    if (!MPZ_Check(args[0])) {
+    if (MPZ_Check(args[0])) {
+        man = MPZ_copy((MPZ_Object *)args[0]);
+    }
+    else if (PyLong_Check(args[0])) {
         man = MPZ_from_int(args[0]);
         if (!man) {
-            PyErr_Format(PyExc_TypeError, "_mpmath_create() expects an integer");
             return NULL;
         }
     }
     else {
-        man = MPZ_copy((MPZ_Object *)args[0]);
+        PyErr_Format(PyExc_TypeError, "_mpmath_create() expects an integer");
+        return NULL;
     }
 
     PyObject *exp = args[1];
