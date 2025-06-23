@@ -867,14 +867,14 @@ zz_rem(const zz_t *u, const zz_t *v, zz_t *w)
 }
 
 static mp_err
-zz_rshift1(const zz_t *u, mp_limb_t rshift, bool negative, zz_t *v)
+zz_rshift1(const zz_t *u, mp_limb_t rshift, zz_t *v)
 {
     mp_size_t whole = rshift / GMP_NUMB_BITS;
     mp_size_t size = u->size;
 
     rshift %= GMP_NUMB_BITS;
     if (whole >= size) {
-        return zz_from_i64(v, (negative ? -1 : 1) * u->negative);
+        return zz_from_i64(v, u->negative ? -1 : 0);
     }
     size -= whole;
 
@@ -882,7 +882,7 @@ zz_rshift1(const zz_t *u, mp_limb_t rshift, bool negative, zz_t *v)
 
     for (mp_size_t i = 0; i < whole; i++) {
         if (u->digits[i]) {
-            carry = negative;
+            carry = u->negative;
             break;
         }
     }
@@ -895,13 +895,13 @@ zz_rshift1(const zz_t *u, mp_limb_t rshift, bool negative, zz_t *v)
     if (zz_resize(v, size + extra)) {
         return MP_MEM; /* LCOV_EXCL_LINE */
     }
-    v->negative = negative;
+    v->negative = u->negative;
     if (extra) {
         v->digits[size] = 0;
     }
     if (rshift) {
         if (mpn_rshift(v->digits, u->digits + whole, size, rshift)) {
-            carry = negative;
+            carry = u->negative;
         }
     }
     else {
@@ -917,7 +917,7 @@ zz_rshift1(const zz_t *u, mp_limb_t rshift, bool negative, zz_t *v)
 }
 
 static mp_err
-zz_lshift1(const zz_t *u, mp_limb_t lshift, bool negative, zz_t *v)
+zz_lshift1(const zz_t *u, mp_limb_t lshift, zz_t *v)
 {
     mp_size_t whole = lshift / GMP_NUMB_BITS;
     mp_size_t size = u->size + whole;
@@ -929,7 +929,7 @@ zz_lshift1(const zz_t *u, mp_limb_t lshift, bool negative, zz_t *v)
     if (zz_resize(v, size)) {
         return MP_MEM; /* LCOV_EXCL_LINE */
     }
-    v->negative = negative;
+    v->negative = u->negative;
     if (whole) {
         mpn_zero(v->digits, whole);
     }
@@ -959,7 +959,7 @@ zz_lshift(const zz_t *u, const zz_t *v, zz_t *w)
     if (v->size > 1) {
         return MP_BUF;
     }
-    return zz_lshift1(u, v->digits[0], u->negative, w);
+    return zz_lshift1(u, v->digits[0], w);
 }
 
 static mp_err
@@ -982,7 +982,7 @@ zz_rshift(const zz_t *u, const zz_t *v, zz_t *w)
             return zz_from_i64(w, 0);
         }
     }
-    return zz_rshift1(u, v->digits[0], u->negative, w);
+    return zz_rshift1(u, v->digits[0], w);
 }
 
 static mp_err
@@ -1001,7 +1001,7 @@ zz_divmod_near(zz_t *q, zz_t *r, const zz_t *u, const zz_t *v)
 
     zz_t halfQ;
 
-    if (zz_init(&halfQ) || zz_rshift1(v, 1, 0, &halfQ)) {
+    if (zz_init(&halfQ) || zz_rshift1(v, 1, &halfQ)) {
         /* LCOV_EXCL_START */
         zz_clear(q);
         zz_clear(r);
@@ -1107,47 +1107,66 @@ zz_truediv(const zz_t *u, const zz_t *v, double *res)
     }
     shift += DBL_MANT_DIG - 1;
 
-    zz_t tmp, tmp2;
+    zz_t tmp0, tmp1, tmp2;
 
-    if (zz_init(&tmp)) {
+    if (zz_init(&tmp1)) {
         return MP_MEM; /* LCOV_EXCL_LINE */
     }
     if (shift > 0) {
-        if (zz_lshift1(u, shift, 0, &tmp)) {
+        if (zz_init(&tmp0) || zz_abs(u, &tmp0)) {
             /* LCOV_EXCL_START */
-            zz_clear(&tmp);
+            zz_clear(&tmp0);
+            zz_clear(&tmp1);
             return MP_MEM;
             /* LCOV_EXCL_STOP */
         }
+        if (zz_lshift1(&tmp0, shift, &tmp1)) {
+            /* LCOV_EXCL_START */
+            zz_clear(&tmp0);
+            zz_clear(&tmp1);
+            return MP_MEM;
+            /* LCOV_EXCL_STOP */
+        }
+        zz_clear(&tmp0);
     }
     else {
-        if (zz_abs(u, &tmp)) {
+        if (zz_abs(u, &tmp1)) {
             /* LCOV_EXCL_START */
-            zz_clear(&tmp);
+            zz_clear(&tmp1);
             return MP_MEM;
             /* LCOV_EXCL_STOP */
         }
     }
-    a = &tmp;
+    a = &tmp1;
     if (zz_init(&tmp2)) {
         /* LCOV_EXCL_START */
-        zz_clear(&tmp);
+        zz_clear(&tmp1);
         return MP_MEM;
         /* LCOV_EXCL_STOP */
     }
     if (shift < 0) {
-        if (zz_lshift1(v, -shift, 0, &tmp2)) {
+        if (zz_init(&tmp0) || zz_abs(v, &tmp0)) {
             /* LCOV_EXCL_START */
-            zz_clear(&tmp);
+            zz_clear(&tmp0);
+            zz_clear(&tmp1);
             zz_clear(&tmp2);
             return MP_MEM;
             /* LCOV_EXCL_STOP */
         }
+        if (zz_lshift1(&tmp0, -shift, &tmp2)) {
+            /* LCOV_EXCL_START */
+            zz_clear(&tmp0);
+            zz_clear(&tmp1);
+            zz_clear(&tmp2);
+            return MP_MEM;
+            /* LCOV_EXCL_STOP */
+        }
+        zz_clear(&tmp0);
     }
     else {
         if (zz_abs(v, &tmp2)) {
             /* LCOV_EXCL_START */
-            zz_clear(&tmp);
+            zz_clear(&tmp1);
             zz_clear(&tmp2);
             return MP_MEM;
             /* LCOV_EXCL_STOP */
@@ -1672,7 +1691,7 @@ zz_gcd(const zz_t *u, const zz_t *v, zz_t *gcd)
         /* LCOV_EXCL_STOP */
     }
     if (shift) {
-        if (zz_rshift1(u, shift, 0, &o1) || zz_rshift1(v, shift, 0, &o2)) {
+        if (zz_rshift1(u, shift, &o1) || zz_rshift1(v, shift, &o2)) {
             /* LCOV_EXCL_START */
             zz_clear(&o1);
             zz_clear(&o2);
@@ -1707,7 +1726,7 @@ zz_gcd(const zz_t *u, const zz_t *v, zz_t *gcd)
     if (shift) {
         zz_t tmp;
 
-        if (zz_init(&tmp) || zz_lshift1(gcd, shift, 0, &tmp)) {
+        if (zz_init(&tmp) || zz_lshift1(gcd, shift, &tmp)) {
             /* LCOV_EXCL_START */
             zz_clear(&tmp);
             return MP_MEM;
@@ -2342,11 +2361,11 @@ MPZ_to_int(MPZ_Object *u)
 }
 
 static MPZ_Object *
-MPZ_rshift1(const MPZ_Object *u, mp_limb_t rshift, bool negative)
+MPZ_rshift1(const MPZ_Object *u, mp_limb_t rshift)
 {
     MPZ_Object *res = MPZ_new(0, 0);
 
-    if (!res || zz_rshift1(&u->z, rshift, negative, &res->z)) {
+    if (!res || zz_rshift1(&u->z, rshift, &res->z)) {
         /* LCOV_EXCL_START */
         Py_XDECREF(res);
         return (MPZ_Object *)PyErr_NoMemory();
@@ -4138,15 +4157,22 @@ normalize_mpf(long sign, MPZ_Object *man, PyObject *exp, mp_bitcnt_t bc,
             case (Py_UCS4)'c':
                 rnd = (Py_UCS4)(sign ? 'd' : 'u');
             case (Py_UCS4)'d':
-                res = MPZ_rshift1(man, shift, 0);
+                res = MPZ_rshift1(man, shift);
                 break;
             case (Py_UCS4)'u':
-                res = MPZ_rshift1(man, shift, 1);
+                if (!(tmp = PyNumber_Negative((PyObject *)man))) {
+                    /* LCOV_EXCL_START */
+                    Py_DECREF(exp);
+                    return NULL;
+                    /* LCOV_EXCL_STOP */
+                }
+                res = MPZ_rshift1((MPZ_Object *)tmp, shift);
+                Py_DECREF(tmp);
                 ISNEG(res) = 0;
                 break;
             case (Py_UCS4)'n':
             default:
-                res = MPZ_rshift1(man, shift - 1, 0);
+                res = MPZ_rshift1(man, shift - 1);
 
                 int t = (LS(res)[0]&1 && (LS(res)[0]&2
                          || mpn_scan1(LS(man), 0) + 2 <= shift));
@@ -4181,7 +4207,7 @@ normalize_mpf(long sign, MPZ_Object *man, PyObject *exp, mp_bitcnt_t bc,
     }
     /* Strip trailing 0 bits. */
     if (SZ(res) && (zbits = mpn_scan1(LS(res), 0))) {
-        tmp = (PyObject *)MPZ_rshift1(res, zbits, 0);
+        tmp = (PyObject *)MPZ_rshift1(res, zbits);
         if (!tmp) {
             /* LCOV_EXCL_START */
             Py_DECREF((PyObject *)res);
@@ -4315,7 +4341,7 @@ gmp__mpmath_create(PyObject *self, PyObject *const *args, Py_ssize_t nargs)
 
         /* Strip trailing 0 bits. */
         if (SZ(man) && (zbits = mpn_scan1(LS(man), 0))) {
-            tmp = (PyObject *)MPZ_rshift1(man, zbits, 0);
+            tmp = (PyObject *)MPZ_rshift1(man, zbits);
             if (!tmp) {
                 /* LCOV_EXCL_START */
                 Py_DECREF((PyObject *)man);
