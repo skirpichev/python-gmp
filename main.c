@@ -1586,7 +1586,6 @@ __reduce_ex__(PyObject *self, PyObject *Py_UNUSED(args))
                          MPZ_to_bytes(u, (len + 7)/8 + 1, 0, 1));
 }
 
-/* XXX: replace this stub */
 static PyObject *
 __format__(PyObject *self, PyObject *format_spec)
 {
