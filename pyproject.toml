@@ -84,3 +84,16 @@ ignore = [
 
 [tool.ruff.lint.isort]
 lines-after-imports = 2
+
+[tool.cibuildwheel]
+enable = "pypy cpython-prerelease cpython-freethreading"
+skip = "pp38* pp39* *-win32 *-manylinux_i686 *-musllinux_* *-manylinux_armv7l pp*aarch64*"
+before-all = "bash scripts/cibw_before_all.sh"
+test-extras = "tests"
+test-command = "pytest --verbose --capture=no {package}/tests"
+repair-wheel-command = "bash scripts/cibw_repair_wheel_command.sh {dest_dir} {wheel}"
+
+[tool.cibuildwheel.windows]
+before-all = "msys2 -c scripts/cibw_before_all.sh"
+before-build = "pip install wheel delvewheel"
+repair-wheel-command = "scripts\\cibw_repair_wheel_command_windows.bat {dest_dir} {wheel}"

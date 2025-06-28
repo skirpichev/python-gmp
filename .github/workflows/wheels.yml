@@ -6,7 +6,7 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        os: [ubuntu-24.04, macos-14, windows-2022]
+        os: [ubuntu-24.04, ubuntu-24.04-arm, macos-14, macos-15, windows-2022]
     steps:
       - uses: actions/checkout@v4
         with:
@@ -22,18 +22,6 @@ jobs:
         if: ${{ matrix.os == 'windows-2022' }}
       - name: Build wheels
         uses: pypa/cibuildwheel@v2.23.3
-        env:
-          CIBW_ENABLE: pypy cpython-prerelease cpython-freethreading
-          CIBW_SKIP: pp38* pp39* *-win32 *-manylinux_i686 *-musllinux_*
-          CIBW_BEFORE_ALL: bash scripts/cibw_before_all.sh
-          CIBW_BEFORE_ALL_WINDOWS: msys2 -c scripts/cibw_before_all.sh
-          CIBW_BEFORE_BUILD_WINDOWS: pip install wheel delvewheel
-          CIBW_TEST_EXTRAS: tests
-          CIBW_TEST_COMMAND: pytest --verbose --capture=no {package}/tests/
-          CIBW_REPAIR_WHEEL_COMMAND: >
-            bash scripts/cibw_repair_wheel_command.sh {dest_dir} {wheel}
-          CIBW_REPAIR_WHEEL_COMMAND_WINDOWS: >
-           scripts\cibw_repair_wheel_command_windows.bat {dest_dir} {wheel}
       - uses: actions/upload-artifact@v4
         with:
           name: wheels-${{ matrix.os }}
