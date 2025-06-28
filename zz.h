@@ -47,9 +47,9 @@ mp_err zz_from_str(const char *str, size_t len, int base, zz_t *u);
 mp_err zz_to_double(const zz_t *u, mp_size_t shift, double *d);
 
 mp_err zz_to_bytes(const zz_t *u, size_t length, int is_little,
-                   int is_signed, char **buffer);
-mp_err zz_from_bytes(char *buffer, size_t length, int is_little,
-                     int is_signed, zz_t *u);
+                   int is_signed, unsigned char **buffer);
+mp_err zz_from_bytes(const unsigned char *buffer, size_t length,
+                     int is_little, int is_signed, zz_t *u);
 
 mp_err zz_add(const zz_t *u, const zz_t *v, zz_t *w);
 mp_err zz_sub(const zz_t *u, const zz_t *v, zz_t *w);

@@ -476,10 +476,10 @@ done:
     } while (0);
 
 static void
-revstr(char *s, size_t l, size_t r)
+revstr(unsigned char *s, size_t l, size_t r)
 {
     while (l < r) {
-        SWAP(char, s[l], s[r]);
+        SWAP(unsigned char, s[l], s[r]);
         l++;
         r--;
     }
@@ -487,7 +487,7 @@ revstr(char *s, size_t l, size_t r)
 
 mp_err
 zz_to_bytes(const zz_t *u, size_t length, int is_little, int is_signed,
-            char **buffer)
+            unsigned char **buffer)
 {
     zz_t tmp;
     int is_negative = u->negative;
@@ -528,7 +528,7 @@ overflow:
 
     memset(*buffer, is_negative ? 0xFF : 0, gap);
     if (u->size) {
-        mpn_get_str((unsigned char *)(*buffer + gap), 256, u->digits, u->size);
+        mpn_get_str(*buffer + gap, 256, u->digits, u->size);
     }
     zz_clear(&tmp);
     if (is_little && length) {
@@ -538,8 +538,8 @@ overflow:
 }
 
 mp_err
-zz_from_bytes(char *buffer, size_t length, int is_little, int is_signed,
-              zz_t *u)
+zz_from_bytes(const unsigned char *buffer, size_t length,
+              int is_little, int is_signed, zz_t *u)
 {
     if (!length) {
         return zz_from_i64(u, 0);
@@ -548,18 +548,18 @@ zz_from_bytes(char *buffer, size_t length, int is_little, int is_signed,
         return MP_MEM; /* LCOV_EXCL_LINE */
     }
     if (is_little) {
-        char *tmp = malloc(length);
+        unsigned char *tmp = malloc(length);
 
         if (!tmp) {
             return MP_MEM; /* LCOV_EXCL_LINE */
         }
         memcpy(tmp, buffer, length);
-        buffer = tmp;
-        revstr(buffer, 0, length - 1);
+        revstr(tmp, 0, length - 1);
+        u->size = mpn_set_str(u->digits, tmp, length, 256);
+        free(tmp);
     }
-    u->size = mpn_set_str(u->digits, (unsigned char *)buffer, length, 256);
-    if (is_little) {
-        free(buffer);
+    else {
+        u->size = mpn_set_str(u->digits, buffer, length, 256);
     }
     if (zz_resize(u, u->size) == MP_MEM) {
         /* LCOV_EXCL_START */

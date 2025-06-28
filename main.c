@@ -331,21 +331,19 @@ MPZ_rshift1(const MPZ_Object *u, mp_limb_t rshift)
 static PyObject *
 MPZ_to_bytes(MPZ_Object *u, Py_ssize_t length, int is_little, int is_signed)
 {
-    char *buffer = PyMem_Malloc(length);
+    PyObject *bytes = PyBytes_FromStringAndSize(NULL, length);
 
-    if (!buffer) {
-        return PyErr_NoMemory(); /* LCOV_EXCL_LINE */
+    if (!bytes) {
+        return NULL; /* LCOV_EXCL_LINE */
     }
 
+    unsigned char *buffer = (unsigned char *)PyBytes_AS_STRING(bytes);
     mp_err ret = zz_to_bytes(&u->z, length, is_little, is_signed, &buffer);
 
     if (ret == MP_OK) {
-        PyObject *bytes = PyBytes_FromStringAndSize(buffer, length);
-
-        PyMem_Free(buffer);
         return bytes;
     }
-    PyMem_Free(buffer);
+    Py_DECREF(bytes);
     if (ret == MP_BUF) {
         if (ISNEG(u) && !is_signed) {
             PyErr_SetString(PyExc_OverflowError,
@@ -363,13 +361,13 @@ static MPZ_Object *
 MPZ_from_bytes(PyObject *obj, int is_little, int is_signed)
 {
     PyObject *bytes = PyObject_Bytes(obj);
-    char *buffer;
+    unsigned char *buffer;
     Py_ssize_t length;
 
     if (bytes == NULL) {
         return NULL;
     }
-    if (PyBytes_AsStringAndSize(bytes, &buffer, &length) == -1) {
+    if (PyBytes_AsStringAndSize(bytes, (char **)&buffer, &length) == -1) {
         return NULL; /* LCOV_EXCL_LINE */
     }
 
