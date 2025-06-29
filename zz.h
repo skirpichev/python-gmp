@@ -26,7 +26,7 @@ void zz_normalize(zz_t *u);
 
 typedef enum {
     MP_GT = +1,
-    MP_EQ =  0,
+    MP_EQ = 0,
     MP_LT = -1,
 } mp_ord;
 
