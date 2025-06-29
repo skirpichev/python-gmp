@@ -3,12 +3,12 @@
 #define PY_SSIZE_T_CLEAN
 #include <Python.h>
 
+#include "zz.h"
+
 #include <float.h>
 #include <gmp.h>
 #include <setjmp.h>
 #include <stdbool.h>
-
-#include "zz.h"
 
 extern jmp_buf gmp_env;
 
