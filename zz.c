@@ -1791,8 +1791,6 @@ zz_inverse(const zz_t *u, const zz_t *v, zz_t *w)
     z->_mp_size = (u->negative ? -1 : 1) * u->size; \
     z->_mp_alloc = u->size;
 
-/* XXX: don't use mpz_powm() for even w, replace
-   mpn_sec_powm() by mpn_powm(). */
 static mp_err
 _zz_powm(const zz_t *u, const zz_t *v, const zz_t *w, zz_t *res)
 {
