@@ -663,6 +663,36 @@ zz_mul(const zz_t *u, const zz_t *v, zz_t *w)
     if (!v->size) {
         return zz_from_i64(w, 0);
     }
+    if (u == w) {
+        zz_t tmp;
+
+        if (zz_init(&tmp) || zz_copy(u, &tmp)) {
+            /* LCOV_EXCL_START */
+            zz_clear(&tmp);
+            return MP_MEM;
+            /* LCOV_EXCL_STOP */
+        }
+
+        mp_err ret = zz_mul(&tmp, v, w);
+
+        zz_clear(&tmp);
+        return ret;
+    }
+    if (v == w) {
+        zz_t tmp;
+
+        if (zz_init(&tmp) || zz_copy(v, &tmp)) {
+            /* LCOV_EXCL_START */
+            zz_clear(&tmp);
+            return MP_MEM;
+            /* LCOV_EXCL_STOP */
+        }
+
+        mp_err ret = zz_mul(u, &tmp, w);
+
+        zz_clear(&tmp);
+        return ret;
+    }
     if (zz_resize(w, u->size + v->size) || TMP_OVERFLOW) {
         return MP_MEM; /* LCOV_EXCL_LINE */
     }
