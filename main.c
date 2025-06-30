@@ -815,67 +815,28 @@ hash(PyObject *self)
     return r;
 }
 
-static PyObject *
-plus(PyObject *self)
-{
-    MPZ_Object *u = (MPZ_Object *)self;
-    MPZ_Object *res = MPZ_new(0, 0);
-
-    if (res && zz_copy(&u->z, &res->z)) {
-        PyErr_NoMemory(); /* LCOV_EXCL_LINE */
+#define UNOP(suff, func)                           \
+    static PyObject *                              \
+    func(PyObject *self)                           \
+    {                                              \
+        MPZ_Object *u = (MPZ_Object *)self;        \
+        MPZ_Object *res = MPZ_new(0, 0);           \
+                                                   \
+        if (res && zz_##suff(&u->z, &res->z)) {    \
+            PyErr_NoMemory(); /* LCOV_EXCL_LINE */ \
+        }                                          \
+        return (PyObject *)res;                    \
     }
-    return (PyObject *)res;
-}
 
-static PyObject *
-minus(PyObject *self)
-{
-    const MPZ_Object *u = (MPZ_Object *)self;
-    MPZ_Object *res = MPZ_new(0, 0);
-
-    if (res && zz_neg(&u->z, &res->z)) {
-        /* LCOV_EXCL_START */
-        Py_CLEAR(res);
-        PyErr_NoMemory();
-        /* LCOV_EXCL_STOP */
-    }
-    return (PyObject *)res;
-}
-
-static PyObject *
-absolute(PyObject *self)
-{
-    const MPZ_Object *u = (MPZ_Object *)self;
-    MPZ_Object *res = MPZ_new(0, 0);
-
-    if (res && zz_abs(&u->z, &res->z)) {
-        /* LCOV_EXCL_START */
-        Py_CLEAR(res);
-        PyErr_NoMemory();
-        /* LCOV_EXCL_STOP */
-    }
-    return (PyObject *)res;
-}
+UNOP(copy, plus)
+UNOP(neg, nb_negative)
+UNOP(abs, nb_absolute)
+UNOP(invert, nb_invert)
 
 static PyObject *
 to_int(PyObject *self)
 {
     return MPZ_to_int((MPZ_Object *)self);
-}
-
-static PyObject *
-invert(PyObject *self)
-{
-    const MPZ_Object *u = (MPZ_Object *)self;
-    MPZ_Object *res = MPZ_new(0, 0);
-
-    if (!res || zz_invert(&u->z, &res->z)) {
-        /* LCOV_EXCL_START */
-        Py_XDECREF(res);
-        return PyErr_NoMemory();
-        /* LCOV_EXCL_STOP */
-    }
-    return (PyObject *)res;
 }
 
 static PyObject *
@@ -1011,6 +972,8 @@ to_bool(PyObject *self)
 BINOP(add, PyNumber_Add)
 BINOP(sub, PyNumber_Subtract)
 BINOP(mul, PyNumber_Multiply)
+BINOP(quo, PyNumber_FloorDivide)
+BINOP(rem, PyNumber_Remainder)
 
 static PyObject *
 nb_divmod(PyObject *self, PyObject *other)
@@ -1026,6 +989,7 @@ nb_divmod(PyObject *self, PyObject *other)
 
     MPZ_Object *q = MPZ_new(0, 0);
     MPZ_Object *r = MPZ_new(0, 0);
+
     if (!q || !r) {
         /* LCOV_EXCL_START */
         Py_XDECREF(q);
@@ -1067,9 +1031,6 @@ numbers:
     Py_XDECREF(v);
     Py_RETURN_NOTIMPLEMENTED;
 }
-
-BINOP(quo, PyNumber_FloorDivide)
-BINOP(rem, PyNumber_Remainder)
 
 static PyObject *
 nb_truediv(PyObject *self, PyObject *other)
@@ -1298,9 +1259,9 @@ static PyNumberMethods as_number = {
     .nb_remainder = nb_rem,
     .nb_power = power,
     .nb_positive = plus,
-    .nb_negative = minus,
-    .nb_absolute = absolute,
-    .nb_invert = invert,
+    .nb_negative = nb_negative,
+    .nb_absolute = nb_absolute,
+    .nb_invert = nb_invert,
     .nb_lshift = nb_lshift,
     .nb_rshift = nb_rshift,
     .nb_and = nb_and,
