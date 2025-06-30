@@ -4,6 +4,7 @@
 #include <Python.h>
 
 #include "zz.h"
+#include "mpz.h"
 
 #include <float.h>
 #include <gmp.h>
@@ -88,13 +89,6 @@ gmp_free_function(void *ptr, size_t size)
     }
 }
 
-typedef struct {
-    PyObject_HEAD
-    zz_t z;
-} MPZ_Object;
-
-PyTypeObject MPZ_Type;
-
 #define LS(op) (((op)->z).digits)
 #define SZ(op) (((op)->z).size)
 #define ISNEG(op) (((op)->z).negative)
@@ -145,10 +139,10 @@ MPZ_new(mp_size_t size, bool negative)
 }
 
 static const char *MPZ_TAG = "mpz(";
-int OPT_TAG = 0x1;
+static int OPT_TAG = 0x1;
 int OPT_PREFIX = 0x2;
 
-static PyObject *
+PyObject *
 MPZ_to_str(MPZ_Object *u, int base, int options)
 {
     size_t len;
@@ -190,6 +184,10 @@ MPZ_to_str(MPZ_Object *u, int base, int options)
         else if (base == 16) {
             *(p++) = '0';
             *(p++) = 'x';
+        }
+        else if (base == -16) {
+            *(p++) = '0';
+            *(p++) = 'X';
         }
     }
     else if (negative) {
@@ -554,9 +552,6 @@ PyUnicode_TransformDecimalAndSpaceToASCII(PyObject *unicode)
       _PyUnicode_TransformDecimalAndSpaceToASCII
 #endif
 
-#define MPZ_CheckExact(u) Py_IS_TYPE((u), &MPZ_Type)
-#define MPZ_Check(u) PyObject_TypeCheck((u), &MPZ_Type)
-
 static PyObject *
 new_impl(PyTypeObject *Py_UNUSED(type), PyObject *arg, PyObject *base_arg)
 {
@@ -845,8 +840,7 @@ str(PyObject *self)
         goto fallback;          \
     }
 
-static PyObject *
-to_float(PyObject *self);
+PyObject * to_float(PyObject *self);
 
 static PyObject *
 richcompare(PyObject *self, PyObject *other, int op)
@@ -953,13 +947,13 @@ UNOP(neg, nb_negative)
 UNOP(abs, nb_absolute)
 UNOP(invert, nb_invert)
 
-static PyObject *
+PyObject *
 to_int(PyObject *self)
 {
     return MPZ_to_int((MPZ_Object *)self);
 }
 
-static PyObject *
+PyObject *
 to_float(PyObject *self)
 {
     double d;
@@ -1704,22 +1698,6 @@ __reduce_ex__(PyObject *self, PyObject *Py_UNUSED(args))
 }
 
 static PyObject *
-__format__(PyObject *self, PyObject *format_spec)
-{
-    PyObject *integer = to_int(self);
-
-    if (!integer) {
-        return NULL; /* LCOV_EXCL_LINE */
-    }
-
-    PyObject *res = PyObject_CallMethod(integer, "__format__", "O",
-                                        format_spec);
-
-    Py_DECREF(integer);
-    return res;
-}
-
-static PyObject *
 __sizeof__(PyObject *self, PyObject *Py_UNUSED(ignored))
 {
     MPZ_Object *u = (MPZ_Object *)self;
@@ -1809,6 +1787,8 @@ Return the integer represented by the given array of bytes.\n\n\
     sys.byteorder as the byte order value.  Default is to use \'big\'.\n\
   signed\n\
     Indicates whether two\'s complement is used to represent the integer.");
+
+extern PyObject * __format__(PyObject *self, PyObject *format_spec);
 
 static PyMethodDef methods[] = {
     {"conjugate", (PyCFunction)plus, METH_NOARGS,

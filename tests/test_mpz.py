@@ -108,6 +108,11 @@ def fmt_str(draw, types="bdoxX"):
 
 
 @given(integers(), fmt_str())
+@example(69, "r<-6_b")
+@example(3351, "e=+8o")
+@example(-3912, "1=28d")
+@example(-3912, "0=28d")
+@example(-3912, "028d")
 def test___format__(x, fmt):
     mx = mpz(x)
     r = format(x, fmt)
