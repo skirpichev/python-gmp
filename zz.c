@@ -391,8 +391,8 @@ err:
     return MP_VAL;
 }
 
-mp_err
-zz_to_double(const zz_t *u, mp_size_t shift, double *d)
+static mp_err
+_zz_to_double(const zz_t *u, mp_size_t shift, double *d)
 {
     mp_limb_t high = 1ULL << DBL_MANT_DIG;
     mp_limb_t man = 0, carry, left;
@@ -470,6 +470,12 @@ done:
         return MP_BUF;
     }
     return MP_OK;
+}
+
+mp_err
+zz_to_double(const zz_t *u, double *d)
+{
+    return _zz_to_double(u, 0, d);
 }
 
 #define SWAP(T, a, b) \
@@ -984,7 +990,7 @@ zz_truediv(const zz_t *u, const zz_t *v, double *res)
     zz_clear(b);
     zz_clear(&d);
 
-    mp_err ret = zz_to_double(&c, shift, res);
+    mp_err ret = _zz_to_double(&c, shift, res);
 
     zz_clear(&c);
     if (u->negative != v->negative) {

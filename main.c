@@ -843,7 +843,7 @@ static PyObject *
 to_float(PyObject *self)
 {
     double d;
-    mp_err ret = zz_to_double(&((MPZ_Object *)self)->z, 0, &d);
+    mp_err ret = zz_to_double(&((MPZ_Object *)self)->z, &d);
 
     if (ret == MP_BUF) {
         PyErr_SetString(PyExc_OverflowError,

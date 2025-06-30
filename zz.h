@@ -44,7 +44,7 @@ extern int OPT_TAG, OPT_PREFIX;
 mp_err zz_to_str(const zz_t *u, int base, int options, char **buf);
 mp_err zz_from_str(const char *str, size_t len, int base, zz_t *u);
 
-mp_err zz_to_double(const zz_t *u, mp_size_t shift, double *d);
+mp_err zz_to_double(const zz_t *u, double *d);
 
 mp_err zz_to_bytes(const zz_t *u, size_t length, int is_little,
                    int is_signed, unsigned char **buffer);
