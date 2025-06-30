@@ -62,7 +62,6 @@ mp_err zz_rem(const zz_t *u, const zz_t *v, zz_t *w);
 
 mp_err zz_rshift1(const zz_t *u, mp_limb_t rshift, zz_t *v);
 mp_err zz_lshift1(const zz_t *u, mp_limb_t lshift, zz_t *v);
-mp_err zz_lshift(const zz_t *u, const zz_t *v, zz_t *w);
 mp_err zz_rshift(const zz_t *u, const zz_t *v, zz_t *w);
 
 mp_err zz_divmod_near(zz_t *q, zz_t *r, const zz_t *u, const zz_t *v);

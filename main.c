@@ -1140,6 +1140,18 @@ numbers:
     return res;
 }
 
+static mp_err
+zz_lshift(const zz_t *u, const zz_t *v, zz_t *w)
+{
+    if (v->negative) {
+        return MP_VAL;
+    }
+    if (v->size > 1) {
+        return MP_BUF;
+    }
+    return zz_lshift1(u, v->size ? v->digits[0] : 0, w);
+}
+
 BINOP_INT(lshift)
 BINOP_INT(rshift)
 BINOP_INT(and)

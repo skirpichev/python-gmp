@@ -841,18 +841,6 @@ zz_lshift1(const zz_t *u, mp_limb_t lshift, zz_t *v)
 }
 
 mp_err
-zz_lshift(const zz_t *u, const zz_t *v, zz_t *w)
-{
-    if (v->negative) {
-        return MP_VAL;
-    }
-    if (v->size > 1) {
-        return MP_BUF;
-    }
-    return zz_lshift1(u, v->size ? v->digits[0] : 0, w);
-}
-
-mp_err
 zz_rshift(const zz_t *u, const zz_t *v, zz_t *w)
 {
     if (v->negative) {
