@@ -765,6 +765,11 @@ zz_rem(const zz_t *u, const zz_t *v, zz_t *w)
 mp_err
 zz_rshift1(const zz_t *u, mp_limb_t rshift, zz_t *v)
 {
+    if (!u->size) {
+        v->size = 0;
+        return MP_OK;
+    }
+
     mp_size_t whole = rshift / GMP_NUMB_BITS;
     mp_size_t size = u->size;
 
@@ -840,28 +845,6 @@ zz_lshift1(const zz_t *u, mp_limb_t lshift, zz_t *v)
     return MP_OK;
 }
 
-mp_err
-zz_rshift(const zz_t *u, const zz_t *v, zz_t *w)
-{
-    if (v->negative) {
-        return MP_VAL;
-    }
-    if (!u->size) {
-        return zz_from_i64(w, 0);
-    }
-    if (!v->size) {
-        return zz_copy(u, w);
-    }
-    if (v->size > 1) {
-        if (u->negative) {
-            return zz_from_i64(w, -1);
-        }
-        else {
-            return zz_from_i64(w, 0);
-        }
-    }
-    return zz_rshift1(u, v->digits[0], w);
-}
 
 mp_err
 zz_divmod_near(zz_t *q, zz_t *r, const zz_t *u, const zz_t *v)

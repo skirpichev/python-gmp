@@ -1152,6 +1152,18 @@ zz_lshift(const zz_t *u, const zz_t *v, zz_t *w)
     return zz_lshift1(u, v->size ? v->digits[0] : 0, w);
 }
 
+static mp_err
+zz_rshift(const zz_t *u, const zz_t *v, zz_t *w)
+{
+    if (v->negative) {
+        return MP_VAL;
+    }
+    if (v->size > 1) {
+        return zz_from_i64(w, u->negative ? -1 : 0);
+    }
+    return zz_rshift1(u, v->size ? v->digits[0] : 0, w);
+}
+
 BINOP_INT(lshift)
 BINOP_INT(rshift)
 BINOP_INT(and)
