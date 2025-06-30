@@ -831,18 +831,6 @@ err:
 }
 
 mp_err
-zz_quo(const zz_t *u, const zz_t *v, zz_t *w)
-{
-    return zz_divmod(w, NULL, u, v);
-}
-
-mp_err
-zz_rem(const zz_t *u, const zz_t *v, zz_t *w)
-{
-    return zz_divmod(NULL, w, u, v);
-}
-
-mp_err
 zz_rshift1(const zz_t *u, mp_limb_t rshift, zz_t *v)
 {
     if (!u->size) {
@@ -1572,7 +1560,7 @@ zz_gcdext(const zz_t *u, const zz_t *v, zz_t *g, zz_t *s, zz_t *t)
         zz_t tmp;
 
         if (zz_init(&tmp) || zz_mul(u, tmp_s, &tmp)
-            || zz_sub(tmp_g, &tmp, &tmp) || zz_quo(&tmp, v, &tmp)
+            || zz_sub(tmp_g, &tmp, &tmp) || zz_divmod(&tmp, NULL, &tmp, v)
             || zz_resize(t, tmp.size) == MP_MEM)
         {
             /* LCOV_EXCL_START */
@@ -1740,7 +1728,9 @@ zz_powm(const zz_t *u, const zz_t *v, const zz_t *w, zz_t *res)
     if (u->negative || u->size > w->size) {
         zz_t tmp;
 
-        if (zz_init(&tmp) || zz_rem(u, w, &tmp) || zz_copy(&tmp, &o1)) {
+        if (zz_init(&tmp) || zz_divmod(NULL, &tmp, u, w)
+            || zz_copy(&tmp, &o1))
+        {
             /* LCOV_EXCL_START */
             zz_clear(&tmp);
             goto end3;

@@ -972,6 +972,19 @@ to_bool(PyObject *self)
 BINOP(add, PyNumber_Add)
 BINOP(sub, PyNumber_Subtract)
 BINOP(mul, PyNumber_Multiply)
+
+static mp_err
+zz_quo(const zz_t *u, const zz_t *v, zz_t *w)
+{
+    return zz_divmod(w, NULL, u, v);
+}
+
+static mp_err
+zz_rem(const zz_t *u, const zz_t *v, zz_t *w)
+{
+    return zz_divmod(NULL, w, u, v);
+}
+
 BINOP(quo, PyNumber_FloorDivide)
 BINOP(rem, PyNumber_Remainder)
 
