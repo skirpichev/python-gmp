@@ -852,20 +852,11 @@ mp_err
 zz_divmod_near(zz_t *q, zz_t *r, const zz_t *u, const zz_t *v)
 {
     mp_ord unexpect = v->negative ? MP_LT : MP_GT;
-    mp_err ret = zz_divmod(q, r, u, v);
-
-    if (ret) {
-        /* LCOV_EXCL_START */
-        zz_clear(q);
-        zz_clear(r);
-        return ret;
-        /* LCOV_EXCL_STOP */
-    }
-
     zz_t halfQ;
 
-    if (zz_init(&halfQ) || zz_rshift1(v, 1, &halfQ)) {
+    if (zz_divmod(q, r, u, v) || zz_init(&halfQ) || zz_rshift1(v, 1, &halfQ)) {
         /* LCOV_EXCL_START */
+    err:
         zz_clear(q);
         zz_clear(r);
         return MP_MEM;
@@ -881,13 +872,7 @@ zz_divmod_near(zz_t *q, zz_t *r, const zz_t *u, const zz_t *v)
     if (cmp == unexpect) {
         zz_t one;
 
-        if (zz_init(&one) || zz_from_i64(&one, 1)) {
-            /* LCOV_EXCL_START */
-            zz_clear(&one);
-            goto err;
-            /* LCOV_EXCL_STOP */
-        }
-        if (zz_add(q, &one, q)) {
+        if (zz_init(&one) || zz_from_i64(&one, 1) || zz_add(q, &one, q)) {
             /* LCOV_EXCL_START */
             zz_clear(&one);
             goto err;
@@ -899,12 +884,6 @@ zz_divmod_near(zz_t *q, zz_t *r, const zz_t *u, const zz_t *v)
         }
     }
     return MP_OK;
-err:
-    /* LCOV_EXCL_START */
-    zz_clear(q);
-    zz_clear(r);
-    return MP_MEM;
-    /* LCOV_EXCL_STOP */
 }
 
 mp_err
