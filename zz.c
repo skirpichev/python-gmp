@@ -1373,21 +1373,21 @@ zz_pow(const zz_t *u, const zz_t *v, zz_t *w)
 #define MIN(a, b) ((a) < (b) ? (a) : (b))
 
 mp_err
-zz_gcd(const zz_t *u, const zz_t *v, zz_t *gcd)
+zz_gcd(const zz_t *u, const zz_t *v, zz_t *w)
 {
-    gcd->negative = false;
+    w->negative = false;
     if (!u->size) {
-        if (zz_resize(gcd, v->size) == MP_MEM) {
+        if (zz_resize(w, v->size) == MP_MEM) {
             return MP_MEM; /* LCOV_EXCL_LINE */
         }
-        mpn_copyi(gcd->digits, v->digits, v->size);
+        mpn_copyi(w->digits, v->digits, v->size);
         return MP_OK;
     }
     if (!v->size) {
-        if (zz_resize(gcd, u->size) == MP_MEM) {
+        if (zz_resize(w, u->size) == MP_MEM) {
             return MP_MEM; /* LCOV_EXCL_LINE */
         }
-        mpn_copyi(gcd->digits, u->digits, u->size);
+        mpn_copyi(w->digits, u->digits, u->size);
         return MP_OK;
     }
 
@@ -1416,18 +1416,16 @@ zz_gcd(const zz_t *u, const zz_t *v, zz_t *gcd)
     if (u->size < v->size) {
         SWAP(const zz_t *, u, v);
     }
-    if (zz_resize(gcd, v->size) == MP_MEM || TMP_OVERFLOW) {
+    if (zz_resize(w, v->size) == MP_MEM || TMP_OVERFLOW) {
         goto clear; /* LCOV_EXCL_LINE */
     }
-    gcd->size = mpn_gcd(gcd->digits, u->digits, u->size, v->digits, v->size);
+    w->size = mpn_gcd(w->digits, u->digits, u->size, v->digits, v->size);
     zz_clear(o1);
     zz_clear(o2);
     free(o1);
     free(o2);
-    if (shift && zz_lshift1(gcd, shift, gcd)) {
-        /* LCOV_EXCL_START */
-        return MP_MEM;
-        /* LCOV_EXCL_STOP */
+    if (shift && zz_lshift1(w, shift, w)) {
+        return MP_MEM; /* LCOV_EXCL_LINE */
     }
     return MP_OK;
 clear:
@@ -1469,18 +1467,18 @@ zz_gcdext(const zz_t *u, const zz_t *v, zz_t *g, zz_t *s, zz_t *t)
         return MP_OK;
     }
 
-    zz_t *volatile arg_u = malloc(sizeof(zz_t));
-    zz_t *volatile arg_v = malloc(sizeof(zz_t));
+    zz_t *volatile o1 = malloc(sizeof(zz_t));
+    zz_t *volatile o2 = malloc(sizeof(zz_t));
     zz_t *volatile tmp_g = malloc(sizeof(zz_t));
     zz_t *volatile tmp_s = malloc(sizeof(zz_t));
 
-    if (!arg_u || !arg_v || !tmp_g || !tmp_s) {
+    if (!o1 || !o2 || !tmp_g || !tmp_s) {
         goto free; /* LCOV_EXCL_LINE */
     }
 
-    if (zz_init(arg_u) || zz_init(arg_v)
+    if (zz_init(o1) || zz_init(o2)
         || zz_init(tmp_g) || zz_init(tmp_s)
-        || zz_copy(u, arg_u) || zz_copy(v, arg_v)
+        || zz_copy(u, o1) || zz_copy(v, o2)
         || zz_resize(tmp_g, v->size) || zz_resize(tmp_s, v->size + 1)
         || TMP_OVERFLOW)
     {
@@ -1491,15 +1489,15 @@ zz_gcdext(const zz_t *u, const zz_t *v, zz_t *g, zz_t *s, zz_t *t)
     mp_size_t ssize;
 
     tmp_g->size = mpn_gcdext(tmp_g->digits, tmp_s->digits, &ssize,
-                             arg_u->digits, u->size, arg_v->digits, v->size);
+                             o1->digits, u->size, o2->digits, v->size);
     tmp_s->size = ABS(ssize);
     tmp_s->negative = ((u->negative && ssize > 0)
                        || (!u->negative && ssize < 0));
-    zz_clear(arg_u);
-    zz_clear(arg_v);
-    free(arg_u);
-    free(arg_v);
-    arg_u = arg_v = NULL;
+    zz_clear(o1);
+    zz_clear(o2);
+    free(o1);
+    free(o2);
+    o1 = o2 = NULL;
     if (t) {
         zz_t us, x, q;
 
@@ -1557,13 +1555,13 @@ zz_gcdext(const zz_t *u, const zz_t *v, zz_t *g, zz_t *s, zz_t *t)
     }
     return MP_OK;
 clear:
-    zz_clear(arg_u);
-    zz_clear(arg_v);
+    zz_clear(o1);
+    zz_clear(o2);
     zz_clear(tmp_g);
     zz_clear(tmp_s);
 free:
-    free(arg_u);
-    free(arg_v);
+    free(o1);
+    free(o2);
     free(tmp_g);
     free(tmp_s);
     return MP_MEM;
@@ -1727,32 +1725,47 @@ zz_powm(const zz_t *u, const zz_t *v, const zz_t *w, zz_t *res)
 }
 
 mp_err
-zz_sqrtrem(const zz_t *u, zz_t *root, zz_t *rem)
+zz_sqrtrem(const zz_t *u, zz_t *v, zz_t *w)
 {
     if (u->negative) {
         return MP_VAL;
     }
-    root->negative = false;
+    v->negative = false;
     if (!u->size) {
-        root->size = 0;
-        if (rem) {
-            rem->size = 0;
-            rem->negative = false;
+        v->size = 0;
+        if (w) {
+            w->size = 0;
+            w->negative = false;
         }
         return MP_OK;
     }
-    if (zz_resize(root, (u->size + 1)/2) == MP_MEM || TMP_OVERFLOW) {
+    if (u == v) {
+        zz_t tmp;
+
+        if (zz_init(&tmp) || zz_copy(v, &tmp)) {
+            /* LCOV_EXCL_START */
+            zz_clear(&tmp);
+            return MP_MEM;
+            /* LCOV_EXCL_STOP */
+        }
+
+        mp_err ret = zz_sqrtrem(&tmp, v, w);
+
+        zz_clear(&tmp);
+        return ret;
+    }
+    if (zz_resize(v, (u->size + 1)/2) == MP_MEM || TMP_OVERFLOW) {
         return MP_MEM; /* LCOV_EXCL_LINE */
     }
-    if (rem) {
-        rem->negative = false;
-        if (zz_resize(rem, u->size) == MP_MEM) {
+    if (w) {
+        w->negative = false;
+        if (zz_resize(w, u->size) == MP_MEM) {
             return MP_MEM; /* LCOV_EXCL_LINE */
         }
-        rem->size = mpn_sqrtrem(root->digits, rem->digits, u->digits, u->size);
+        w->size = mpn_sqrtrem(v->digits, w->digits, u->digits, u->size);
     }
     else {
-        mpn_sqrtrem(root->digits, NULL, u->digits, u->size);
+        mpn_sqrtrem(v->digits, NULL, u->digits, u->size);
     }
     return MP_OK;
 }
