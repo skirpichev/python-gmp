@@ -2105,8 +2105,12 @@ normalize_mpf(long sign, MPZ_Object *man, PyObject *exp, mp_bitcnt_t bc,
         switch (rnd) {
             case (Py_UCS4)'f':
                 rnd = (Py_UCS4)(sign ? 'u' : 'd');
+                break;
             case (Py_UCS4)'c':
                 rnd = (Py_UCS4)(sign ? 'd' : 'u');
+                break;
+        }
+        switch (rnd) {
             case (Py_UCS4)'d':
                 res = MPZ_rshift1(man, shift);
                 break;
