@@ -21,7 +21,8 @@ from hypothesis.strategies import booleans, integers, sampled_from
 def test_isqrt(x):
     mx = mpz(x)
     r = math.isqrt(x)
-    assert isqrt(mx) == isqrt(x) == r
+    assert isqrt(mx) == r
+    assert isqrt(x) == r
 
 
 @given(integers(min_value=0))
@@ -29,7 +30,8 @@ def test_isqrt_rem(x):
     mpmath = pytest.importorskip("mpmath")
     mx = mpz(x)
     r = mpmath.libmp.libintmath.sqrtrem_python(x)
-    assert isqrt_rem(mx) == isqrt_rem(x) == r
+    assert isqrt_rem(mx) == r
+    assert isqrt_rem(x) == r
 
 
 @given(integers(min_value=0, max_value=12345))
@@ -37,7 +39,8 @@ def test_double_fac(x):
     mpmath = pytest.importorskip("mpmath")
     mx = mpz(x)
     r = mpmath.libmp.libintmath.ifac2_python(x)
-    assert double_fac(mx) == double_fac(x) == r
+    assert double_fac(mx) == r
+    assert double_fac(x) == r
 
 
 @given(integers(min_value=0, max_value=12345))
@@ -45,14 +48,16 @@ def test_fib(x):
     mpmath = pytest.importorskip("mpmath")
     mx = mpz(x)
     r = mpmath.libmp.libintmath.ifib_python(x)
-    assert fib(mx) == fib(x) == r
+    assert fib(mx) == r
+    assert fib(x) == r
 
 
 @given(integers(min_value=0, max_value=12345))
 def test_fac(x):
     mx = mpz(x)
     r = math.factorial(x)
-    assert fac(mx) == fac(x) == r
+    assert fac(mx) == r
+    assert fac(x) == r
 
 
 @given(integers(), integers())
