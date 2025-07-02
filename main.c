@@ -2347,9 +2347,9 @@ static PyMethodDef gmp_functions[] = {
     {"isqrt_rem", gmp_isqrt_rem, METH_O,
      ("isqrt_rem($module, n, /)\n--\n\n"
       "Return a 2-element tuple (s,t) such that s=isqrt(x) and t=x-s*s.")},
-    {"fac", gmp_fac, METH_O,
-     ("fac($module, n, /)\n--\n\n"
-      "Find n!.\n\nRaise a ValueError if n is negative or non-integral.")},
+    {"factorial", gmp_fac, METH_O,
+     ("factorial($module, n, /)\n--\n\n"
+      "Find n!.")},
     {"double_fac", gmp_double_fac, METH_O,
      ("double_fac($module, n, /)\n--\n\n"
       "Return the exact double factorial (n!!) of n.")},
@@ -2424,6 +2424,10 @@ gmp_exec(PyObject *m)
         Py_DECREF(gmp_info);
         return -1;
         /* LCOV_EXCL_STOP */
+    }
+    if (PyModule_AddObject(m, "fac",
+                           PyObject_GetAttrString(m, "factorial")) < 0) {
+        return -1; /* LCOV_EXCL_LINE */
     }
 
     PyObject *ns = PyDict_New();

@@ -6,6 +6,7 @@ from gmp import (
     _mpmath_normalize,
     double_fac,
     fac,
+    factorial,
     fib,
     gcd,
     gcdext,
@@ -56,8 +57,8 @@ def test_fib(x):
 def test_fac(x):
     mx = mpz(x)
     r = math.factorial(x)
-    assert fac(mx) == r
-    assert fac(x) == r
+    assert factorial(mx) == r
+    assert factorial(x) == r
 
 
 @given(integers(), integers())
@@ -138,6 +139,7 @@ def test__mpmath_create(man, exp, prec, rnd):
 
 def test_interfaces():
     assert gcd() == 0
+    assert factorial(123) == fac(123)
     with pytest.raises(TypeError):
         gcd(1j)
     with pytest.raises(TypeError):
