@@ -86,7 +86,7 @@ ignore = [
 lines-after-imports = 2
 
 [tool.cibuildwheel]
-enable = "pypy cpython-prerelease cpython-freethreading"
+enable = "pypy cpython-prerelease cpython-freethreading graalpy"
 skip = "*-win32 *-manylinux_i686 *-musllinux_* *-manylinux_armv7l pp*aarch64*"
 before-all = "bash scripts/cibw_before_all.sh"
 test-extras = "tests"

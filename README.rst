@@ -7,7 +7,7 @@ has been tested with CPython 3.9 through 3.14 and for PyPy 3.10 and 3.11.
 
 This module can be used as a gmpy2/python-flint replacement to provide
 CPython-compatible integer (mpz) and rational (mpq) types.  It includes few
-functions (fac, gcd and isqrt), compatible with the stdlib's module math.
+functions (factorial, gcd and isqrt), compatible with the stdlib's module math.
 
 Releases are available in the Python Package Index (PyPI) at
 https://pypi.org/project/python-gmp/

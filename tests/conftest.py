@@ -1,4 +1,5 @@
 import os
+import platform
 from datetime import timedelta
 
 import gmp
@@ -10,7 +11,11 @@ settings.register_profile("default",
                           settings(default,
                                    deadline=timedelta(seconds=300)))
 ci = settings.get_profile("ci")
-settings.register_profile("ci", settings(ci, max_examples=10000))
+if platform.python_implementation() != "GraalVM":
+    ci = settings(ci, max_examples=10000)
+else:
+    ci = settings(ci, max_examples=1000)
+settings.register_profile("ci", ci)
 
 def pytest_report_header(config):
     print(f"""
