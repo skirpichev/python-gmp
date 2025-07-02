@@ -7,8 +7,8 @@
 
 typedef struct {
     bool negative;
-    mp_size_t alloc;
     mp_size_t size;
+    /* XXX: add alloc field? */
     mp_limb_t *digits;
 } zz_t;
 
