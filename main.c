@@ -1540,24 +1540,21 @@ __round__(PyObject *self, PyObject *const *args, Py_ssize_t nargs)
         return NULL; /* LCOV_EXCL_LINE */
     }
 
-    MPZ_Object *q = MPZ_new(0, 0), *r = MPZ_new(0, 0);
+    MPZ_Object *r = MPZ_new(0, 0);
 
-    if (!q || !r) {
+    if (!r) {
         /* LCOV_EXCL_START */
-        Py_XDECREF(q);
         Py_XDECREF(r);
         return NULL;
         /* LCOV_EXCL_STOP */
     }
-    if (zz_divmod_near(&u->z, &((MPZ_Object *)p)->z, &q->z, &r->z)) {
+    if (zz_divmod_near(&u->z, &((MPZ_Object *)p)->z, NULL, &r->z)) {
         /* LCOV_EXCL_START */
-        Py_DECREF(q);
         Py_DECREF(r);
         return PyErr_NoMemory();
         /* LCOV_EXCL_STOP */
     }
     Py_DECREF(p);
-    Py_DECREF(q);
 
     MPZ_Object *res = MPZ_new(0, 0);
 

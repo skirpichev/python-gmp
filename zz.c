@@ -917,6 +917,33 @@ zz_lshift1(const zz_t *u, mp_limb_t lshift, zz_t *v)
 mp_err
 zz_divmod_near(const zz_t *u, const zz_t *v, zz_t *q, zz_t *r)
 {
+    if (!q || !r) {
+        if (!q) {
+            zz_t tmp;
+
+            if (zz_init(&tmp)) {
+                return MP_MEM;  /* LCOV_EXCL_LINE */
+            }
+
+            mp_err ret = zz_divmod_near(u, v, &tmp, r);
+
+            zz_clear(&tmp);
+            return ret;
+        }
+        else {
+            zz_t tmp;
+
+            if (zz_init(&tmp)) {
+                return MP_MEM;  /* LCOV_EXCL_LINE */
+            }
+
+            mp_err ret = zz_divmod_near(u, v, q, &tmp);
+
+            zz_clear(&tmp);
+            return ret;
+        }
+    }
+
     mp_ord unexpect = v->negative ? MP_LT : MP_GT;
     zz_t halfQ;
 
@@ -1033,20 +1060,18 @@ zz_truediv(const zz_t *u, const zz_t *v, double *res)
     }
     b = &tmp2;
 
-    zz_t c, d;
+    zz_t c;
 
-    if (zz_init(&c) || zz_init(&d) || zz_divmod_near(a, b, &c, &d)) {
+    if (zz_init(&c) || zz_divmod_near(a, b, &c, NULL)) {
         /* LCOV_EXCL_START */
         zz_clear(a);
         zz_clear(b);
         zz_clear(&c);
-        zz_clear(&d);
         return MP_MEM;
         /* LCOV_EXCL_STOP */
     }
     zz_clear(a);
     zz_clear(b);
-    zz_clear(&d);
 
     mp_err ret = _zz_to_double(&c, shift, res);
 
