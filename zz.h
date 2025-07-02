@@ -56,7 +56,7 @@ mp_err zz_sub(const zz_t *u, const zz_t *v, zz_t *w);
 
 mp_err zz_mul(const zz_t *u, const zz_t *v, zz_t *w);
 
-mp_err zz_divmod(const zz_t *u, const zz_t *v, zz_t *q, zz_t *r);
+mp_err zz_div(const zz_t *u, const zz_t *v, zz_t *q, zz_t *r);
 
 mp_err zz_rshift1(const zz_t *u, mp_limb_t rshift, zz_t *v);
 mp_err zz_lshift1(const zz_t *u, mp_limb_t lshift, zz_t *v);

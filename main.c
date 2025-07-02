@@ -976,13 +976,13 @@ BINOP(mul, PyNumber_Multiply)
 static mp_err
 zz_quo(const zz_t *u, const zz_t *v, zz_t *w)
 {
-    return zz_divmod(u, v, w, NULL);
+    return zz_div(u, v, w, NULL);
 }
 
 static mp_err
 zz_rem(const zz_t *u, const zz_t *v, zz_t *w)
 {
-    return zz_divmod(u, v, NULL, w);
+    return zz_div(u, v, NULL, w);
 }
 
 BINOP(quo, PyNumber_FloorDivide)
@@ -1011,7 +1011,7 @@ nb_divmod(PyObject *self, PyObject *other)
         /* LCOV_EXCL_STOP */
     }
 
-    mp_err ret = zz_divmod(&u->z, &v->z, &q->z, &r->z);
+    mp_err ret = zz_div(&u->z, &v->z, &q->z, &r->z);
 
     if (ret) {
         Py_DECREF(q);
