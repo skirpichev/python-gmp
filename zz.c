@@ -16,6 +16,7 @@ mp_err
 zz_init(zz_t *u)
 {
     u->negative = false;
+    u->alloc = 0;
     u->size = 0;
     u->digits = NULL;
     return MP_OK;
@@ -24,10 +25,20 @@ zz_init(zz_t *u)
 mp_err
 zz_resize(mp_size_t size, zz_t *u)
 {
+    if (u->alloc >= size) {
+        u->size = size;
+        return MP_OK;
+    }
+
+    mp_size_t alloc = size;
     mp_limb_t *t = u->digits;
 
-    u->digits = realloc(u->digits, (size ? size : 1)*sizeof(mp_limb_t));
+    if (!alloc) {
+        alloc = 1;
+    }
+    u->digits = realloc(u->digits, alloc*sizeof(mp_limb_t));
     if (u->digits) {
+        u->alloc = alloc;
         u->size = size;
         return MP_OK;
     }
@@ -40,6 +51,7 @@ zz_clear(zz_t *u)
 {
     free(u->digits);
     u->negative = false;
+    u->alloc = 0;
     u->size = 0;
     u->digits = NULL;
 }
@@ -232,8 +244,7 @@ zz_to_str(const zz_t *u, int base, int options, char **buf)
         len -= (mpn_get_str(p, base, u->digits, u->size) != len);
     }
     else { /* generic base, not power of 2, input might be clobbered */
-        mp_limb_t *volatile tmp = malloc(sizeof(mp_limb_t)
-                                         * (u->size ? u->size : 1));
+        mp_limb_t *volatile tmp = malloc(sizeof(mp_limb_t) * u->alloc);
 
         if (!tmp || TMP_OVERFLOW) {
             /* LCOV_EXCL_START */
@@ -1633,7 +1644,7 @@ zz_inverse(const zz_t *u, const zz_t *v, zz_t *w)
                                                     \
     z->_mp_d = u->digits;                           \
     z->_mp_size = (u->negative ? -1 : 1) * u->size; \
-    z->_mp_alloc = u->size;
+    z->_mp_alloc = u->alloc;
 
 static mp_err
 _zz_powm(const zz_t *u, const zz_t *v, const zz_t *w, zz_t *res)
