@@ -1842,5 +1842,5 @@ zz_sqrtrem(const zz_t *u, zz_t *v, zz_t *w)
     }
 
 MK_ZZ_FUNC_UL(fac, fac_ui)
-MK_ZZ_FUNC_UL(double_fac, 2fac_ui)
+MK_ZZ_FUNC_UL(fac2, 2fac_ui)
 MK_ZZ_FUNC_UL(fib, fib_ui)
