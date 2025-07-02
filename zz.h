@@ -20,7 +20,7 @@ typedef enum {
 } mp_err;
 
 mp_err zz_init(zz_t *u);
-mp_err zz_resize(zz_t *u, mp_size_t size);
+mp_err zz_resize(mp_size_t size, zz_t *u);
 void zz_clear(zz_t *u);
 void zz_normalize(zz_t *u);
 

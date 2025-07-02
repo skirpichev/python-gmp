@@ -122,7 +122,7 @@ MPZ_new(mp_size_t size, bool negative)
 
     if (global.gmp_cache_size && size <= MAX_CACHE_MPZ_LIMBS) {
         res = global.gmp_cache[--(global.gmp_cache_size)];
-        if (SZ(res) < size && zz_resize(&res->z, size) == MP_MEM) {
+        if (SZ(res) < size && zz_resize(size, &res->z) == MP_MEM) {
             /* LCOV_EXCL_START */
             global.gmp_cache[(global.gmp_cache_size)++] = res;
             return (MPZ_Object *)PyErr_NoMemory();
@@ -136,7 +136,7 @@ MPZ_new(mp_size_t size, bool negative)
         if (!res) {
             return NULL; /* LCOV_EXCL_LINE */
         }
-        if (zz_init(&res->z) || zz_resize(&res->z, size)) {
+        if (zz_init(&res->z) || zz_resize(size, &res->z)) {
             return (MPZ_Object *)PyErr_NoMemory(); /* LCOV_EXCL_LINE */
         }
     }
@@ -551,7 +551,7 @@ new(PyTypeObject *type, PyObject *args, PyObject *keywds)
             /* LCOV_EXCL_STOP */
         }
         ISNEG(newobj) = ISNEG(tmp);
-        if (zz_init(&newobj->z) || zz_resize(&newobj->z, n)) {
+        if (zz_init(&newobj->z) || zz_resize(n, &newobj->z)) {
             /* LCOV_EXCL_START */
             Py_DECREF(tmp);
             return PyErr_NoMemory();
@@ -1812,7 +1812,7 @@ gmp_gcd(PyObject *Py_UNUSED(module), PyObject *const *args, Py_ssize_t nargs)
         Py_DECREF(arg);
         Py_SETREF(res, tmp);
     }
-    if (zz_resize(&res->z, SZ(res)) == MP_MEM) {
+    if (zz_resize(SZ(res), &res->z) == MP_MEM) {
         /* LCOV_EXCL_START */
         Py_DECREF(res);
         return PyErr_NoMemory();
