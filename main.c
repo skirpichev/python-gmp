@@ -246,7 +246,7 @@ MPZ_from_int(PyObject *obj)
     }
     else {
         res = MPZ_new(0, 0);
-        if (res && zz_from_i64(&res->z, long_export.value)) {
+        if (res && zz_from_i64(long_export.value, &res->z)) {
             PyErr_NoMemory(); /* LCOV_EXCL_LINE */
         }
     }
@@ -257,7 +257,7 @@ MPZ_from_int(PyObject *obj)
     if (!PyLong_AsInt64(obj, &value)) {
         MPZ_Object *res = MPZ_new(0, 0);
 
-        if (res && zz_from_i64(&res->z, value)) {
+        if (res && zz_from_i64(value, &res->z)) {
             PyErr_NoMemory(); /* LCOV_EXCL_LINE */
         }
         return res;
@@ -1133,7 +1133,7 @@ zz_rshift(const zz_t *u, const zz_t *v, zz_t *w)
         return MP_VAL;
     }
     if (v->size > 1) {
-        return zz_from_i64(w, u->negative ? -1 : 0);
+        return zz_from_i64(u->negative ? -1 : 0, w);
     }
     return zz_rshift1(u, v->size ? v->digits[0] : 0, w);
 }
@@ -1297,7 +1297,7 @@ get_one(PyObject *Py_UNUSED(self), void *Py_UNUSED(closure))
 {
     MPZ_Object *res = MPZ_new(0, 0);
 
-    if (res && zz_from_i64(&res->z, 1)) {
+    if (res && zz_from_i64(1, &res->z)) {
         PyErr_NoMemory(); /* LCOV_EXCL_LINE */
     }
     return (PyObject *)res;

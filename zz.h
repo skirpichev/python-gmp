@@ -32,7 +32,7 @@ typedef enum {
 
 mp_ord zz_cmp(const zz_t *u, const zz_t *v);
 
-mp_err zz_from_i64(zz_t *u, int64_t v);
+mp_err zz_from_i64(int64_t u, zz_t *v);
 mp_err zz_to_i64(const zz_t *u, int64_t *v);
 
 mp_err zz_copy(const zz_t *u, zz_t *v);
