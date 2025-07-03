@@ -44,9 +44,6 @@ Homepage = "https://github.com/diofant/python-gmp"
 "Bug Tracker" = "https://github.com/diofant/python-gmp/issues"
 Documentation = "https://python-gmp.readthedocs.io/en/latest/"
 
-[tool.setuptools]
-py-modules = ["_gmp_fractions"]
-
 [tool.setuptools.dynamic]
 version = {attr = "setuptools_scm.get_version"}
 
@@ -54,7 +51,7 @@ version = {attr = "setuptools_scm.get_version"}
 "*" = ["*.h"]
 
 [project.optional-dependencies]
-tests = ["pytest", "hypothesis", "mpmath>=1.4.0a5"]
+tests = ["pytest", "hypothesis", "mpmath>=1.4.0a6"]
 docs = ["sphinx>=8.2"]
 develop = ["python-gmp[tests,docs]", "pre-commit", "pyperf",
            "gmpy2>=2.2; platform_python_implementation!='PyPy'",
@@ -66,7 +63,7 @@ norecursedirs = ["build", ".eggs", ".git", ".venv", ".hypothesis"]
 xfail_strict = true
 
 [tool.ruff]
-exclude = [".venv", "_gmp_fractions.py"]
+exclude = [".venv"]
 line-length = 79
 
 [tool.ruff.lint]
