@@ -2005,18 +2005,21 @@ err:
             goto err;                                                    \
         }                                                                \
                                                                          \
-        mp_err ret = zz_##name(&x->z, &res->z);                          \
+        int64_t n;                                                       \
+                                                                         \
+        if (zz_to_i64(&x->z, &n) || n > LONG_MAX) {                      \
+            PyErr_Format(PyExc_OverflowError,                            \
+                         #name "() argument should not exceed %ld",      \
+                         LONG_MAX);                                      \
+            goto err;                                                    \
+        }                                                                \
+                                                                         \
+        mp_err ret = zz_##name(n, &res->z);                              \
                                                                          \
         Py_XDECREF(x);                                                   \
         if (ret == MP_VAL) {                                             \
             PyErr_SetString(PyExc_ValueError,                            \
                             #name "() not defined for negative values"); \
-            goto err;                                                    \
-        }                                                                \
-        if (ret == MP_BUF) {                                             \
-            PyErr_Format(PyExc_OverflowError,                            \
-                         #name "() argument should not exceed %ld",      \
-                         LONG_MAX);                                      \
             goto err;                                                    \
         }                                                                \
         if (ret == MP_MEM) {                                             \

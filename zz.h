@@ -83,8 +83,8 @@ mp_err zz_powm(const zz_t *u, const zz_t *v, const zz_t *w, zz_t *res);
 
 mp_err zz_sqrtrem(const zz_t *u, zz_t *v, zz_t *w);
 
-mp_err zz_fac(const zz_t *u, zz_t *v);
-mp_err zz_fac2(const zz_t *u, zz_t *v);
-mp_err zz_fib(const zz_t *u, zz_t *v);
+mp_err zz_fac(int64_t u, zz_t *v);
+mp_err zz_fac2(int64_t u, zz_t *v);
+mp_err zz_fib(int64_t u, zz_t *v);
 
 #endif /* ZZ_H */

@@ -1816,23 +1816,22 @@ zz_sqrtrem(const zz_t *u, zz_t *v, zz_t *w)
 
 #define MK_ZZ_FUNC_UL(name, mpz_suff)                \
     mp_err                                           \
-    zz_##name(const zz_t *u, zz_t *v)                \
+    zz_##name(int64_t u, zz_t *v)                    \
     {                                                \
-        TMP_ZZ(z, u)                                 \
-        if (u->negative) {                           \
+        if (u < 0) {                                 \
             return MP_VAL;                           \
         }                                            \
-        if (!mpz_fits_ulong_p(z)) {                  \
+        if ((uint64_t)u > ULONG_MAX) {               \
             return MP_BUF;                           \
         }                                            \
-                                                     \
-        unsigned long n = mpz_get_ui(z);             \
-                                                     \
         if (TMP_OVERFLOW) {                          \
             return MP_MEM; /* LCOV_EXCL_LINE */      \
         }                                            \
+                                                     \
+        mpz_t z;                                     \
+                                                     \
         mpz_init(z);                                 \
-        mpz_##mpz_suff(z, n);                        \
+        mpz_##mpz_suff(z, (unsigned long)u);         \
         if (zz_resize(z->_mp_size, v) == MP_MEM) {   \
             /* LCOV_EXCL_START */                    \
             mpz_clear(z);                            \
