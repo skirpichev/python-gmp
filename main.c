@@ -976,13 +976,13 @@ BINOP(mul, PyNumber_Multiply)
 static mp_err
 zz_quo(const zz_t *u, const zz_t *v, zz_t *w)
 {
-    return zz_div(u, v, w, NULL);
+    return zz_div(u, v, MP_RNDD, w, NULL);
 }
 
 static mp_err
 zz_rem(const zz_t *u, const zz_t *v, zz_t *w)
 {
-    return zz_div(u, v, NULL, w);
+    return zz_div(u, v, MP_RNDD, NULL, w);
 }
 
 BINOP(quo, PyNumber_FloorDivide)
@@ -1011,7 +1011,7 @@ nb_divmod(PyObject *self, PyObject *other)
         /* LCOV_EXCL_STOP */
     }
 
-    mp_err ret = zz_div(&u->z, &v->z, &q->z, &r->z);
+    mp_err ret = zz_div(&u->z, &v->z, MP_RNDD, &q->z, &r->z);
 
     if (ret) {
         Py_DECREF(q);
@@ -1548,7 +1548,7 @@ __round__(PyObject *self, PyObject *const *args, Py_ssize_t nargs)
         return NULL;
         /* LCOV_EXCL_STOP */
     }
-    if (zz_divmod_near(&u->z, &((MPZ_Object *)p)->z, NULL, &r->z)) {
+    if (zz_div(&u->z, &((MPZ_Object *)p)->z, MP_RNDN, NULL, &r->z)) {
         /* LCOV_EXCL_START */
         Py_DECREF(r);
         return PyErr_NoMemory();
