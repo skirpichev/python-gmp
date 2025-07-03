@@ -2005,7 +2005,7 @@ err:
             goto err;                                                    \
         }                                                                \
                                                                          \
-        mp_err ret = zz_##name##_ul(&x->z, &res->z);                     \
+        mp_err ret = zz_##name(&x->z, &res->z);                          \
                                                                          \
         Py_XDECREF(x);                                                   \
         if (ret == MP_VAL) {                                             \

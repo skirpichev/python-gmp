@@ -1816,7 +1816,7 @@ zz_sqrtrem(const zz_t *u, zz_t *v, zz_t *w)
 
 #define MK_ZZ_FUNC_UL(name, mpz_suff)                \
     mp_err                                           \
-    zz_##name##_ul(const zz_t *u, zz_t *v)           \
+    zz_##name(const zz_t *u, zz_t *v)                \
     {                                                \
         TMP_ZZ(z, u)                                 \
         if (u->negative) {                           \
