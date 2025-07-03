@@ -56,12 +56,16 @@ mp_err zz_sub(const zz_t *u, const zz_t *v, zz_t *w);
 
 mp_err zz_mul(const zz_t *u, const zz_t *v, zz_t *w);
 
-mp_err zz_divmod(const zz_t *u, const zz_t *v, zz_t *q, zz_t *r);
+typedef enum {
+    MP_RNDD = 0,
+    MP_RNDN = 1,
+} mp_rnd;
+
+mp_err zz_div(const zz_t *u, const zz_t *v, mp_rnd rnd, zz_t *q, zz_t *r);
 
 mp_err zz_rshift1(const zz_t *u, mp_limb_t rshift, zz_t *v);
 mp_err zz_lshift1(const zz_t *u, mp_limb_t lshift, zz_t *v);
 
-mp_err zz_divmod_near(const zz_t *u, const zz_t *v, zz_t *q, zz_t *r);
 mp_err zz_truediv(const zz_t *u, const zz_t *v, double *res);
 
 mp_err zz_invert(const zz_t *u, zz_t *v);
@@ -79,8 +83,8 @@ mp_err zz_powm(const zz_t *u, const zz_t *v, const zz_t *w, zz_t *res);
 
 mp_err zz_sqrtrem(const zz_t *u, zz_t *v, zz_t *w);
 
-mp_err zz_fac_ul(const zz_t *u, zz_t *v);
-mp_err zz_fac2_ul(const zz_t *u, zz_t *v);
-mp_err zz_fib_ul(const zz_t *u, zz_t *v);
+mp_err zz_fac(int64_t u, zz_t *v);
+mp_err zz_fac2(int64_t u, zz_t *v);
+mp_err zz_fib(int64_t u, zz_t *v);
 
 #endif /* ZZ_H */

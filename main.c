@@ -976,13 +976,13 @@ BINOP(mul, PyNumber_Multiply)
 static mp_err
 zz_quo(const zz_t *u, const zz_t *v, zz_t *w)
 {
-    return zz_divmod(u, v, w, NULL);
+    return zz_div(u, v, MP_RNDD, w, NULL);
 }
 
 static mp_err
 zz_rem(const zz_t *u, const zz_t *v, zz_t *w)
 {
-    return zz_divmod(u, v, NULL, w);
+    return zz_div(u, v, MP_RNDD, NULL, w);
 }
 
 BINOP(quo, PyNumber_FloorDivide)
@@ -1011,7 +1011,7 @@ nb_divmod(PyObject *self, PyObject *other)
         /* LCOV_EXCL_STOP */
     }
 
-    mp_err ret = zz_divmod(&u->z, &v->z, &q->z, &r->z);
+    mp_err ret = zz_div(&u->z, &v->z, MP_RNDD, &q->z, &r->z);
 
     if (ret) {
         Py_DECREF(q);
@@ -1540,24 +1540,21 @@ __round__(PyObject *self, PyObject *const *args, Py_ssize_t nargs)
         return NULL; /* LCOV_EXCL_LINE */
     }
 
-    MPZ_Object *q = MPZ_new(0, 0), *r = MPZ_new(0, 0);
+    MPZ_Object *r = MPZ_new(0, 0);
 
-    if (!q || !r) {
+    if (!r) {
         /* LCOV_EXCL_START */
-        Py_XDECREF(q);
         Py_XDECREF(r);
         return NULL;
         /* LCOV_EXCL_STOP */
     }
-    if (zz_divmod_near(&u->z, &((MPZ_Object *)p)->z, &q->z, &r->z)) {
+    if (zz_div(&u->z, &((MPZ_Object *)p)->z, MP_RNDN, NULL, &r->z)) {
         /* LCOV_EXCL_START */
-        Py_DECREF(q);
         Py_DECREF(r);
         return PyErr_NoMemory();
         /* LCOV_EXCL_STOP */
     }
     Py_DECREF(p);
-    Py_DECREF(q);
 
     MPZ_Object *res = MPZ_new(0, 0);
 
@@ -2008,18 +2005,21 @@ err:
             goto err;                                                    \
         }                                                                \
                                                                          \
-        mp_err ret = zz_##name##_ul(&x->z, &res->z);                     \
+        int64_t n;                                                       \
+                                                                         \
+        if (zz_to_i64(&x->z, &n) || n > LONG_MAX) {                      \
+            PyErr_Format(PyExc_OverflowError,                            \
+                         #name "() argument should not exceed %ld",      \
+                         LONG_MAX);                                      \
+            goto err;                                                    \
+        }                                                                \
+                                                                         \
+        mp_err ret = zz_##name(n, &res->z);                              \
                                                                          \
         Py_XDECREF(x);                                                   \
         if (ret == MP_VAL) {                                             \
             PyErr_SetString(PyExc_ValueError,                            \
                             #name "() not defined for negative values"); \
-            goto err;                                                    \
-        }                                                                \
-        if (ret == MP_BUF) {                                             \
-            PyErr_Format(PyExc_OverflowError,                            \
-                         #name "() argument should not exceed %ld",      \
-                         LONG_MAX);                                      \
             goto err;                                                    \
         }                                                                \
         if (ret == MP_MEM) {                                             \

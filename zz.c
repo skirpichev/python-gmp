@@ -717,7 +717,7 @@ zz_mul(const zz_t *u, const zz_t *v, zz_t *w)
 }
 
 mp_err
-zz_divmod(const zz_t *u, const zz_t *v, zz_t *q, zz_t *r)
+zz_div(const zz_t *u, const zz_t *v, mp_rnd rnd, zz_t *q, zz_t *r)
 {
     if (!v->size) {
         return MP_VAL;
@@ -730,7 +730,7 @@ zz_divmod(const zz_t *u, const zz_t *v, zz_t *q, zz_t *r)
                 return MP_MEM;  /* LCOV_EXCL_LINE */
             }
 
-            mp_err ret = zz_divmod(u, v, &tmp, r);
+            mp_err ret = zz_div(u, v, rnd, &tmp, r);
 
             zz_clear(&tmp);
             return ret;
@@ -742,7 +742,7 @@ zz_divmod(const zz_t *u, const zz_t *v, zz_t *q, zz_t *r)
                 return MP_MEM;  /* LCOV_EXCL_LINE */
             }
 
-            mp_err ret = zz_divmod(u, v, q, &tmp);
+            mp_err ret = zz_div(u, v, rnd, q, &tmp);
 
             zz_clear(&tmp);
             return ret;
@@ -776,7 +776,7 @@ zz_divmod(const zz_t *u, const zz_t *v, zz_t *q, zz_t *r)
                 /* LCOV_EXCL_STOP */
             }
 
-            mp_err ret = zz_divmod(&tmp, v, q, r);
+            mp_err ret = zz_div(&tmp, v, rnd, q, r);
 
             zz_clear(&tmp);
             return ret;
@@ -791,7 +791,7 @@ zz_divmod(const zz_t *u, const zz_t *v, zz_t *q, zz_t *r)
                 /* LCOV_EXCL_STOP */
             }
 
-            mp_err ret = zz_divmod(u, &tmp, q, r);
+            mp_err ret = zz_div(u, &tmp, rnd, q, r);
 
             zz_clear(&tmp);
             return ret;
@@ -821,7 +821,50 @@ zz_divmod(const zz_t *u, const zz_t *v, zz_t *q, zz_t *r)
         zz_normalize(q);
         zz_normalize(r);
     }
-    return MP_OK;
+    switch (rnd) {
+        case MP_RNDD:
+            return MP_OK;
+        case MP_RNDN:
+            {
+                mp_ord unexpect = v->negative ? MP_LT : MP_GT;
+                zz_t halfQ;
+
+                if (zz_init(&halfQ) || zz_rshift1(v, 1, &halfQ)) {
+                    /* LCOV_EXCL_START */
+                    zz_clear(&halfQ);
+                    goto err;
+                    /* LCOV_EXCL_STOP */
+                }
+
+                mp_ord cmp = zz_cmp(r, &halfQ);
+
+                zz_clear(&halfQ);
+                if (cmp == MP_EQ && v->digits[0]%2 == 0
+                    && q->size && q->digits[0]%2 != 0)
+                {
+                    cmp = unexpect;
+                }
+                if (cmp == unexpect) {
+                    zz_t one;
+
+                    if (zz_init(&one) || zz_from_i64(1, &one)
+                        || zz_add(q, &one, q))
+                    {
+                        /* LCOV_EXCL_START */
+                        zz_clear(&one);
+                        goto err;
+                        /* LCOV_EXCL_STOP */
+                    }
+                    zz_clear(&one);
+                    if (zz_sub(r, v, r)) {
+                        goto err; /* LCOV_EXCL_LINE */
+                    }
+                }
+                return MP_OK;
+            }
+        default:
+            return MP_VAL;
+    }
     /* LCOV_EXCL_START */
 err:
     zz_clear(q);
@@ -913,45 +956,6 @@ zz_lshift1(const zz_t *u, mp_limb_t lshift, zz_t *v)
     return MP_OK;
 }
 
-
-mp_err
-zz_divmod_near(const zz_t *u, const zz_t *v, zz_t *q, zz_t *r)
-{
-    mp_ord unexpect = v->negative ? MP_LT : MP_GT;
-    zz_t halfQ;
-
-    if (zz_divmod(u, v, q, r) || zz_init(&halfQ) || zz_rshift1(v, 1, &halfQ)) {
-        /* LCOV_EXCL_START */
-    err:
-        zz_clear(q);
-        zz_clear(r);
-        return MP_MEM;
-        /* LCOV_EXCL_STOP */
-    }
-
-    mp_ord cmp = zz_cmp(r, &halfQ);
-
-    zz_clear(&halfQ);
-    if (cmp == MP_EQ && v->digits[0]%2 == 0 && q->size && q->digits[0]%2 != 0) {
-        cmp = unexpect;
-    }
-    if (cmp == unexpect) {
-        zz_t one;
-
-        if (zz_init(&one) || zz_from_i64(1, &one) || zz_add(q, &one, q)) {
-            /* LCOV_EXCL_START */
-            zz_clear(&one);
-            goto err;
-            /* LCOV_EXCL_STOP */
-        }
-        zz_clear(&one);
-        if (zz_sub(r, v, r)) {
-            goto err; /* LCOV_EXCL_LINE */
-        }
-    }
-    return MP_OK;
-}
-
 mp_err
 zz_truediv(const zz_t *u, const zz_t *v, double *res)
 {
@@ -1033,20 +1037,18 @@ zz_truediv(const zz_t *u, const zz_t *v, double *res)
     }
     b = &tmp2;
 
-    zz_t c, d;
+    zz_t c;
 
-    if (zz_init(&c) || zz_init(&d) || zz_divmod_near(a, b, &c, &d)) {
+    if (zz_init(&c) || zz_div(a, b, MP_RNDN, &c, NULL)) {
         /* LCOV_EXCL_START */
         zz_clear(a);
         zz_clear(b);
         zz_clear(&c);
-        zz_clear(&d);
         return MP_MEM;
         /* LCOV_EXCL_STOP */
     }
     zz_clear(a);
     zz_clear(b);
-    zz_clear(&d);
 
     mp_err ret = _zz_to_double(&c, shift, res);
 
@@ -1560,7 +1562,8 @@ zz_gcdext(const zz_t *u, const zz_t *v, zz_t *g, zz_t *s, zz_t *t)
         zz_t tmp;
 
         if (zz_init(&tmp) || zz_mul(u, tmp_s, &tmp)
-            || zz_sub(tmp_g, &tmp, &tmp) || zz_divmod(&tmp, v, &tmp, NULL)
+            || zz_sub(tmp_g, &tmp, &tmp)
+            || zz_div(&tmp, v, MP_RNDD, &tmp, NULL)
             || zz_resize(tmp.size, t) == MP_MEM)
         {
             /* LCOV_EXCL_START */
@@ -1728,7 +1731,7 @@ zz_powm(const zz_t *u, const zz_t *v, const zz_t *w, zz_t *res)
     if (u->negative || u->size > w->size) {
         zz_t tmp;
 
-        if (zz_init(&tmp) || zz_divmod(u, w, NULL, &tmp)
+        if (zz_init(&tmp) || zz_div(u, w, MP_RNDD, NULL, &tmp)
             || zz_copy(&tmp, &o1))
         {
             /* LCOV_EXCL_START */
@@ -1813,23 +1816,22 @@ zz_sqrtrem(const zz_t *u, zz_t *v, zz_t *w)
 
 #define MK_ZZ_FUNC_UL(name, mpz_suff)                \
     mp_err                                           \
-    zz_##name##_ul(const zz_t *u, zz_t *v)           \
+    zz_##name(int64_t u, zz_t *v)                    \
     {                                                \
-        TMP_ZZ(z, u)                                 \
-        if (u->negative) {                           \
+        if (u < 0) {                                 \
             return MP_VAL;                           \
         }                                            \
-        if (!mpz_fits_ulong_p(z)) {                  \
+        if ((uint64_t)u > ULONG_MAX) {               \
             return MP_BUF;                           \
         }                                            \
-                                                     \
-        unsigned long n = mpz_get_ui(z);             \
-                                                     \
         if (TMP_OVERFLOW) {                          \
             return MP_MEM; /* LCOV_EXCL_LINE */      \
         }                                            \
+                                                     \
+        mpz_t z;                                     \
+                                                     \
         mpz_init(z);                                 \
-        mpz_##mpz_suff(z, n);                        \
+        mpz_##mpz_suff(z, (unsigned long)u);         \
         if (zz_resize(z->_mp_size, v) == MP_MEM) {   \
             /* LCOV_EXCL_START */                    \
             mpz_clear(z);                            \
