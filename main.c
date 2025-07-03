@@ -144,8 +144,6 @@ MPZ_new(mp_size_t size, bool negative)
     return res;
 }
 
-#define MPZ_CheckExact(u) Py_IS_TYPE((u), &MPZ_Type)
-
 static PyObject *
 MPZ_to_str(MPZ_Object *u, int base, int options)
 {
@@ -386,8 +384,6 @@ MPZ_from_bytes(PyObject *obj, int is_little, int is_signed)
     return res;
 }
 
-#define MPZ_Check(u) PyObject_TypeCheck((u), &MPZ_Type)
-
 #if (PY_VERSION_HEX >= 0x030D0000 || defined(PYPY_VERSION) \
      || defined(GRAALVM_PYTHON))
 /* copied from CPython internals */
@@ -436,6 +432,9 @@ PyUnicode_TransformDecimalAndSpaceToASCII(PyObject *unicode)
 #  define PyUnicode_TransformDecimalAndSpaceToASCII \
       _PyUnicode_TransformDecimalAndSpaceToASCII
 #endif
+
+#define MPZ_CheckExact(u) Py_IS_TYPE((u), &MPZ_Type)
+#define MPZ_Check(u) PyObject_TypeCheck((u), &MPZ_Type)
 
 static PyObject *
 new_impl(PyTypeObject *Py_UNUSED(type), PyObject *arg, PyObject *base_arg)
