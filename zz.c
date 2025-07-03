@@ -1472,15 +1472,11 @@ zz_gcd(const zz_t *u, const zz_t *v, zz_t *w)
     if (zz_init(o1) || zz_init(o2)) {
         goto clear; /* LCOV_EXCL_LINE */
     }
-    if (shift) {
-        if (zz_rshift1(u, shift, o1) || zz_rshift1(v, shift, o2)) {
-            goto clear; /* LCOV_EXCL_LINE */
-        }
+    if (zz_copy(u, o1) || zz_copy(v, o2)) {
+        goto clear; /* LCOV_EXCL_LINE */
     }
-    else {
-        if (zz_copy(u, o1) || zz_copy(v, o2)) {
-            goto clear; /* LCOV_EXCL_LINE */
-        }
+    if (shift && (zz_rshift1(o1, shift, o1) || zz_rshift1(o2, shift, o2))) {
+        goto clear; /* LCOV_EXCL_LINE */
     }
     u = o1;
     v = o2;
