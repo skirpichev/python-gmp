@@ -32,7 +32,7 @@ jobs:
     needs: build_wheels
     steps:
       - name: Merge Wheels
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact/merge@v4
         with:
           name: python-gmp-wheels
           pattern: wheels-*
