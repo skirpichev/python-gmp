@@ -203,7 +203,7 @@ int OPT_TAG = 0x1;
 int OPT_PREFIX = 0x2;
 
 mp_err
-zz_to_str(const zz_t *u, int base, int options, char **buf)
+zz_to_str(const zz_t *u, int base, int options, int8_t **buf)
 {
     if (base < 2 || base > 36) {
         return MP_VAL;
@@ -214,7 +214,7 @@ zz_to_str(const zz_t *u, int base, int options, char **buf)
     /*            tag sign prefix        )   \0 */
     *buf = malloc(4 + 1   + 2    + len + 1 + 1);
 
-    unsigned char *p = (unsigned char *)(*buf);
+    uint8_t *p = (uint8_t *)(*buf);
 
     if (!p) {
         return MP_MEM; /* LCOV_EXCL_LINE */
@@ -305,7 +305,7 @@ const unsigned char DIGIT_VALUE_TAB[] =
 };
 
 mp_err
-zz_from_str(const char *str, size_t len, int base, zz_t *u)
+zz_from_str(const int8_t *str, size_t len, int base, zz_t *u)
 {
     if (base != 0 && (base < 2 || base > 36)) {
         return MP_VAL;
@@ -314,7 +314,7 @@ zz_from_str(const char *str, size_t len, int base, zz_t *u)
         return MP_VAL;
     }
 
-    unsigned char *volatile buf = malloc(len), *p = buf;
+    uint8_t *volatile buf = malloc(len), *p = buf;
 
     if (!buf) {
         return MP_MEM; /* LCOV_EXCL_LINE */
@@ -366,7 +366,7 @@ zz_from_str(const char *str, size_t len, int base, zz_t *u)
         goto err;
     }
 
-    const unsigned char *digit_value = DIGIT_VALUE_TAB;
+    const uint8_t *digit_value = DIGIT_VALUE_TAB;
     size_t new_len = len;
 
     for (size_t i = 0; i < len; i++) {
@@ -508,7 +508,7 @@ revstr(unsigned char *s, size_t l, size_t r)
 
 mp_err
 zz_to_bytes(const zz_t *u, size_t length, int is_little, int is_signed,
-            unsigned char **buffer)
+            uint8_t **buffer)
 {
     zz_t tmp;
     int is_negative = u->negative;
@@ -559,7 +559,7 @@ zz_to_bytes(const zz_t *u, size_t length, int is_little, int is_signed,
 }
 
 mp_err
-zz_from_bytes(const unsigned char *buffer, size_t length, int is_little,
+zz_from_bytes(const uint8_t *buffer, size_t length, int is_little,
               int is_signed, zz_t *u)
 {
     if (!length) {
@@ -569,7 +569,7 @@ zz_from_bytes(const unsigned char *buffer, size_t length, int is_little,
         return MP_MEM; /* LCOV_EXCL_LINE */
     }
     if (is_little) {
-        unsigned char *tmp = malloc(length);
+        uint8_t *tmp = malloc(length);
 
         if (!tmp) {
             return MP_MEM; /* LCOV_EXCL_LINE */

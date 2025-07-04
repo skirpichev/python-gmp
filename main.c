@@ -147,7 +147,7 @@ MPZ_new(mp_size_t size, bool negative)
 static PyObject *
 MPZ_to_str(MPZ_Object *u, int base, int options)
 {
-    char *buf;
+    int8_t *buf;
     mp_err ret = zz_to_str(&u->z, base, options, &buf);
 
     if (ret == MP_VAL) {
@@ -158,7 +158,7 @@ MPZ_to_str(MPZ_Object *u, int base, int options)
         return PyErr_NoMemory(); /* LCOV_EXCL_LINE */
     }
 
-    PyObject *res = PyUnicode_FromString(buf);
+    PyObject *res = PyUnicode_FromString((char *)buf);
 
     free(buf);
     return res;
@@ -168,7 +168,7 @@ static MPZ_Object *
 MPZ_from_str(PyObject *obj, int base)
 {
     Py_ssize_t len;
-    const char *str = PyUnicode_AsUTF8AndSize(obj, &len);
+    const int8_t *str = (int8_t *)PyUnicode_AsUTF8AndSize(obj, &len);
 
     if (!str) {
         return NULL; /* LCOV_EXCL_LINE */
@@ -335,7 +335,7 @@ MPZ_to_bytes(MPZ_Object *u, Py_ssize_t length, int is_little, int is_signed)
         return NULL; /* LCOV_EXCL_LINE */
     }
 
-    unsigned char *buffer = (unsigned char *)PyBytes_AS_STRING(bytes);
+    uint8_t *buffer = (uint8_t *)PyBytes_AS_STRING(bytes);
     mp_err ret = zz_to_bytes(&u->z, length, is_little, is_signed, &buffer);
 
     if (ret == MP_OK) {
@@ -359,7 +359,7 @@ static MPZ_Object *
 MPZ_from_bytes(PyObject *obj, int is_little, int is_signed)
 {
     PyObject *bytes = PyObject_Bytes(obj);
-    unsigned char *buffer;
+    uint8_t *buffer;
     Py_ssize_t length;
 
     if (bytes == NULL) {
