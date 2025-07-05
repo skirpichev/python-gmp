@@ -59,3 +59,14 @@ from fractions import Decimal
 
 from gmp import mpq
 """
+
+# A dictionary of options that influence the look and feel of the selected
+# theme.
+html_theme_options = {
+    "github_user": "diofant",
+    "github_repo": "python-gmp",
+    "github_banner": True,
+    "nosidebar": True}
+
+# Add “Created using Sphinx” to the HTML footer.
+html_show_sphinx = False
