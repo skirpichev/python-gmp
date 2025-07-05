@@ -2005,6 +2005,11 @@ err:
                             #name "() argument must be an integer");     \
             goto err;                                                    \
         }                                                                \
+        if (ISNEG(x)) {                                                  \
+            PyErr_SetString(PyExc_ValueError,                            \
+                            #name "() not defined for negative values"); \
+            goto err;                                                    \
+        }                                                                \
                                                                          \
         int64_t n;                                                       \
                                                                          \
@@ -2014,16 +2019,8 @@ err:
                          LONG_MAX);                                      \
             goto err;                                                    \
         }                                                                \
-                                                                         \
-        mp_err ret = zz_##name(n, &res->z);                              \
-                                                                         \
         Py_XDECREF(x);                                                   \
-        if (ret == MP_VAL) {                                             \
-            PyErr_SetString(PyExc_ValueError,                            \
-                            #name "() not defined for negative values"); \
-            goto err;                                                    \
-        }                                                                \
-        if (ret == MP_MEM) {                                             \
+        if (zz_##name(n, &res->z)) {                                     \
             /* LCOV_EXCL_START */                                        \
             PyErr_NoMemory();                                            \
             goto err;                                                    \

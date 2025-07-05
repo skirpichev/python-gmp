@@ -2005,12 +2005,9 @@ zz_sqrtrem(const zz_t *u, zz_t *v, zz_t *w)
 
 #define MK_ZZ_FUNC_UL(name, mpz_suff)                \
     mp_err                                           \
-    zz_##name(int64_t u, zz_t *v)                    \
+    zz_##name(uint64_t u, zz_t *v)                   \
     {                                                \
-        if (u < 0) {                                 \
-            return MP_VAL;                           \
-        }                                            \
-        if ((uint64_t)u > ULONG_MAX) {               \
+        if (u > ULONG_MAX) {                         \
             return MP_BUF;                           \
         }                                            \
         if (TMP_OVERFLOW) {                          \
