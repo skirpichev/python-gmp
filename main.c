@@ -179,6 +179,10 @@ MPZ_from_str(PyObject *obj, int base)
     if (!res) {
         return (MPZ_Object *)PyErr_NoMemory(); /* LCOV_EXCL_LINE */
     }
+    while (len && Py_ISSPACE(*str)) {
+        str++;
+        len--;
+    }
 
     bool negative = (str[0] == '-');
 
@@ -217,6 +221,13 @@ MPZ_from_str(PyObject *obj, int base)
     }
     if (base == 0) {
         base = 10;
+    }
+
+    int8_t *end = str + len - 1;
+
+    while (len > 0 && Py_ISSPACE(*end)) {
+        end--;
+        len--;
     }
 
     mp_err ret = zz_from_str(str, len, base, &res->z);
