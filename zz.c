@@ -88,6 +88,33 @@ zz_cmp(const zz_t *u, const zz_t *v)
     return u->negative ? -r : r;
 }
 
+#define ABS(a) ((a) < 0 ? (-a) : (a))
+
+mp_ord
+zz_cmp_i32(const zz_t *u, int32_t v)
+{
+    mp_ord sign = u->negative ? MP_LT : MP_GT;
+    bool v_negative = v < 0;
+
+    if (u->negative != v_negative) {
+        return sign;
+    }
+    else if (u->size != 1) {
+        return (u->size < 1) ? -sign : sign;
+    }
+
+    mp_limb_t digit = ABS(v);
+    mp_ord r = u->digits[0] != digit;
+
+    if (u->digits[0] < digit) {
+        r = MP_LT;
+    }
+    else if (u->digits[0] > digit) {
+        r = MP_GT;
+    }
+    return u->negative ? -r : r;
+}
+
 mp_err
 zz_from_i32(int32_t u, zz_t *v)
 {
@@ -1453,7 +1480,7 @@ zz_pow(const zz_t *u, const zz_t *v, zz_t *w)
     if (!u->size) {
         return zz_from_i32(0, w);
     }
-    if (u->size == 1 && u->digits[0] == 1) {
+    if (zz_cmp_i32(u, 1) == MP_EQ) {
         if (u->negative) {
             return zz_from_i32(v->digits[0]%2 ? -1 : 1, w);
         }
@@ -1488,7 +1515,6 @@ zz_pow(const zz_t *u, const zz_t *v, zz_t *w)
     return MP_OK;
 }
 
-#define ABS(a) ((a) < 0 ? (-a) : (a))
 #define MIN(a, b) ((a) < (b) ? (a) : (b))
 
 mp_err
@@ -1675,7 +1701,7 @@ zz_inverse(const zz_t *u, const zz_t *v, zz_t *w)
         return MP_MEM;
         /* LCOV_EXCL_STOP */
     }
-    if (g.size == 1 && g.digits[0] == 1) {
+    if (zz_cmp_i32(&g, 1) == MP_EQ) {
         zz_clear(&g);
         return MP_OK;
     }
@@ -1797,7 +1823,7 @@ zz_powm(const zz_t *u, const zz_t *v, const zz_t *w, zz_t *res)
         zz_clear(&tmp);
         u = &o1;
     }
-    if (w->size == 1 && w->digits[0] == 1) {
+    if (zz_cmp_i32(w, 1) == MP_EQ) {
         ret = zz_from_i32(0, res);
     }
     else if (!v->size) {
@@ -1806,7 +1832,7 @@ zz_powm(const zz_t *u, const zz_t *v, const zz_t *w, zz_t *res)
     else if (!u->size) {
         ret = zz_from_i32(0, res);
     }
-    else if (u->size == 1 && u->digits[0] == 1) {
+    else if (zz_cmp_i32(u, 1) == MP_EQ) {
         ret = zz_from_i32(1, res);
     }
     else {

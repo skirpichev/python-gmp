@@ -1791,7 +1791,7 @@ gmp_gcd(PyObject *Py_UNUSED(module), PyObject *const *args, Py_ssize_t nargs)
                             "gcd() arguments must be integers");
             return NULL;
         }
-        if (SZ(res) == 1 && LS(res)[0] == 1) {
+        if (zz_cmp_i32(&res->z, 1) == MP_EQ) {
             Py_DECREF(arg);
             continue;
         }
@@ -2190,7 +2190,7 @@ normalize_mpf(long sign, MPZ_Object *man, PyObject *exp, mp_bitcnt_t bc,
 
     bc -= zbits;
     /* Check if one less than a power of 2 was rounded up. */
-    if (SZ(res) == 1 && LS(res)[0] == 1) {
+    if (zz_cmp_i32(&res->z, 1) == MP_EQ) {
         bc = 1;
     }
     return build_mpf(sign, res, exp, bc);
