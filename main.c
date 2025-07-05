@@ -317,7 +317,7 @@ MPZ_rshift1(const MPZ_Object *u, mp_limb_t rshift)
 {
     MPZ_Object *res = MPZ_new(0, 0);
 
-    if (!res || zz_rshift1(&u->z, rshift, &res->z)) {
+    if (!res || zz_quo_2exp(&u->z, rshift, &res->z)) {
         /* LCOV_EXCL_START */
         Py_XDECREF(res);
         return (MPZ_Object *)PyErr_NoMemory();
@@ -1122,7 +1122,7 @@ zz_lshift(const zz_t *u, const zz_t *v, zz_t *w)
     if (v->size > 1) {
         return MP_BUF;
     }
-    return zz_lshift1(u, v->size ? v->digits[0] : 0, w);
+    return zz_mul_2exp(u, v->size ? v->digits[0] : 0, w);
 }
 
 static mp_err
@@ -1134,7 +1134,7 @@ zz_rshift(const zz_t *u, const zz_t *v, zz_t *w)
     if (v->size > 1) {
         return zz_from_i64(u->negative ? -1 : 0, w);
     }
-    return zz_rshift1(u, v->size ? v->digits[0] : 0, w);
+    return zz_quo_2exp(u, v->size ? v->digits[0] : 0, w);
 }
 
 BINOP_INT(lshift)

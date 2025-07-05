@@ -840,7 +840,7 @@ zz_div(const zz_t *u, const zz_t *v, mp_rnd rnd, zz_t *q, zz_t *r)
                 mp_ord unexpect = v->negative ? MP_LT : MP_GT;
                 zz_t halfQ;
 
-                if (zz_init(&halfQ) || zz_rshift1(v, 1, &halfQ)) {
+                if (zz_init(&halfQ) || zz_quo_2exp(v, 1, &halfQ)) {
                     /* LCOV_EXCL_START */
                     zz_clear(&halfQ);
                     goto err;
@@ -885,7 +885,7 @@ err:
 }
 
 mp_err
-zz_rshift1(const zz_t *u, mp_limb_t rshift, zz_t *v)
+zz_quo_2exp(const zz_t *u, mp_limb_t rshift, zz_t *v)
 {
     if (!u->size) {
         v->size = 0;
@@ -940,7 +940,7 @@ zz_rshift1(const zz_t *u, mp_limb_t rshift, zz_t *v)
 }
 
 mp_err
-zz_lshift1(const zz_t *u, mp_limb_t lshift, zz_t *v)
+zz_mul_2exp(const zz_t *u, mp_limb_t lshift, zz_t *v)
 {
     if (!u->size) {
         v->size = 0;
@@ -1036,14 +1036,14 @@ zz_truediv(const zz_t *u, const zz_t *v, double *res)
     if (zz_abs(u, &tmp1)) {
         goto tmp_clear; /* LCOV_EXCL_LINE */
     }
-    if (shift > 0 && zz_lshift1(&tmp1, shift, &tmp1)) {
+    if (shift > 0 && zz_mul_2exp(&tmp1, shift, &tmp1)) {
         goto tmp_clear; /* LCOV_EXCL_LINE */
     }
     a = &tmp1;
     if (zz_abs(v, &tmp2)) {
         goto tmp_clear; /* LCOV_EXCL_LINE */
     }
-    if (shift < 0 && zz_lshift1(&tmp2, -shift, &tmp2)) {
+    if (shift < 0 && zz_mul_2exp(&tmp2, -shift, &tmp2)) {
         goto tmp_clear; /* LCOV_EXCL_LINE */
     }
     b = &tmp2;
@@ -1475,7 +1475,7 @@ zz_gcd(const zz_t *u, const zz_t *v, zz_t *w)
     if (zz_copy(u, o1) || zz_copy(v, o2)) {
         goto clear; /* LCOV_EXCL_LINE */
     }
-    if (shift && (zz_rshift1(o1, shift, o1) || zz_rshift1(o2, shift, o2))) {
+    if (shift && (zz_quo_2exp(o1, shift, o1) || zz_quo_2exp(o2, shift, o2))) {
         goto clear; /* LCOV_EXCL_LINE */
     }
     u = o1;
@@ -1491,7 +1491,7 @@ zz_gcd(const zz_t *u, const zz_t *v, zz_t *w)
     zz_clear(o2);
     free(o1);
     free(o2);
-    if (shift && zz_lshift1(w, shift, w)) {
+    if (shift && zz_mul_2exp(w, shift, w)) {
         return MP_MEM; /* LCOV_EXCL_LINE */
     }
     return MP_OK;

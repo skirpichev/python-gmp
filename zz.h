@@ -63,8 +63,8 @@ typedef enum {
 
 mp_err zz_div(const zz_t *u, const zz_t *v, mp_rnd rnd, zz_t *q, zz_t *r);
 
-mp_err zz_rshift1(const zz_t *u, mp_limb_t rshift, zz_t *v);
-mp_err zz_lshift1(const zz_t *u, mp_limb_t lshift, zz_t *v);
+mp_err zz_quo_2exp(const zz_t *u, mp_limb_t rshift, zz_t *v);
+mp_err zz_mul_2exp(const zz_t *u, mp_limb_t lshift, zz_t *v);
 
 mp_err zz_truediv(const zz_t *u, const zz_t *v, double *res);
 
