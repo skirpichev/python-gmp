@@ -1173,7 +1173,9 @@ power(PyObject *self, PyObject *other, PyObject *module)
             return resf;
         }
         res = MPZ_new(0, 0);
-        if (!res || zz_pow(&u->z, &v->z, &res->z)) {
+        if (!res || SZ(v) > 1 || ISNEG(v)
+            || zz_pow(&u->z, SZ(v) ? LS(v)[0] : 0, &res->z))
+        {
             Py_CLEAR(res);
             PyErr_SetNone(PyExc_MemoryError); /* LCOV_EXCL_LINE */
         }

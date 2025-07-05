@@ -1517,8 +1517,10 @@ zz_xor(const zz_t *u, const zz_t *v, zz_t *w)
     return MP_OK;
 }
 
+#define GMP_LIMB_MAX ((mp_limb_t) ~ (mp_limb_t) 0)
+
 mp_err
-zz_pow(const zz_t *u, const zz_t *v, zz_t *w)
+zz_pow(const zz_t *u, uint64_t v, zz_t *w)
 {
     if (u == w) {
         zz_t tmp;
@@ -1535,7 +1537,7 @@ zz_pow(const zz_t *u, const zz_t *v, zz_t *w)
         zz_clear(&tmp);
         return ret;
     }
-    if (!v->size) {
+    if (!v) {
         return zz_from_i32(1, w);
     }
     if (!u->size) {
@@ -1543,17 +1545,17 @@ zz_pow(const zz_t *u, const zz_t *v, zz_t *w)
     }
     if (zz_cmp_i32(u, 1) == MP_EQ) {
         if (u->negative) {
-            return zz_from_i32(v->digits[0]%2 ? -1 : 1, w);
+            return zz_from_i32(v%2 ? -1 : 1, w);
         }
         else {
             return zz_from_i32(1, w);
         }
     }
-    if (v->size > 1 || v->negative) {
-        return MP_MEM;
+    if (v > GMP_LIMB_MAX) {
+        return MP_BUF;
     }
 
-    mp_limb_t e = v->digits[0];
+    mp_limb_t e = (mp_limb_t)v;
     mp_size_t w_size = u->size * e;
     mp_limb_t *tmp = malloc(w_size * sizeof(mp_limb_t));
 
