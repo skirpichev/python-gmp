@@ -271,52 +271,37 @@ zz_neg(const zz_t *u, zz_t *v)
     return MP_OK;
 }
 
-/* Maps 1-byte integer to digit character for bases up to 36. */
-static const char *NUM_TO_TEXT = "0123456789abcdefghijklmnopqrstuvwxyz";
-static const char *MPZ_TAG = "mpz(";
-int OPT_TAG = 0x1;
-int OPT_PREFIX = 0x2;
-
 mp_err
-zz_to_str(const zz_t *u, int base, int options, int8_t **buf)
+zz_sizeinbase(const zz_t *u, int8_t base, size_t *len)
 {
     if (base < 2 || base > 36) {
         return MP_VAL;
     }
+    *len = mpn_sizeinbase(u->digits, u->size, base) + u->negative;
+    return MP_OK;
+}
 
-    size_t len = mpn_sizeinbase(u->digits, u->size, base);
+mp_err
+zz_to_str(const zz_t *u, int8_t base, int8_t *str, size_t *len)
+{
+    /* Maps 1-byte integer to digit character for bases up to 36. */
+    const char *NUM_TO_TEXT = "0123456789abcdefghijklmnopqrstuvwxyz";
 
-    /*            tag sign prefix        )   \0 */
-    *buf = malloc(4 + 1   + 2    + len + 1 + 1);
-
-    uint8_t *p = (uint8_t *)(*buf);
-
-    if (!p) {
-        return MP_MEM; /* LCOV_EXCL_LINE */
+    if (base < 0) {
+        base = -base;
+        NUM_TO_TEXT = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ";
     }
-    if (options & OPT_TAG) {
-        strcpy((char *)p, MPZ_TAG);
-        p += strlen(MPZ_TAG);
+    if (base < 2 || base > 36) {
+        return MP_VAL;
     }
+
+    uint8_t *p = (uint8_t *)str;
+
     if (u->negative) {
         *(p++) = '-';
     }
-    if (options & OPT_PREFIX) {
-        if (base == 2) {
-            *(p++) = '0';
-            *(p++) = 'b';
-        }
-        else if (base == 8) {
-            *(p++) = '0';
-            *(p++) = 'o';
-        }
-        else if (base == 16) {
-            *(p++) = '0';
-            *(p++) = 'x';
-        }
-    }
     if ((base & (base - 1)) == 0) {
-        len -= (mpn_get_str(p, base, u->digits, u->size) != len);
+        *len = mpn_get_str(p, base, u->digits, u->size);
     }
     else { /* generic base, not power of 2, input might be clobbered */
         mp_limb_t *volatile tmp = malloc(sizeof(mp_limb_t) * u->alloc);
@@ -324,22 +309,17 @@ zz_to_str(const zz_t *u, int base, int options, int8_t **buf)
         if (!tmp || TMP_OVERFLOW) {
             /* LCOV_EXCL_START */
             free(tmp);
-            free(*buf);
             return MP_MEM;
             /* LCOV_EXCL_STOP */
         }
         mpn_copyi(tmp, u->digits, u->size);
-        len -= (mpn_get_str(p, base, tmp, u->size) != len);
+        *len = mpn_get_str(p, base, tmp, u->size);
         free(tmp);
     }
-    for (size_t i = 0; i < len; i++) {
+    for (size_t i = 0; i < *len; i++) {
         *p = NUM_TO_TEXT[*p];
         p++;
     }
-    if (options & OPT_TAG) {
-        *(p++) = ')';
-    }
-    *(p++) = '\0';
     return MP_OK;
 }
 
@@ -380,12 +360,9 @@ const unsigned char DIGIT_VALUE_TAB[] =
 };
 
 mp_err
-zz_from_str(const int8_t *str, size_t len, int base, zz_t *u)
+zz_from_str(const int8_t *str, size_t len, int8_t base, zz_t *u)
 {
-    if (base != 0 && (base < 2 || base > 36)) {
-        return MP_VAL;
-    }
-    if (!len) {
+    if (base < 2 || base > 36) {
         return MP_VAL;
     }
 
@@ -403,36 +380,6 @@ zz_from_str(const int8_t *str, size_t len, int base, zz_t *u)
     if (len && p[0] == '+') {
         p++;
         len--;
-    }
-    if (p[0] == '0' && len >= 2) {
-        if (base == 0) {
-            if (tolower(p[1]) == 'b') {
-                base = 2;
-            }
-            else if (tolower(p[1]) == 'o') {
-                base = 8;
-            }
-            else if (tolower(p[1]) == 'x') {
-                base = 16;
-            }
-            else {
-                goto err;
-            }
-        }
-        if ((tolower(p[1]) == 'b' && base == 2)
-            || (tolower(p[1]) == 'o' && base == 8)
-            || (tolower(p[1]) == 'x' && base == 16))
-        {
-            p += 2;
-            len -= 2;
-            if (len && p[0] == '_') {
-                p++;
-                len--;
-            }
-        }
-    }
-    if (base == 0) {
-        base = 10;
     }
     if (!len) {
         goto err;
@@ -564,29 +511,11 @@ zz_to_double(const zz_t *u, double *d)
     return _zz_to_double(u, 0, d);
 }
 
-#define SWAP(T, a, b) \
-    do {              \
-        T _tmp = a;   \
-        a = b;        \
-        b = _tmp;     \
-    } while (0);
-
-static void
-revstr(unsigned char *s, size_t l, size_t r)
-{
-    while (l < r) {
-        SWAP(unsigned char, s[l], s[r]);
-        l++;
-        r--;
-    }
-}
-
 mp_err
-zz_to_bytes(const zz_t *u, size_t length, int is_little, int is_signed,
-            uint8_t **buffer)
+zz_to_bytes(const zz_t *u, size_t length, bool is_signed, uint8_t **buffer)
 {
     zz_t tmp;
-    int is_negative = u->negative;
+    bool is_negative = u->negative;
 
     if (zz_init(&tmp)) {
         return MP_MEM; /* LCOV_EXCL_LINE */
@@ -622,20 +551,16 @@ zz_to_bytes(const zz_t *u, size_t length, int is_little, int is_signed,
 
     size_t gap = length - (nbits + GMP_NUMB_BITS/8 - 1)/(GMP_NUMB_BITS/8);
 
-    memset(*buffer, is_negative ? 0xFF : 0, gap);
     if (u->size) {
         mpn_get_str(*buffer + gap, 256, u->digits, u->size);
     }
+    memset(*buffer, is_negative ? 0xFF : 0, gap);
     zz_clear(&tmp);
-    if (is_little && length) {
-        revstr(*buffer, 0, length - 1);
-    }
     return MP_OK;
 }
 
 mp_err
-zz_from_bytes(const uint8_t *buffer, size_t length, int is_little,
-              int is_signed, zz_t *u)
+zz_from_bytes(const uint8_t *buffer, size_t length, bool is_signed, zz_t *u)
 {
     if (!length) {
         return zz_from_i32(0, u);
@@ -643,20 +568,7 @@ zz_from_bytes(const uint8_t *buffer, size_t length, int is_little,
     if (zz_resize(1 + length/2, u)) {
         return MP_MEM; /* LCOV_EXCL_LINE */
     }
-    if (is_little) {
-        uint8_t *tmp = malloc(length);
-
-        if (!tmp) {
-            return MP_MEM; /* LCOV_EXCL_LINE */
-        }
-        memcpy(tmp, buffer, length);
-        revstr(tmp, 0, length - 1);
-        u->size = mpn_set_str(u->digits, tmp, length, 256);
-        free(tmp);
-    }
-    else {
-        u->size = mpn_set_str(u->digits, buffer, length, 256);
-    }
+    u->size = mpn_set_str(u->digits, buffer, length, 256);
     if (zz_resize(u->size, u) == MP_MEM) {
         /* LCOV_EXCL_START */
         zz_clear(u);
@@ -685,6 +597,13 @@ zz_from_bytes(const uint8_t *buffer, size_t length, int is_little,
     }
     return MP_OK;
 }
+
+#define SWAP(T, a, b) \
+    do {              \
+        T _tmp = a;   \
+        a = b;        \
+        b = _tmp;     \
+    } while (0);
 
 static mp_err
 _zz_addsub(const zz_t *u, const zz_t *v, bool subtract, zz_t *w)

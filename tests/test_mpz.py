@@ -154,7 +154,12 @@ def test_mpz_interface():
         mpz(123, spam=321)
     with pytest.raises(OverflowError):
         mpz("1", base=10**1000)
+    with pytest.raises(ValueError):
+        mpz(" ")
     assert mpz() == mpz(0) == 0
+    assert mpz("  -123") == -123
+    assert mpz("123  ") == 123
+    assert mpz("    -123  ") == -123
     assert mpz("+123") == 123
     assert mpz("١٢٣٤") == 1234  # unicode decimal digits
     assert mpz("١23") == 123
@@ -707,6 +712,7 @@ def test_methods(x):
 @example(-2049, 1, "big", True)
 @example(-65281, 3, "big", True)
 @example(-65281, 3, "little", True)
+@example(128, 1, "big", False)
 def test_to_bytes(x, length, byteorder, signed):
     try:
         rx = x.to_bytes(length, byteorder, signed=signed)
