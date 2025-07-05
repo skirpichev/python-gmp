@@ -55,7 +55,9 @@ mp_err zz_from_bytes(const uint8_t *buffer, size_t length,
                      int is_little, int is_signed, zz_t *u);
 
 mp_err zz_add(const zz_t *u, const zz_t *v, zz_t *w);
+mp_err zz_add_i32(const zz_t *u, int32_t v, zz_t *w);
 mp_err zz_sub(const zz_t *u, const zz_t *v, zz_t *w);
+mp_err zz_sub_i32(const zz_t *u, int32_t v, zz_t *w);
 
 mp_err zz_mul(const zz_t *u, const zz_t *v, zz_t *w);
 

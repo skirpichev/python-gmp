@@ -693,7 +693,7 @@ _zz_addsub(const zz_t *u, const zz_t *v, bool subtract, zz_t *w)
     bool same_sign = negu == negv;
     mp_size_t u_size = u->size, v_size = v->size;
 
-    if (u->size < v->size) {
+    if (u_size < v_size) {
         SWAP(const zz_t *, u, v);
         SWAP(bool, negu, negv);
         SWAP(mp_size_t, u_size, v_size);
@@ -728,6 +728,41 @@ _zz_addsub(const zz_t *u, const zz_t *v, bool subtract, zz_t *w)
     return MP_OK;
 }
 
+static mp_err
+_zz_addsub_i32(const zz_t *u, int32_t v, bool subtract, zz_t *w)
+{
+    bool negu = u->negative, negv = subtract ? v >= 0 : v < 0;
+    bool same_sign = negu == negv;
+    mp_size_t u_size = u->size, v_size = v != 0;
+    mp_limb_t digit = ABS(v);
+
+    if (u_size < v_size) {
+        if (zz_resize(v_size, w)) {
+            return MP_MEM; /* LCOV_EXCL_LINE */
+        }
+        if (v_size) {
+            w->digits[0] = digit;
+            w->negative = negv;
+        }
+        else {
+            w->negative = false;
+        }
+    }
+
+    if (zz_resize(u_size + same_sign, w) || TMP_OVERFLOW) {
+        return MP_MEM; /* LCOV_EXCL_LINE */
+    }
+    w->negative = negu;
+    if (same_sign) {
+        w->digits[w->size - 1] = mpn_add_1(w->digits, u->digits, u_size, digit);
+    }
+    else {
+        mpn_sub_1(w->digits, u->digits, u_size, digit);
+    }
+    zz_normalize(w);
+    return MP_OK;
+}
+
 mp_err
 zz_add(const zz_t *u, const zz_t *v, zz_t *w)
 {
@@ -738,6 +773,18 @@ mp_err
 zz_sub(const zz_t *u, const zz_t *v, zz_t *w)
 {
     return _zz_addsub(u, v, true, w);
+}
+
+mp_err
+zz_add_i32(const zz_t *u, int32_t v, zz_t *w)
+{
+    return _zz_addsub_i32(u, v, false, w);
+}
+
+mp_err
+zz_sub_i32(const zz_t *u, int32_t v, zz_t *w)
+{
+    return _zz_addsub_i32(u, v, true, w);
 }
 
 mp_err
@@ -931,18 +978,7 @@ zz_div(const zz_t *u, const zz_t *v, mp_rnd rnd, zz_t *q, zz_t *r)
                     cmp = unexpect;
                 }
                 if (cmp == unexpect) {
-                    zz_t one;
-
-                    if (zz_init(&one) || zz_from_i32(1, &one)
-                        || zz_add(q, &one, q))
-                    {
-                        /* LCOV_EXCL_START */
-                        zz_clear(&one);
-                        goto err;
-                        /* LCOV_EXCL_STOP */
-                    }
-                    zz_clear(&one);
-                    if (zz_sub(r, v, r)) {
+                    if (zz_add_i32(q, 1, q) || zz_sub(r, v, r)) {
                         goto err; /* LCOV_EXCL_LINE */
                     }
                 }
