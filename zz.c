@@ -281,12 +281,16 @@ zz_sizeinbase(const zz_t *u, int8_t base, size_t *len)
     return MP_OK;
 }
 
-/* Maps 1-byte integer to digit character for bases up to 36. */
-static const char *NUM_TO_TEXT = "0123456789abcdefghijklmnopqrstuvwxyz";
-
 mp_err
 zz_to_str(const zz_t *u, int8_t base, int8_t *str, size_t *len)
 {
+    /* Maps 1-byte integer to digit character for bases up to 36. */
+    const char *NUM_TO_TEXT = "0123456789abcdefghijklmnopqrstuvwxyz";
+
+    if (base < 0) {
+        base = -base;
+        NUM_TO_TEXT = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+    }
     if (base < 2 || base > 36) {
         return MP_VAL;
     }
