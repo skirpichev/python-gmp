@@ -271,52 +271,33 @@ zz_neg(const zz_t *u, zz_t *v)
     return MP_OK;
 }
 
+mp_err
+zz_sizeinbase(const zz_t *u, int8_t base, size_t *len)
+{
+    if (base < 2 || base > 36) {
+        return MP_VAL;
+    }
+    *len = mpn_sizeinbase(u->digits, u->size, base) + u->negative;
+    return MP_OK;
+}
+
 /* Maps 1-byte integer to digit character for bases up to 36. */
 static const char *NUM_TO_TEXT = "0123456789abcdefghijklmnopqrstuvwxyz";
-static const char *MPZ_TAG = "mpz(";
-int OPT_TAG = 0x1;
-int OPT_PREFIX = 0x2;
 
 mp_err
-zz_to_str(const zz_t *u, int base, int options, int8_t **buf)
+zz_to_str(const zz_t *u, int8_t base, int8_t *str, size_t *len)
 {
     if (base < 2 || base > 36) {
         return MP_VAL;
     }
 
-    size_t len = mpn_sizeinbase(u->digits, u->size, base);
+    uint8_t *p = (uint8_t *)str;
 
-    /*            tag sign prefix        )   \0 */
-    *buf = malloc(4 + 1   + 2    + len + 1 + 1);
-
-    uint8_t *p = (uint8_t *)(*buf);
-
-    if (!p) {
-        return MP_MEM; /* LCOV_EXCL_LINE */
-    }
-    if (options & OPT_TAG) {
-        strcpy((char *)p, MPZ_TAG);
-        p += strlen(MPZ_TAG);
-    }
     if (u->negative) {
         *(p++) = '-';
     }
-    if (options & OPT_PREFIX) {
-        if (base == 2) {
-            *(p++) = '0';
-            *(p++) = 'b';
-        }
-        else if (base == 8) {
-            *(p++) = '0';
-            *(p++) = 'o';
-        }
-        else if (base == 16) {
-            *(p++) = '0';
-            *(p++) = 'x';
-        }
-    }
     if ((base & (base - 1)) == 0) {
-        len -= (mpn_get_str(p, base, u->digits, u->size) != len);
+        *len = mpn_get_str(p, base, u->digits, u->size);
     }
     else { /* generic base, not power of 2, input might be clobbered */
         mp_limb_t *volatile tmp = malloc(sizeof(mp_limb_t) * u->alloc);
@@ -324,22 +305,17 @@ zz_to_str(const zz_t *u, int base, int options, int8_t **buf)
         if (!tmp || TMP_OVERFLOW) {
             /* LCOV_EXCL_START */
             free(tmp);
-            free(*buf);
             return MP_MEM;
             /* LCOV_EXCL_STOP */
         }
         mpn_copyi(tmp, u->digits, u->size);
-        len -= (mpn_get_str(p, base, tmp, u->size) != len);
+        *len = mpn_get_str(p, base, tmp, u->size);
         free(tmp);
     }
-    for (size_t i = 0; i < len; i++) {
+    for (size_t i = 0; i < *len; i++) {
         *p = NUM_TO_TEXT[*p];
         p++;
     }
-    if (options & OPT_TAG) {
-        *(p++) = ')';
-    }
-    *(p++) = '\0';
     return MP_OK;
 }
 

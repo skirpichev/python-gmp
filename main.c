@@ -144,19 +144,71 @@ MPZ_new(mp_size_t size, bool negative)
     return res;
 }
 
+static const char *MPZ_TAG = "mpz(";
+int OPT_TAG = 0x1;
+int OPT_PREFIX = 0x2;
+
 static PyObject *
 MPZ_to_str(MPZ_Object *u, int base, int options)
 {
-    int8_t *buf;
-    mp_err ret = zz_to_str(&u->z, base, options, &buf);
+    size_t len;
 
-    if (ret == MP_VAL) {
+    if (zz_sizeinbase(&u->z, Py_ABS(base), &len)) {
         PyErr_SetString(PyExc_ValueError, "mpz base must be >= 2 and <= 36");
         return NULL;
     }
-    else if (ret == MP_MEM) {
+    if (options & OPT_TAG) {
+        len += strlen(MPZ_TAG) + 1;
+    }
+    if (options & OPT_PREFIX) {
+        len += 2;
+    }
+    len++;
+
+    int8_t *buf = malloc(len), *p = buf;
+    bool negative = ISNEG(u);
+
+    if (!buf) {
         return PyErr_NoMemory(); /* LCOV_EXCL_LINE */
     }
+    if (options & OPT_TAG) {
+        strcpy((char *)p, MPZ_TAG);
+        p += strlen(MPZ_TAG);
+    }
+    if (options & OPT_PREFIX) {
+        if (negative) {
+            *(p++) = '-';
+        }
+        if (base == 2) {
+            *(p++) = '0';
+            *(p++) = 'b';
+        }
+        else if (base == 8) {
+            *(p++) = '0';
+            *(p++) = 'o';
+        }
+        else if (base == 16) {
+            *(p++) = '0';
+            *(p++) = 'x';
+        }
+    }
+    else if (negative) {
+        *(p++) = '-';
+    }
+    ISNEG(u) = false;
+    if (zz_to_str(&u->z, base, p, &len)) {
+        /* LCOV_EXCL_START */
+        ISNEG(u) = negative;
+        free(buf);
+        return PyErr_NoMemory();
+        /* LCOV_EXCL_STOP */
+    }
+    ISNEG(u) = negative;
+    p += len;
+    if (options & OPT_TAG) {
+        *(p++) = ')';
+    }
+    *(p++) = '\0';
 
     PyObject *res = PyUnicode_FromString((char *)buf);
 
@@ -179,7 +231,7 @@ MPZ_from_str(PyObject *obj, int base)
     if (!res) {
         return (MPZ_Object *)PyErr_NoMemory(); /* LCOV_EXCL_LINE */
     }
-    while (len && Py_ISSPACE(*str)) {
+    while (len && isspace(*str)) {
         str++;
         len--;
     }
@@ -225,7 +277,7 @@ MPZ_from_str(PyObject *obj, int base)
 
     int8_t *end = str + len - 1;
 
-    while (len > 0 && Py_ISSPACE(*end)) {
+    while (len > 0 && isspace(*end)) {
         end--;
         len--;
     }

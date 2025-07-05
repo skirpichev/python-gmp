@@ -41,9 +41,8 @@ mp_err zz_copy(const zz_t *u, zz_t *v);
 mp_err zz_abs(const zz_t *u, zz_t *v);
 mp_err zz_neg(const zz_t *u, zz_t *v);
 
-extern int OPT_TAG, OPT_PREFIX;
-
-mp_err zz_to_str(const zz_t *u, int base, int options, int8_t **buf);
+mp_err zz_sizeinbase(const zz_t *u, int8_t base, size_t *len);
+mp_err zz_to_str(const zz_t *u, int8_t base, int8_t *str, size_t *len);
 mp_err zz_from_str(const int8_t *str, size_t len, int8_t base, zz_t *u);
 
 mp_err zz_to_double(const zz_t *u, double *d);
