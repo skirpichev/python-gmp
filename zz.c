@@ -1484,6 +1484,21 @@ zz_xor(const zz_t *u, const zz_t *v, zz_t *w)
 mp_err
 zz_pow(const zz_t *u, const zz_t *v, zz_t *w)
 {
+    if (u == w) {
+        zz_t tmp;
+
+        if (zz_init(&tmp) || zz_copy(u, &tmp)) {
+            /* LCOV_EXCL_START */
+            zz_clear(&tmp);
+            return MP_MEM;
+            /* LCOV_EXCL_STOP */
+        }
+
+        mp_err ret = zz_pow(&tmp, v, w);
+
+        zz_clear(&tmp);
+        return ret;
+    }
     if (!v->size) {
         return zz_from_i32(1, w);
     }
@@ -1778,6 +1793,51 @@ zz_powm(const zz_t *u, const zz_t *v, const zz_t *w, zz_t *res)
 {
     if (!w->size) {
         return MP_VAL;
+    }
+    if (u == res) {
+        zz_t tmp;
+
+        if (zz_init(&tmp) || zz_copy(u, &tmp)) {
+            /* LCOV_EXCL_START */
+            zz_clear(&tmp);
+            return MP_MEM;
+            /* LCOV_EXCL_STOP */
+        }
+
+        mp_err ret = zz_powm(&tmp, v, w, res);
+
+        zz_clear(&tmp);
+        return ret;
+    }
+    if (v == res) {
+        zz_t tmp;
+
+        if (zz_init(&tmp) || zz_copy(v, &tmp)) {
+            /* LCOV_EXCL_START */
+            zz_clear(&tmp);
+            return MP_MEM;
+            /* LCOV_EXCL_STOP */
+        }
+
+        mp_err ret = zz_powm(u, &tmp, w, res);
+
+        zz_clear(&tmp);
+        return ret;
+    }
+    if (w == res) {
+        zz_t tmp;
+
+        if (zz_init(&tmp) || zz_copy(w, &tmp)) {
+            /* LCOV_EXCL_START */
+            zz_clear(&tmp);
+            return MP_MEM;
+            /* LCOV_EXCL_STOP */
+        }
+
+        mp_err ret = zz_powm(u, v, &tmp, res);
+
+        zz_clear(&tmp);
+        return ret;
     }
 
     int negativeOutput = 0;
