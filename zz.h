@@ -47,10 +47,10 @@ mp_err zz_from_str(const int8_t *str, size_t len, int8_t base, zz_t *u);
 
 mp_err zz_to_double(const zz_t *u, double *d);
 
-mp_err zz_to_bytes(const zz_t *u, size_t length, int is_little,
-                   int is_signed, uint8_t **buffer);
+mp_err zz_to_bytes(const zz_t *u, size_t length, bool is_signed,
+                   uint8_t **buffer);
 mp_err zz_from_bytes(const uint8_t *buffer, size_t length,
-                     int is_little, int is_signed, zz_t *u);
+                     bool is_signed, zz_t *u);
 
 mp_err zz_add(const zz_t *u, const zz_t *v, zz_t *w);
 mp_err zz_add_i32(const zz_t *u, int32_t v, zz_t *w);

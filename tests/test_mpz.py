@@ -712,6 +712,7 @@ def test_methods(x):
 @example(-2049, 1, "big", True)
 @example(-65281, 3, "big", True)
 @example(-65281, 3, "little", True)
+@example(128, 1, "big", False)
 def test_to_bytes(x, length, byteorder, signed):
     try:
         rx = x.to_bytes(length, byteorder, signed=signed)

@@ -430,6 +430,19 @@ MPZ_rshift1(const MPZ_Object *u, mp_limb_t rshift)
     return res;
 }
 
+static void
+revstr(unsigned char *s, size_t l, size_t r)
+{
+    while (l < r) {
+        unsigned char tmp = s[l];
+
+        s[l] = s[r];
+        s[r] = tmp;
+        l++;
+        r--;
+    }
+}
+
 static PyObject *
 MPZ_to_bytes(MPZ_Object *u, Py_ssize_t length, int is_little, int is_signed)
 {
@@ -440,9 +453,12 @@ MPZ_to_bytes(MPZ_Object *u, Py_ssize_t length, int is_little, int is_signed)
     }
 
     uint8_t *buffer = (uint8_t *)PyBytes_AS_STRING(bytes);
-    mp_err ret = zz_to_bytes(&u->z, length, is_little, is_signed, &buffer);
+    mp_err ret = zz_to_bytes(&u->z, length, is_signed, &buffer);
 
     if (ret == MP_OK) {
+        if (is_little && length) {
+            revstr(buffer, 0, length - 1);
+        }
         return bytes;
     }
     Py_DECREF(bytes);
@@ -472,18 +488,37 @@ MPZ_from_bytes(PyObject *obj, int is_little, int is_signed)
     if (PyBytes_AsStringAndSize(bytes, (char **)&buffer, &length) == -1) {
         return NULL; /* LCOV_EXCL_LINE */
     }
+    if (!length) {
+        is_little = 0;
+    }
+    if (is_little) {
+        uint8_t *tmp = malloc(length);
+
+        if (!tmp) {
+            /* LCOV_EXCL_START */
+            Py_DECREF(bytes);
+            return (MPZ_Object *)PyErr_NoMemory();
+            /* LCOV_EXCL_STOP */
+        }
+        memcpy(tmp, buffer, length);
+        revstr(tmp, 0, length - 1);
+        buffer = tmp;
+    }
 
     MPZ_Object *res = MPZ_new(0, 0);
 
-    if (!res
-        || zz_from_bytes(buffer, length, is_little,
-                         is_signed, &res->z))
-    {
+    if (!res || zz_from_bytes(buffer, length, is_signed, &res->z)) {
         /* LCOV_EXCL_START */
         Py_DECREF(bytes);
+        if (is_little) {
+            free(buffer);
+        }
         Py_XDECREF(res);
         return (MPZ_Object *)PyErr_NoMemory();
         /* LCOV_EXCL_STOP */
+    }
+    if (is_little) {
+        free(buffer);
     }
     return res;
 }

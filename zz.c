@@ -511,29 +511,11 @@ zz_to_double(const zz_t *u, double *d)
     return _zz_to_double(u, 0, d);
 }
 
-#define SWAP(T, a, b) \
-    do {              \
-        T _tmp = a;   \
-        a = b;        \
-        b = _tmp;     \
-    } while (0);
-
-static void
-revstr(unsigned char *s, size_t l, size_t r)
-{
-    while (l < r) {
-        SWAP(unsigned char, s[l], s[r]);
-        l++;
-        r--;
-    }
-}
-
 mp_err
-zz_to_bytes(const zz_t *u, size_t length, int is_little, int is_signed,
-            uint8_t **buffer)
+zz_to_bytes(const zz_t *u, size_t length, bool is_signed, uint8_t **buffer)
 {
     zz_t tmp;
-    int is_negative = u->negative;
+    bool is_negative = u->negative;
 
     if (zz_init(&tmp)) {
         return MP_MEM; /* LCOV_EXCL_LINE */
@@ -569,20 +551,16 @@ zz_to_bytes(const zz_t *u, size_t length, int is_little, int is_signed,
 
     size_t gap = length - (nbits + GMP_NUMB_BITS/8 - 1)/(GMP_NUMB_BITS/8);
 
-    memset(*buffer, is_negative ? 0xFF : 0, gap);
     if (u->size) {
         mpn_get_str(*buffer + gap, 256, u->digits, u->size);
     }
+    memset(*buffer, is_negative ? 0xFF : 0, gap);
     zz_clear(&tmp);
-    if (is_little && length) {
-        revstr(*buffer, 0, length - 1);
-    }
     return MP_OK;
 }
 
 mp_err
-zz_from_bytes(const uint8_t *buffer, size_t length, int is_little,
-              int is_signed, zz_t *u)
+zz_from_bytes(const uint8_t *buffer, size_t length, bool is_signed, zz_t *u)
 {
     if (!length) {
         return zz_from_i32(0, u);
@@ -590,20 +568,7 @@ zz_from_bytes(const uint8_t *buffer, size_t length, int is_little,
     if (zz_resize(1 + length/2, u)) {
         return MP_MEM; /* LCOV_EXCL_LINE */
     }
-    if (is_little) {
-        uint8_t *tmp = malloc(length);
-
-        if (!tmp) {
-            return MP_MEM; /* LCOV_EXCL_LINE */
-        }
-        memcpy(tmp, buffer, length);
-        revstr(tmp, 0, length - 1);
-        u->size = mpn_set_str(u->digits, tmp, length, 256);
-        free(tmp);
-    }
-    else {
-        u->size = mpn_set_str(u->digits, buffer, length, 256);
-    }
+    u->size = mpn_set_str(u->digits, buffer, length, 256);
     if (zz_resize(u->size, u) == MP_MEM) {
         /* LCOV_EXCL_START */
         zz_clear(u);
@@ -632,6 +597,13 @@ zz_from_bytes(const uint8_t *buffer, size_t length, int is_little,
     }
     return MP_OK;
 }
+
+#define SWAP(T, a, b) \
+    do {              \
+        T _tmp = a;   \
+        a = b;        \
+        b = _tmp;     \
+    } while (0);
 
 static mp_err
 _zz_addsub(const zz_t *u, const zz_t *v, bool subtract, zz_t *w)
