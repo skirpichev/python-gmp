@@ -308,18 +308,8 @@ MPZ_from_str(PyObject *obj, int base)
     return res;
 }
 
-#define TMP_MPZ(z, u)                          \
-    mpz_t z;                                   \
-                                               \
-    z->_mp_d = LS(u);                          \
-    z->_mp_size = (ISNEG(u) ? -1 : 1) * SZ(u); \
-    z->_mp_alloc = (u->z).alloc;
-
 #if !defined(PYPY_VERSION) && !defined(GRAALVM_PYTHON)
-#  define BITS_TO_LIMBS(n) (((n) + (GMP_NUMB_BITS - 1))/GMP_NUMB_BITS)
-
-static size_t int_digit_size, int_nails, int_bits_per_digit;
-static int int_digits_order, int_endianness;
+static mp_layout *int_layout;
 #endif
 
 static MPZ_Object *
@@ -333,17 +323,12 @@ MPZ_from_int(PyObject *obj)
         return res; /* LCOV_EXCL_LINE */
     }
     if (long_export.digits) {
-        mp_size_t ndigits = long_export.ndigits;
-        mp_size_t size = BITS_TO_LIMBS(ndigits*(8*int_digit_size - int_nails));
-        res = MPZ_new(size, long_export.negative);
-        if (!res) {
-            return res; /* LCOV_EXCL_LINE */
+        res = MPZ_new(0, long_export.negative);
+        if (!res || zz_import(long_export.ndigits,
+                              long_export.digits, *int_layout, &res->z))
+        {
+            return (MPZ_Object *)PyErr_NoMemory(); /* LCOV_EXCL_LINE */
         }
-
-        TMP_MPZ(z, res)
-        mpz_import(z, ndigits, int_digits_order, int_digit_size,
-                   int_endianness, int_nails, long_export.digits);
-        SZ(res) = z->_mp_size;
         PyLong_FreeExport(&long_export);
     }
     else {
@@ -389,18 +374,15 @@ MPZ_to_int(MPZ_Object *u)
     }
 
 #if !defined(PYPY_VERSION) && !defined(GRAALVM_PYTHON)
-    size_t size = (mpn_sizeinbase(LS(u), SZ(u), 2) +
-                   int_bits_per_digit - 1)/int_bits_per_digit;
+    size_t size = (zz_bitlen(&u->z) + int_layout->bits_per_digit
+                   - 1)/int_layout->bits_per_digit;
     void *digits;
     PyLongWriter *writer = PyLongWriter_Create(ISNEG(u), size, &digits);
 
     if (!writer) {
         return NULL; /* LCOV_EXCL_LINE */
     }
-
-    TMP_MPZ(z, u);
-    mpz_export(digits, NULL, int_digits_order, int_digit_size, int_endianness,
-               int_nails, z);
+    (void)zz_export(&u->z, *int_layout, size, digits);
     return PyLongWriter_Finish(writer);
 #else
     PyObject *str = MPZ_to_str(u, 16, 0);
@@ -1465,7 +1447,7 @@ static PyObject *
 bit_length(PyObject *self, PyObject *Py_UNUSED(args))
 {
     MPZ_Object *u = (MPZ_Object *)self;
-    mp_limb_t digit = SZ(u) ? mpn_sizeinbase(LS(u), SZ(u), 2) : 0;
+    mp_limb_t digit = zz_bitlen(&u->z);
 
     return PyLong_FromUnsignedLongLong(digit);
 }
@@ -1715,7 +1697,7 @@ static PyObject *
 __reduce_ex__(PyObject *self, PyObject *Py_UNUSED(args))
 {
     MPZ_Object *u = (MPZ_Object *)self;
-    Py_ssize_t len = SZ(u) ? mpn_sizeinbase(LS(u), SZ(u), 2) : 1;
+    Py_ssize_t len = zz_bitlen(&u->z);
 
     return Py_BuildValue("O(N)", from_bytes_func,
                          MPZ_to_bytes(u, (len + 7)/8 + 1, 0, 1));
@@ -2402,7 +2384,7 @@ gmp__mpmath_create(PyObject *self, PyObject *const *args, Py_ssize_t nargs)
         ISNEG(man) = 0;
     }
 
-    mp_bitcnt_t bc = SZ(man) ? mpn_sizeinbase(LS(man), SZ(man), 2) : 0;
+    mp_bitcnt_t bc = zz_bitlen(&man->z);
     mp_bitcnt_t prec = 0;
     Py_UCS4 rnd = 'd';
 
@@ -2526,13 +2508,7 @@ gmp_exec(PyObject *m)
                             gmp_free_function);
 #if !defined(PYPY_VERSION) && !defined(GRAALVM_PYTHON)
     /* Query parameters of Python’s internal representation of integers. */
-    const PyLongLayout *layout = PyLong_GetNativeLayout();
-
-    int_digit_size = layout->digit_size;
-    int_digits_order = layout->digits_order;
-    int_bits_per_digit = layout->bits_per_digit;
-    int_nails = int_digit_size*8 - int_bits_per_digit;
-    int_endianness = layout->digit_endianness;
+    int_layout = (mp_layout *)PyLong_GetNativeLayout();
 #endif
     if (PyModule_AddType(m, &MPZ_Type) < 0) {
         return -1; /* LCOV_EXCL_LINE */

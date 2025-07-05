@@ -598,6 +598,56 @@ zz_from_bytes(const uint8_t *buffer, size_t length, bool is_signed, zz_t *u)
     return MP_OK;
 }
 
+size_t
+zz_bitlen(const zz_t *u)
+{
+    return u->size ? mpn_sizeinbase(u->digits, u->size, 2) : 0;
+}
+
+#define TMP_ZZ(z, u)                                \
+    mpz_t z;                                        \
+                                                    \
+    z->_mp_d = u->digits;                           \
+    z->_mp_size = (u->negative ? -1 : 1) * u->size; \
+    z->_mp_alloc = u->alloc;
+
+#define BITS_TO_LIMBS(n) (((n) + (GMP_NUMB_BITS - 1))/GMP_NUMB_BITS)
+
+mp_err
+zz_import(size_t len, const void *digits, mp_layout layout, zz_t *u)
+{
+    mp_size_t size = BITS_TO_LIMBS(len*layout.bits_per_digit);
+
+    if (zz_resize(size, u)) {
+        return MP_MEM; /* LCOV_EXCL_LINE */
+    }
+
+    TMP_ZZ(z, u);
+    mpz_import(z, len, layout.digits_order, layout.digit_size,
+               layout.digit_endianness,
+               layout.digit_size*8 - layout.bits_per_digit, digits);
+    u->size = z->_mp_size;
+    return MP_OK;
+}
+
+#define MAX(a, b) ((a) > (b) ? (a) : (b))
+
+mp_err
+zz_export(const zz_t *u, mp_layout layout, size_t len, void *digits)
+{
+    if (len < MAX((zz_bitlen(u) + layout.bits_per_digit
+                   - 1)/layout.bits_per_digit, 1))
+    {
+        return MP_VAL;
+    }
+
+    TMP_ZZ(z, u);
+    mpz_export(digits, NULL, layout.digits_order, layout.digit_size,
+               layout.digit_endianness,
+               layout.digit_size*8 - layout.bits_per_digit, z);
+    return MP_OK;
+}
+
 #define SWAP(T, a, b) \
     do {              \
         T _tmp = a;   \
@@ -1690,13 +1740,6 @@ zz_inverse(const zz_t *u, const zz_t *v, zz_t *w)
     zz_clear(&g);
     return MP_VAL;
 }
-
-#define TMP_ZZ(z, u)                                \
-    mpz_t z;                                        \
-                                                    \
-    z->_mp_d = u->digits;                           \
-    z->_mp_size = (u->negative ? -1 : 1) * u->size; \
-    z->_mp_alloc = u->alloc;
 
 static mp_err
 _zz_powm(const zz_t *u, const zz_t *v, const zz_t *w, zz_t *res)
