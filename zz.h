@@ -22,7 +22,6 @@ typedef enum {
 mp_err zz_init(zz_t *u);
 mp_err zz_resize(mp_size_t size, zz_t *u);
 void zz_clear(zz_t *u);
-void zz_normalize(zz_t *u);
 
 typedef enum {
     MP_GT = +1,
@@ -31,7 +30,10 @@ typedef enum {
 } mp_ord;
 
 mp_ord zz_cmp(const zz_t *u, const zz_t *v);
+mp_ord zz_cmp_i32(const zz_t *u, int32_t v);
 
+mp_err zz_from_i32(int32_t u, zz_t *v);
+mp_err zz_to_i32(const zz_t *u, int32_t *v);
 mp_err zz_from_i64(int64_t u, zz_t *v);
 mp_err zz_to_i64(const zz_t *u, int64_t *v);
 
@@ -41,18 +43,20 @@ mp_err zz_neg(const zz_t *u, zz_t *v);
 
 extern int OPT_TAG, OPT_PREFIX;
 
-mp_err zz_to_str(const zz_t *u, int base, int options, char **buf);
-mp_err zz_from_str(const char *str, size_t len, int base, zz_t *u);
+mp_err zz_to_str(const zz_t *u, int base, int options, int8_t **buf);
+mp_err zz_from_str(const int8_t *str, size_t len, int base, zz_t *u);
 
 mp_err zz_to_double(const zz_t *u, double *d);
 
 mp_err zz_to_bytes(const zz_t *u, size_t length, int is_little,
-                   int is_signed, unsigned char **buffer);
-mp_err zz_from_bytes(const unsigned char *buffer, size_t length,
+                   int is_signed, uint8_t **buffer);
+mp_err zz_from_bytes(const uint8_t *buffer, size_t length,
                      int is_little, int is_signed, zz_t *u);
 
 mp_err zz_add(const zz_t *u, const zz_t *v, zz_t *w);
+mp_err zz_add_i32(const zz_t *u, int32_t v, zz_t *w);
 mp_err zz_sub(const zz_t *u, const zz_t *v, zz_t *w);
+mp_err zz_sub_i32(const zz_t *u, int32_t v, zz_t *w);
 
 mp_err zz_mul(const zz_t *u, const zz_t *v, zz_t *w);
 
@@ -63,8 +67,8 @@ typedef enum {
 
 mp_err zz_div(const zz_t *u, const zz_t *v, mp_rnd rnd, zz_t *q, zz_t *r);
 
-mp_err zz_rshift1(const zz_t *u, mp_limb_t rshift, zz_t *v);
-mp_err zz_lshift1(const zz_t *u, mp_limb_t lshift, zz_t *v);
+mp_err zz_quo_2exp(const zz_t *u, uint64_t rshift, zz_t *v);
+mp_err zz_mul_2exp(const zz_t *u, uint64_t lshift, zz_t *v);
 
 mp_err zz_truediv(const zz_t *u, const zz_t *v, double *res);
 
@@ -73,7 +77,7 @@ mp_err zz_and(const zz_t *u, const zz_t *v, zz_t *w);
 mp_err zz_or(const zz_t *u, const zz_t *v, zz_t *w);
 mp_err zz_xor(const zz_t *u, const zz_t *v, zz_t *w);
 
-mp_err zz_pow(const zz_t *u, const zz_t *v, zz_t *w);
+mp_err zz_pow(const zz_t *u, uint64_t v, zz_t *w);
 
 mp_err zz_gcd(const zz_t *u, const zz_t *v, zz_t *w);
 mp_err zz_gcdext(const zz_t *u, const zz_t *v, zz_t *g, zz_t *s, zz_t *t);
@@ -83,8 +87,8 @@ mp_err zz_powm(const zz_t *u, const zz_t *v, const zz_t *w, zz_t *res);
 
 mp_err zz_sqrtrem(const zz_t *u, zz_t *v, zz_t *w);
 
-mp_err zz_fac(int64_t u, zz_t *v);
-mp_err zz_fac2(int64_t u, zz_t *v);
-mp_err zz_fib(int64_t u, zz_t *v);
+mp_err zz_fac(uint64_t u, zz_t *v);
+mp_err zz_fac2(uint64_t u, zz_t *v);
+mp_err zz_fib(uint64_t u, zz_t *v);
 
 #endif /* ZZ_H */

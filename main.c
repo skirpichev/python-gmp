@@ -147,7 +147,7 @@ MPZ_new(mp_size_t size, bool negative)
 static PyObject *
 MPZ_to_str(MPZ_Object *u, int base, int options)
 {
-    char *buf;
+    int8_t *buf;
     mp_err ret = zz_to_str(&u->z, base, options, &buf);
 
     if (ret == MP_VAL) {
@@ -158,7 +158,7 @@ MPZ_to_str(MPZ_Object *u, int base, int options)
         return PyErr_NoMemory(); /* LCOV_EXCL_LINE */
     }
 
-    PyObject *res = PyUnicode_FromString(buf);
+    PyObject *res = PyUnicode_FromString((char *)buf);
 
     free(buf);
     return res;
@@ -168,7 +168,7 @@ static MPZ_Object *
 MPZ_from_str(PyObject *obj, int base)
 {
     Py_ssize_t len;
-    const char *str = PyUnicode_AsUTF8AndSize(obj, &len);
+    const int8_t *str = (int8_t *)PyUnicode_AsUTF8AndSize(obj, &len);
 
     if (!str) {
         return NULL; /* LCOV_EXCL_LINE */
@@ -209,7 +209,7 @@ MPZ_from_str(PyObject *obj, int base)
                                                \
     z->_mp_d = LS(u);                          \
     z->_mp_size = (ISNEG(u) ? -1 : 1) * SZ(u); \
-    z->_mp_alloc = SZ(u);
+    z->_mp_alloc = (u->z).alloc;
 
 #if !defined(PYPY_VERSION) && !defined(GRAALVM_PYTHON)
 #  define BITS_TO_LIMBS(n) (((n) + (GMP_NUMB_BITS - 1))/GMP_NUMB_BITS)
@@ -239,7 +239,7 @@ MPZ_from_int(PyObject *obj)
         TMP_MPZ(z, res)
         mpz_import(z, ndigits, int_digits_order, int_digit_size,
                    int_endianness, int_nails, long_export.digits);
-        zz_normalize(&res->z);
+        SZ(res) = z->_mp_size;
         PyLong_FreeExport(&long_export);
     }
     else {
@@ -317,7 +317,7 @@ MPZ_rshift1(const MPZ_Object *u, mp_limb_t rshift)
 {
     MPZ_Object *res = MPZ_new(0, 0);
 
-    if (!res || zz_rshift1(&u->z, rshift, &res->z)) {
+    if (!res || zz_quo_2exp(&u->z, rshift, &res->z)) {
         /* LCOV_EXCL_START */
         Py_XDECREF(res);
         return (MPZ_Object *)PyErr_NoMemory();
@@ -335,7 +335,7 @@ MPZ_to_bytes(MPZ_Object *u, Py_ssize_t length, int is_little, int is_signed)
         return NULL; /* LCOV_EXCL_LINE */
     }
 
-    unsigned char *buffer = (unsigned char *)PyBytes_AS_STRING(bytes);
+    uint8_t *buffer = (uint8_t *)PyBytes_AS_STRING(bytes);
     mp_err ret = zz_to_bytes(&u->z, length, is_little, is_signed, &buffer);
 
     if (ret == MP_OK) {
@@ -359,7 +359,7 @@ static MPZ_Object *
 MPZ_from_bytes(PyObject *obj, int is_little, int is_signed)
 {
     PyObject *bytes = PyObject_Bytes(obj);
-    unsigned char *buffer;
+    uint8_t *buffer;
     Py_ssize_t length;
 
     if (bytes == NULL) {
@@ -1122,7 +1122,7 @@ zz_lshift(const zz_t *u, const zz_t *v, zz_t *w)
     if (v->size > 1) {
         return MP_BUF;
     }
-    return zz_lshift1(u, v->size ? v->digits[0] : 0, w);
+    return zz_mul_2exp(u, v->size ? v->digits[0] : 0, w);
 }
 
 static mp_err
@@ -1132,9 +1132,9 @@ zz_rshift(const zz_t *u, const zz_t *v, zz_t *w)
         return MP_VAL;
     }
     if (v->size > 1) {
-        return zz_from_i64(u->negative ? -1 : 0, w);
+        return zz_from_i32(u->negative ? -1 : 0, w);
     }
-    return zz_rshift1(u, v->size ? v->digits[0] : 0, w);
+    return zz_quo_2exp(u, v->size ? v->digits[0] : 0, w);
 }
 
 BINOP_INT(lshift)
@@ -1173,7 +1173,9 @@ power(PyObject *self, PyObject *other, PyObject *module)
             return resf;
         }
         res = MPZ_new(0, 0);
-        if (!res || zz_pow(&u->z, &v->z, &res->z)) {
+        if (!res || SZ(v) > 1 || ISNEG(v)
+            || zz_pow(&u->z, SZ(v) ? LS(v)[0] : 0, &res->z))
+        {
             Py_CLEAR(res);
             PyErr_SetNone(PyExc_MemoryError); /* LCOV_EXCL_LINE */
         }
@@ -1296,7 +1298,7 @@ get_one(PyObject *Py_UNUSED(self), void *Py_UNUSED(closure))
 {
     MPZ_Object *res = MPZ_new(0, 0);
 
-    if (res && zz_from_i64(1, &res->z)) {
+    if (res && zz_from_i32(1, &res->z)) {
         PyErr_NoMemory(); /* LCOV_EXCL_LINE */
     }
     return (PyObject *)res;
@@ -1791,7 +1793,7 @@ gmp_gcd(PyObject *Py_UNUSED(module), PyObject *const *args, Py_ssize_t nargs)
                             "gcd() arguments must be integers");
             return NULL;
         }
-        if (SZ(res) == 1 && LS(res)[0] == 1) {
+        if (zz_cmp_i32(&res->z, 1) == MP_EQ) {
             Py_DECREF(arg);
             continue;
         }
@@ -2003,6 +2005,11 @@ err:
                             #name "() argument must be an integer");     \
             goto err;                                                    \
         }                                                                \
+        if (ISNEG(x)) {                                                  \
+            PyErr_SetString(PyExc_ValueError,                            \
+                            #name "() not defined for negative values"); \
+            goto err;                                                    \
+        }                                                                \
                                                                          \
         int64_t n;                                                       \
                                                                          \
@@ -2012,16 +2019,8 @@ err:
                          LONG_MAX);                                      \
             goto err;                                                    \
         }                                                                \
-                                                                         \
-        mp_err ret = zz_##name(n, &res->z);                              \
-                                                                         \
         Py_XDECREF(x);                                                   \
-        if (ret == MP_VAL) {                                             \
-            PyErr_SetString(PyExc_ValueError,                            \
-                            #name "() not defined for negative values"); \
-            goto err;                                                    \
-        }                                                                \
-        if (ret == MP_MEM) {                                             \
+        if (zz_##name(n, &res->z)) {                                     \
             /* LCOV_EXCL_START */                                        \
             PyErr_NoMemory();                                            \
             goto err;                                                    \
@@ -2129,11 +2128,14 @@ normalize_mpf(long sign, MPZ_Object *man, PyObject *exp, mp_bitcnt_t bc,
                 int t = (LS(res)[0]&1 && (LS(res)[0]&2
                          || mpn_scan1(LS(man), 0) + 2 <= shift));
 
-                mpn_rshift(LS(res), LS(res), SZ(res), 1);
-                if (t) {
-                    mpn_add_1(LS(res), LS(res), SZ(res), 1);
+                zz_quo_2exp(&res->z, 1, &res->z);
+                if (t && zz_add_i32(&res->z, 1, &res->z)) {
+                    /* LCOV_EXCL_START */
+                    Py_DECREF((PyObject *)res);
+                    Py_DECREF(exp);
+                    return NULL;
+                    /* LCOV_EXCL_STOP */
                 }
-                zz_normalize(&res->z);
         }
         if (!(tmp = PyLong_FromUnsignedLongLong(shift))) {
             /* LCOV_EXCL_START */
@@ -2190,7 +2192,7 @@ normalize_mpf(long sign, MPZ_Object *man, PyObject *exp, mp_bitcnt_t bc,
 
     bc -= zbits;
     /* Check if one less than a power of 2 was rounded up. */
-    if (SZ(res) == 1 && LS(res)[0] == 1) {
+    if (zz_cmp_i32(&res->z, 1) == MP_EQ) {
         bc = 1;
     }
     return build_mpf(sign, res, exp, bc);
@@ -2503,20 +2505,22 @@ gmp_exec(PyObject *m)
     return 0;
 }
 
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wpedantic"
+#ifdef __GNUC__
+#  pragma GCC diagnostic push
+#  pragma GCC diagnostic ignored "-Wpedantic"
+#endif
 static PyModuleDef_Slot gmp_slots[] = {
     {Py_mod_exec, gmp_exec},
-#  if PY_VERSION_HEX >= 0x030C0000
-    {Py_mod_multiple_interpreters,
-     Py_MOD_MULTIPLE_INTERPRETERS_NOT_SUPPORTED},
-#  endif
-#  if PY_VERSION_HEX >= 0x030D0000
+#if PY_VERSION_HEX >= 0x030C0000
+    {Py_mod_multiple_interpreters, Py_MOD_MULTIPLE_INTERPRETERS_NOT_SUPPORTED},
+#endif
+#if PY_VERSION_HEX >= 0x030D0000
     {Py_mod_gil, Py_MOD_GIL_NOT_USED},
-#  endif
-    {0, NULL}
-};
-#pragma GCC diagnostic pop
+#endif
+    {0, NULL}};
+#ifdef __GNUC__
+#  pragma GCC diagnostic pop
+#endif
 
 static struct PyModuleDef gmp_module = {
     PyModuleDef_HEAD_INIT,

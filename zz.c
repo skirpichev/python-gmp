@@ -56,7 +56,7 @@ zz_clear(zz_t *u)
     u->digits = NULL;
 }
 
-void
+static void
 zz_normalize(zz_t *u)
 {
     while (u->size && u->digits[u->size - 1] == 0) {
@@ -88,10 +88,85 @@ zz_cmp(const zz_t *u, const zz_t *v)
     return u->negative ? -r : r;
 }
 
+#define ABS(a) ((a) < 0 ? (-a) : (a))
+
+mp_ord
+zz_cmp_i32(const zz_t *u, int32_t v)
+{
+    mp_ord sign = u->negative ? MP_LT : MP_GT;
+    bool v_negative = v < 0;
+
+    if (u->negative != v_negative) {
+        return sign;
+    }
+    else if (u->size != 1) {
+        return (u->size < 1) ? -sign : sign;
+    }
+
+    mp_limb_t digit = ABS(v);
+    mp_ord r = u->digits[0] != digit;
+
+    if (u->digits[0] < digit) {
+        r = MP_LT;
+    }
+    else if (u->digits[0] > digit) {
+        r = MP_GT;
+    }
+    return u->negative ? -r : r;
+}
+
+mp_err
+zz_from_i32(int32_t u, zz_t *v)
+{
+    if (!u) {
+        v->size = 0;
+        v->negative = false;
+        return MP_OK;
+    }
+    if (zz_resize(1, v)) {
+        return MP_MEM; /* LCOV_EXCL_LINE */
+    }
+    v->negative = u < 0;
+    v->digits[0] = v->negative ? -u : u;
+    return MP_OK;
+}
+
+mp_err
+zz_to_i32(const zz_t *u, int32_t *v)
+{
+    mp_size_t n = u->size;
+
+    if (!n) {
+        *v = 0;
+        return MP_OK;
+    }
+    if (n > 1) {
+        return MP_VAL;
+    }
+
+    uint32_t uv = u->digits[0];
+
+    if (u->negative) {
+        if (uv <= INT32_MAX + 1UL) {
+            *v = -1 - (int32_t)((uv - 1) & INT32_MAX);
+            return MP_OK;
+        }
+    }
+    else {
+        if (uv <= INT32_MAX) {
+            *v = (int32_t)uv;
+            return MP_OK;
+        }
+    }
+    return MP_VAL;
+}
+
 mp_err
 zz_from_i64(int64_t u, zz_t *v)
 {
     if (!u) {
+        v->size = 0;
+        v->negative = false;
         return MP_OK;
     }
 
@@ -163,7 +238,7 @@ zz_copy(const zz_t *u, zz_t *v)
 {
     if (u != v) {
         if (!u->size) {
-            return zz_from_i64(0, v);
+            return zz_from_i32(0, v);
         }
         if (zz_resize(u->size, v)) {
             return MP_MEM; /* LCOV_EXCL_LINE */
@@ -203,7 +278,7 @@ int OPT_TAG = 0x1;
 int OPT_PREFIX = 0x2;
 
 mp_err
-zz_to_str(const zz_t *u, int base, int options, char **buf)
+zz_to_str(const zz_t *u, int base, int options, int8_t **buf)
 {
     if (base < 2 || base > 36) {
         return MP_VAL;
@@ -214,7 +289,7 @@ zz_to_str(const zz_t *u, int base, int options, char **buf)
     /*            tag sign prefix        )   \0 */
     *buf = malloc(4 + 1   + 2    + len + 1 + 1);
 
-    unsigned char *p = (unsigned char *)(*buf);
+    uint8_t *p = (uint8_t *)(*buf);
 
     if (!p) {
         return MP_MEM; /* LCOV_EXCL_LINE */
@@ -305,7 +380,7 @@ const unsigned char DIGIT_VALUE_TAB[] =
 };
 
 mp_err
-zz_from_str(const char *str, size_t len, int base, zz_t *u)
+zz_from_str(const int8_t *str, size_t len, int base, zz_t *u)
 {
     if (base != 0 && (base < 2 || base > 36)) {
         return MP_VAL;
@@ -314,7 +389,7 @@ zz_from_str(const char *str, size_t len, int base, zz_t *u)
         return MP_VAL;
     }
 
-    unsigned char *volatile buf = malloc(len), *p = buf;
+    uint8_t *volatile buf = malloc(len), *p = buf;
 
     if (!buf) {
         return MP_MEM; /* LCOV_EXCL_LINE */
@@ -366,7 +441,7 @@ zz_from_str(const char *str, size_t len, int base, zz_t *u)
         goto err;
     }
 
-    const unsigned char *digit_value = DIGIT_VALUE_TAB;
+    const uint8_t *digit_value = DIGIT_VALUE_TAB;
     size_t new_len = len;
 
     for (size_t i = 0; i < len; i++) {
@@ -508,7 +583,7 @@ revstr(unsigned char *s, size_t l, size_t r)
 
 mp_err
 zz_to_bytes(const zz_t *u, size_t length, int is_little, int is_signed,
-            unsigned char **buffer)
+            uint8_t **buffer)
 {
     zz_t tmp;
     int is_negative = u->negative;
@@ -559,17 +634,17 @@ zz_to_bytes(const zz_t *u, size_t length, int is_little, int is_signed,
 }
 
 mp_err
-zz_from_bytes(const unsigned char *buffer, size_t length, int is_little,
+zz_from_bytes(const uint8_t *buffer, size_t length, int is_little,
               int is_signed, zz_t *u)
 {
     if (!length) {
-        return zz_from_i64(0, u);
+        return zz_from_i32(0, u);
     }
     if (zz_resize(1 + length/2, u)) {
         return MP_MEM; /* LCOV_EXCL_LINE */
     }
     if (is_little) {
-        unsigned char *tmp = malloc(length);
+        uint8_t *tmp = malloc(length);
 
         if (!tmp) {
             return MP_MEM; /* LCOV_EXCL_LINE */
@@ -618,7 +693,7 @@ _zz_addsub(const zz_t *u, const zz_t *v, bool subtract, zz_t *w)
     bool same_sign = negu == negv;
     mp_size_t u_size = u->size, v_size = v->size;
 
-    if (u->size < v->size) {
+    if (u_size < v_size) {
         SWAP(const zz_t *, u, v);
         SWAP(bool, negu, negv);
         SWAP(mp_size_t, u_size, v_size);
@@ -653,6 +728,41 @@ _zz_addsub(const zz_t *u, const zz_t *v, bool subtract, zz_t *w)
     return MP_OK;
 }
 
+static mp_err
+_zz_addsub_i32(const zz_t *u, int32_t v, bool subtract, zz_t *w)
+{
+    bool negu = u->negative, negv = subtract ? v >= 0 : v < 0;
+    bool same_sign = negu == negv;
+    mp_size_t u_size = u->size, v_size = v != 0;
+    mp_limb_t digit = ABS(v);
+
+    if (u_size < v_size) {
+        if (zz_resize(v_size, w)) {
+            return MP_MEM; /* LCOV_EXCL_LINE */
+        }
+        if (v_size) {
+            w->digits[0] = digit;
+            w->negative = negv;
+        }
+        else {
+            w->negative = false;
+        }
+    }
+
+    if (zz_resize(u_size + same_sign, w) || TMP_OVERFLOW) {
+        return MP_MEM; /* LCOV_EXCL_LINE */
+    }
+    w->negative = negu;
+    if (same_sign) {
+        w->digits[w->size - 1] = mpn_add_1(w->digits, u->digits, u_size, digit);
+    }
+    else {
+        mpn_sub_1(w->digits, u->digits, u_size, digit);
+    }
+    zz_normalize(w);
+    return MP_OK;
+}
+
 mp_err
 zz_add(const zz_t *u, const zz_t *v, zz_t *w)
 {
@@ -666,13 +776,25 @@ zz_sub(const zz_t *u, const zz_t *v, zz_t *w)
 }
 
 mp_err
+zz_add_i32(const zz_t *u, int32_t v, zz_t *w)
+{
+    return _zz_addsub_i32(u, v, false, w);
+}
+
+mp_err
+zz_sub_i32(const zz_t *u, int32_t v, zz_t *w)
+{
+    return _zz_addsub_i32(u, v, true, w);
+}
+
+mp_err
 zz_mul(const zz_t *u, const zz_t *v, zz_t *w)
 {
     if (u->size < v->size) {
         SWAP(const zz_t *, u, v);
     }
     if (!v->size) {
-        return zz_from_i64(0, w);
+        return zz_from_i32(0, w);
     }
     if (u == w) {
         zz_t tmp;
@@ -760,18 +882,18 @@ zz_div(const zz_t *u, const zz_t *v, mp_rnd rnd, zz_t *q, zz_t *r)
         }
     }
     if (!u->size) {
-        if (zz_from_i64(0, q) || zz_from_i64(0, r)) {
+        if (zz_from_i32(0, q) || zz_from_i32(0, r)) {
             goto err; /* LCOV_EXCL_LINE */
         }
     }
     else if (u->size < v->size) {
         if (u->negative != v->negative) {
-            if (zz_from_i64(-1, q) || zz_add(u, v, r)) {
+            if (zz_from_i32(-1, q) || zz_add(u, v, r)) {
                 goto err; /* LCOV_EXCL_LINE */
             }
         }
         else {
-            if (zz_from_i64(0, q) || zz_copy(u, r)) {
+            if (zz_from_i32(0, q) || zz_copy(u, r)) {
                 goto err; /* LCOV_EXCL_LINE */
             }
         }
@@ -840,7 +962,7 @@ zz_div(const zz_t *u, const zz_t *v, mp_rnd rnd, zz_t *q, zz_t *r)
                 mp_ord unexpect = v->negative ? MP_LT : MP_GT;
                 zz_t halfQ;
 
-                if (zz_init(&halfQ) || zz_rshift1(v, 1, &halfQ)) {
+                if (zz_init(&halfQ) || zz_quo_2exp(v, 1, &halfQ)) {
                     /* LCOV_EXCL_START */
                     zz_clear(&halfQ);
                     goto err;
@@ -856,18 +978,7 @@ zz_div(const zz_t *u, const zz_t *v, mp_rnd rnd, zz_t *q, zz_t *r)
                     cmp = unexpect;
                 }
                 if (cmp == unexpect) {
-                    zz_t one;
-
-                    if (zz_init(&one) || zz_from_i64(1, &one)
-                        || zz_add(q, &one, q))
-                    {
-                        /* LCOV_EXCL_START */
-                        zz_clear(&one);
-                        goto err;
-                        /* LCOV_EXCL_STOP */
-                    }
-                    zz_clear(&one);
-                    if (zz_sub(r, v, r)) {
+                    if (zz_add_i32(q, 1, q) || zz_sub(r, v, r)) {
                         goto err; /* LCOV_EXCL_LINE */
                     }
                 }
@@ -885,19 +996,19 @@ err:
 }
 
 mp_err
-zz_rshift1(const zz_t *u, mp_limb_t rshift, zz_t *v)
+zz_quo_2exp(const zz_t *u, uint64_t shift, zz_t *v)
 {
     if (!u->size) {
         v->size = 0;
         return MP_OK;
     }
 
-    mp_size_t whole = rshift / GMP_NUMB_BITS;
+    mp_size_t whole = shift / GMP_NUMB_BITS;
     mp_size_t size = u->size;
 
-    rshift %= GMP_NUMB_BITS;
+    shift %= GMP_NUMB_BITS;
     if (whole >= size) {
-        return zz_from_i64(u->negative ? -1 : 0, v);
+        return zz_from_i32(u->negative ? -1 : 0, v);
     }
     size -= whole;
 
@@ -922,8 +1033,8 @@ zz_rshift1(const zz_t *u, mp_limb_t rshift, zz_t *v)
     if (extra) {
         v->digits[size] = 0;
     }
-    if (rshift) {
-        if (mpn_rshift(v->digits, u->digits + whole, size, rshift)) {
+    if (shift) {
+        if (mpn_rshift(v->digits, u->digits + whole, size, shift)) {
             carry = u->negative;
         }
     }
@@ -940,25 +1051,25 @@ zz_rshift1(const zz_t *u, mp_limb_t rshift, zz_t *v)
 }
 
 mp_err
-zz_lshift1(const zz_t *u, mp_limb_t lshift, zz_t *v)
+zz_mul_2exp(const zz_t *u, uint64_t shift, zz_t *v)
 {
     if (!u->size) {
         v->size = 0;
         return MP_OK;
     }
 
-    mp_size_t whole = lshift / GMP_NUMB_BITS;
+    mp_size_t whole = shift / GMP_NUMB_BITS;
     mp_size_t u_size = u->size, v_size = u_size + whole;
 
-    lshift %= GMP_NUMB_BITS;
-    if (zz_resize(v_size + (bool)lshift, v)) {
+    shift %= GMP_NUMB_BITS;
+    if (zz_resize(v_size + (bool)shift, v)) {
         return MP_MEM; /* LCOV_EXCL_LINE */
     }
     v->negative = u->negative;
-    if (lshift) {
+    if (shift) {
         v->size -= !(bool)(v->digits[v_size] = mpn_lshift(v->digits + whole,
                                                           u->digits, u_size,
-                                                          lshift));
+                                                          shift));
     }
     else {
         mpn_copyd(v->digits + whole, u->digits, u_size);
@@ -1036,14 +1147,14 @@ zz_truediv(const zz_t *u, const zz_t *v, double *res)
     if (zz_abs(u, &tmp1)) {
         goto tmp_clear; /* LCOV_EXCL_LINE */
     }
-    if (shift > 0 && zz_lshift1(&tmp1, shift, &tmp1)) {
+    if (shift > 0 && zz_mul_2exp(&tmp1, shift, &tmp1)) {
         goto tmp_clear; /* LCOV_EXCL_LINE */
     }
     a = &tmp1;
     if (zz_abs(v, &tmp2)) {
         goto tmp_clear; /* LCOV_EXCL_LINE */
     }
-    if (shift < 0 && zz_lshift1(&tmp2, -shift, &tmp2)) {
+    if (shift < 0 && zz_mul_2exp(&tmp2, -shift, &tmp2)) {
         goto tmp_clear; /* LCOV_EXCL_LINE */
     }
     b = &tmp2;
@@ -1083,7 +1194,7 @@ zz_invert(const zz_t *u, zz_t *v)
         v->size -= v->digits[u_size - 1] == 0;
     }
     else if (!u_size) {
-        return zz_from_i64(-1, v);
+        return zz_from_i32(-1, v);
     }
     else {
         if (zz_resize(u_size + 1, v)) {
@@ -1100,8 +1211,11 @@ mp_err
 zz_and(const zz_t *u, const zz_t *v, zz_t *w)
 {
     if (!u->size || !v->size) {
-        return zz_from_i64(0, w);
+        return zz_from_i32(0, w);
     }
+
+    mp_size_t u_size = u->size, v_size = v->size;
+
     if (u->negative || v->negative) {
         zz_t o1, o2;
 
@@ -1119,6 +1233,7 @@ zz_and(const zz_t *u, const zz_t *v, zz_t *w)
             }
             o1.negative = true;
             u = &o1;
+            u_size = u->size;
         }
         if (v->negative) {
             if (zz_invert(v, &o2)) {
@@ -1126,66 +1241,67 @@ zz_and(const zz_t *u, const zz_t *v, zz_t *w)
             }
             o2.negative = true;
             v = &o2;
+            v_size = v->size;
         }
-        if (u->size < v->size) {
+        if (u_size < v_size) {
             SWAP(const zz_t *, u, v);
+            SWAP(mp_size_t, u_size, v_size);
         }
         if (u->negative & v->negative) {
-            if (!u->size) {
+            if (!u_size) {
                 zz_clear(&o1);
                 zz_clear(&o2);
-                return zz_from_i64(-1, w);
+                return zz_from_i32(-1, w);
             }
-            if (zz_resize(u->size + 1, w)) {
+            if (zz_resize(u_size + 1, w)) {
                 goto err; /* LCOV_EXCL_LINE */
             }
             w->negative = true;
-            mpn_copyi(&w->digits[v->size], &u->digits[v->size],
-                      u->size - v->size);
-            if (v->size) {
-                mpn_ior_n(w->digits, u->digits, v->digits, v->size);
+            mpn_copyi(&w->digits[v_size], &u->digits[v_size], u_size - v_size);
+            if (v_size) {
+                mpn_ior_n(w->digits, u->digits, v->digits, v_size);
             }
-            w->digits[u->size] = mpn_add_1(w->digits, w->digits, u->size, 1);
+            w->digits[u_size] = mpn_add_1(w->digits, w->digits, u_size, 1);
             zz_normalize(w);
             zz_clear(&o1);
             zz_clear(&o2);
             return MP_OK;
         }
         else if (u->negative) {
-            if (zz_resize(v->size, w)) {
+            if (zz_resize(v_size, w)) {
                 goto err; /* LCOV_EXCL_LINE */
             }
             w->negative = false;
-            mpn_andn_n(w->digits, v->digits, u->digits, v->size);
+            mpn_andn_n(w->digits, v->digits, u->digits, v_size);
             zz_normalize(w);
             zz_clear(&o1);
             zz_clear(&o2);
             return MP_OK;
         }
         else {
-            if (zz_resize(u->size, w)) {
+            if (zz_resize(u_size, w)) {
                 goto err; /* LCOV_EXCL_LINE */
             }
             w->negative = false;
-            if (v->size) {
-                mpn_andn_n(w->digits, u->digits, v->digits, v->size);
+            if (v_size) {
+                mpn_andn_n(w->digits, u->digits, v->digits, v_size);
             }
-            mpn_copyi(&w->digits[v->size], &u->digits[v->size],
-                      u->size - v->size);
+            mpn_copyi(&w->digits[v_size], &u->digits[v_size], u_size - v_size);
             zz_normalize(w);
             zz_clear(&o1);
             zz_clear(&o2);
             return MP_OK;
         }
     }
-    if (u->size < v->size) {
+    if (u_size < v_size) {
         SWAP(const zz_t *, u, v);
+        SWAP(mp_size_t, u_size, v_size);
     }
-    if (zz_resize(v->size, w)) {
+    if (zz_resize(v_size, w)) {
         return MP_MEM; /* LCOV_EXCL_LINE */
     }
     w->negative = false;
-    mpn_and_n(w->digits, u->digits, v->digits, v->size);
+    mpn_and_n(w->digits, u->digits, v->digits, v_size);
     zz_normalize(w);
     return MP_OK;
 }
@@ -1199,6 +1315,9 @@ zz_or(const zz_t *u, const zz_t *v, zz_t *w)
     if (!v->size) {
         return zz_copy(u, w);
     }
+
+    mp_size_t u_size = u->size, v_size = v->size;
+
     if (u->negative || v->negative) {
         zz_t o1, o2;
 
@@ -1224,49 +1343,48 @@ zz_or(const zz_t *u, const zz_t *v, zz_t *w)
             o2.negative = true;
             v = &o2;
         }
-        if (u->size < v->size) {
+        if (u_size < v_size) {
             SWAP(const zz_t *, u, v);
+            SWAP(mp_size_t, u_size, v_size);
         }
         if (u->negative & v->negative) {
-            if (!v->size) {
+            if (!v_size) {
                 zz_clear(&o1);
                 zz_clear(&o2);
-                return zz_from_i64(-1, w);
+                return zz_from_i32(-1, w);
             }
-            if (zz_resize(v->size + 1, w)) {
+            if (zz_resize(v_size + 1, w)) {
                 goto err; /* LCOV_EXCL_LINE */
             }
             w->negative = true;
-            mpn_and_n(w->digits, u->digits, v->digits, v->size);
-            w->digits[v->size] = mpn_add_1(w->digits, w->digits, v->size, 1);
+            mpn_and_n(w->digits, u->digits, v->digits, v_size);
+            w->digits[v_size] = mpn_add_1(w->digits, w->digits, v_size, 1);
             zz_normalize(w);
             zz_clear(&o1);
             zz_clear(&o2);
             return MP_OK;
         }
         else if (u->negative) {
-            if (zz_resize(u->size + 1, w)) {
+            if (zz_resize(u_size + 1, w)) {
                 goto err; /* LCOV_EXCL_LINE */
             }
             w->negative = true;
-            mpn_copyi(&w->digits[v->size], &u->digits[v->size],
-                      u->size - v->size);
-            mpn_andn_n(w->digits, u->digits, v->digits, v->size);
-            w->digits[u->size] = mpn_add_1(w->digits, w->digits, u->size, 1);
+            mpn_copyi(&w->digits[v_size], &u->digits[v_size], u_size - v_size);
+            mpn_andn_n(w->digits, u->digits, v->digits, v_size);
+            w->digits[u_size] = mpn_add_1(w->digits, w->digits, u_size, 1);
             zz_normalize(w);
             zz_clear(&o1);
             zz_clear(&o2);
             return MP_OK;
         }
         else {
-            if (zz_resize(v->size + 1, w)) {
+            if (zz_resize(v_size + 1, w)) {
                 goto err; /* LCOV_EXCL_LINE */
             }
             w->negative = true;
-            if (v->size) {
-                mpn_andn_n(w->digits, v->digits, u->digits, v->size);
-                w->digits[v->size] = mpn_add_1(w->digits, w->digits, v->size,
-                                               1);
+            if (v_size) {
+                mpn_andn_n(w->digits, v->digits, u->digits, v_size);
+                w->digits[v_size] = mpn_add_1(w->digits, w->digits, v_size, 1);
                 zz_normalize(w);
             }
             else {
@@ -1277,16 +1395,17 @@ zz_or(const zz_t *u, const zz_t *v, zz_t *w)
             return MP_OK;
         }
     }
-    if (u->size < v->size) {
+    if (u_size < v_size) {
         SWAP(const zz_t *, u, v);
+        SWAP(mp_size_t, u_size, v_size);
     }
-    if (zz_resize(u->size, w)) {
+    if (zz_resize(u_size, w)) {
         return MP_MEM; /* LCOV_EXCL_LINE */
     }
     w->negative = false;
-    mpn_ior_n(w->digits, u->digits, v->digits, v->size);
-    if (u->size != v->size) {
-        mpn_copyi(&w->digits[v->size], &u->digits[v->size], u->size - v->size);
+    mpn_ior_n(w->digits, u->digits, v->digits, v_size);
+    if (u_size != v_size) {
+        mpn_copyi(&w->digits[v_size], &u->digits[v_size], u_size - v_size);
     }
     return MP_OK;
 }
@@ -1300,6 +1419,9 @@ zz_xor(const zz_t *u, const zz_t *v, zz_t *w)
     if (!v->size) {
         return zz_copy(u, w);
     }
+
+    mp_size_t u_size = u->size, v_size = v->size;
+
     if (u->negative || v->negative) {
         zz_t o1, o2;
 
@@ -1325,23 +1447,23 @@ zz_xor(const zz_t *u, const zz_t *v, zz_t *w)
             o2.negative = true;
             v = &o2;
         }
-        if (u->size < v->size) {
+        if (u_size < v_size) {
             SWAP(const zz_t *, u, v);
+            SWAP(mp_size_t, u_size, v_size);
         }
         if (u->negative & v->negative) {
-            if (!u->size) {
+            if (!u_size) {
                 zz_clear(&o1);
                 zz_clear(&o2);
-                return zz_from_i64(0, w);
+                return zz_from_i32(0, w);
             }
-            if (zz_resize(u->size, w)) {
+            if (zz_resize(u_size, w)) {
                 goto err; /* LCOV_EXCL_LINE */
             }
             w->negative = false;
-            mpn_copyi(&w->digits[v->size], &u->digits[v->size],
-                      u->size - v->size);
-            if (v->size) {
-                mpn_xor_n(w->digits, u->digits, v->digits, v->size);
+            mpn_copyi(&w->digits[v_size], &u->digits[v_size], u_size - v_size);
+            if (v_size) {
+                mpn_xor_n(w->digits, u->digits, v->digits, v_size);
             }
             zz_normalize(w);
             zz_clear(&o1);
@@ -1349,46 +1471,45 @@ zz_xor(const zz_t *u, const zz_t *v, zz_t *w)
             return MP_OK;
         }
         else if (u->negative) {
-            if (zz_resize(u->size + 1, w)) {
+            if (zz_resize(u_size + 1, w)) {
                 goto err; /* LCOV_EXCL_LINE */
             }
             w->negative = true;
-            mpn_copyi(&w->digits[v->size], &u->digits[v->size],
-                      u->size - v->size);
-            mpn_xor_n(w->digits, v->digits, u->digits, v->size);
-            w->digits[u->size] = mpn_add_1(w->digits, w->digits, u->size, 1);
+            mpn_copyi(&w->digits[v_size], &u->digits[v_size], u_size - v_size);
+            mpn_xor_n(w->digits, v->digits, u->digits, v_size);
+            w->digits[u_size] = mpn_add_1(w->digits, w->digits, u_size, 1);
             zz_normalize(w);
             zz_clear(&o1);
             zz_clear(&o2);
             return MP_OK;
         }
         else {
-            if (zz_resize(u->size + 1, w)) {
+            if (zz_resize(u_size + 1, w)) {
                 goto err; /* LCOV_EXCL_LINE */
             }
             w->negative = true;
-            mpn_copyi(&w->digits[v->size], &u->digits[v->size],
-                      u->size - v->size);
-            if (v->size) {
-                mpn_xor_n(w->digits, u->digits, v->digits, v->size);
+            mpn_copyi(&w->digits[v_size], &u->digits[v_size], u_size - v_size);
+            if (v_size) {
+                mpn_xor_n(w->digits, u->digits, v->digits, v_size);
             }
-            w->digits[u->size] = mpn_add_1(w->digits, w->digits, u->size, 1);
+            w->digits[u_size] = mpn_add_1(w->digits, w->digits, u_size, 1);
             zz_normalize(w);
             zz_clear(&o1);
             zz_clear(&o2);
             return MP_OK;
         }
     }
-    if (u->size < v->size) {
+    if (u_size < v_size) {
         SWAP(const zz_t *, u, v);
+        SWAP(mp_size_t, u_size, v_size);
     }
-    if (zz_resize(u->size, w)) {
+    if (zz_resize(u_size, w)) {
         return MP_MEM; /* LCOV_EXCL_LINE */
     }
     w->negative = false;
-    mpn_xor_n(w->digits, u->digits, v->digits, v->size);
-    if (u->size != v->size) {
-        mpn_copyi(&w->digits[v->size], &u->digits[v->size], u->size - v->size);
+    mpn_xor_n(w->digits, u->digits, v->digits, v_size);
+    if (u_size != v_size) {
+        mpn_copyi(&w->digits[v_size], &u->digits[v_size], u_size - v_size);
     }
     else {
         zz_normalize(w);
@@ -1396,28 +1517,45 @@ zz_xor(const zz_t *u, const zz_t *v, zz_t *w)
     return MP_OK;
 }
 
+#define GMP_LIMB_MAX ((mp_limb_t) ~ (mp_limb_t) 0)
+
 mp_err
-zz_pow(const zz_t *u, const zz_t *v, zz_t *w)
+zz_pow(const zz_t *u, uint64_t v, zz_t *w)
 {
-    if (!v->size) {
-        return zz_from_i64(1, w);
+    if (u == w) {
+        zz_t tmp;
+
+        if (zz_init(&tmp) || zz_copy(u, &tmp)) {
+            /* LCOV_EXCL_START */
+            zz_clear(&tmp);
+            return MP_MEM;
+            /* LCOV_EXCL_STOP */
+        }
+
+        mp_err ret = zz_pow(&tmp, v, w);
+
+        zz_clear(&tmp);
+        return ret;
+    }
+    if (!v) {
+        return zz_from_i32(1, w);
     }
     if (!u->size) {
-        return zz_from_i64(0, w);
+        return zz_from_i32(0, w);
     }
-    if (u->size == 1 && u->digits[0] == 1) {
+    if (zz_cmp_i32(u, 1) == MP_EQ) {
         if (u->negative) {
-            return zz_from_i64(v->digits[0]%2 ? -1 : 1, w);
+            return zz_from_i32(v%2 ? -1 : 1, w);
         }
         else {
-            return zz_from_i64(1, w);
+            return zz_from_i32(1, w);
         }
     }
-    if (v->size > 1 || v->negative) {
-        return MP_MEM;
+    if (v > GMP_LIMB_MAX) {
+        return MP_BUF;
     }
 
-    mp_limb_t e = v->digits[0];
+    mp_limb_t e = (mp_limb_t)v;
     mp_size_t w_size = u->size * e;
     mp_limb_t *tmp = malloc(w_size * sizeof(mp_limb_t));
 
@@ -1440,7 +1578,6 @@ zz_pow(const zz_t *u, const zz_t *v, zz_t *w)
     return MP_OK;
 }
 
-#define ABS(a) ((a) < 0 ? (-a) : (a))
 #define MIN(a, b) ((a) < (b) ? (a) : (b))
 
 mp_err
@@ -1475,7 +1612,7 @@ zz_gcd(const zz_t *u, const zz_t *v, zz_t *w)
     if (zz_copy(u, o1) || zz_copy(v, o2)) {
         goto clear; /* LCOV_EXCL_LINE */
     }
-    if (shift && (zz_rshift1(o1, shift, o1) || zz_rshift1(o2, shift, o2))) {
+    if (shift && (zz_quo_2exp(o1, shift, o1) || zz_quo_2exp(o2, shift, o2))) {
         goto clear; /* LCOV_EXCL_LINE */
     }
     u = o1;
@@ -1491,7 +1628,7 @@ zz_gcd(const zz_t *u, const zz_t *v, zz_t *w)
     zz_clear(o2);
     free(o1);
     free(o2);
-    if (shift && zz_lshift1(w, shift, w)) {
+    if (shift && zz_mul_2exp(w, shift, w)) {
         return MP_MEM; /* LCOV_EXCL_LINE */
     }
     return MP_OK;
@@ -1627,7 +1764,7 @@ zz_inverse(const zz_t *u, const zz_t *v, zz_t *w)
         return MP_MEM;
         /* LCOV_EXCL_STOP */
     }
-    if (g.size == 1 && g.digits[0] == 1) {
+    if (zz_cmp_i32(&g, 1) == MP_EQ) {
         zz_clear(&g);
         return MP_OK;
     }
@@ -1695,6 +1832,51 @@ zz_powm(const zz_t *u, const zz_t *v, const zz_t *w, zz_t *res)
     if (!w->size) {
         return MP_VAL;
     }
+    if (u == res) {
+        zz_t tmp;
+
+        if (zz_init(&tmp) || zz_copy(u, &tmp)) {
+            /* LCOV_EXCL_START */
+            zz_clear(&tmp);
+            return MP_MEM;
+            /* LCOV_EXCL_STOP */
+        }
+
+        mp_err ret = zz_powm(&tmp, v, w, res);
+
+        zz_clear(&tmp);
+        return ret;
+    }
+    if (v == res) {
+        zz_t tmp;
+
+        if (zz_init(&tmp) || zz_copy(v, &tmp)) {
+            /* LCOV_EXCL_START */
+            zz_clear(&tmp);
+            return MP_MEM;
+            /* LCOV_EXCL_STOP */
+        }
+
+        mp_err ret = zz_powm(u, &tmp, w, res);
+
+        zz_clear(&tmp);
+        return ret;
+    }
+    if (w == res) {
+        zz_t tmp;
+
+        if (zz_init(&tmp) || zz_copy(w, &tmp)) {
+            /* LCOV_EXCL_START */
+            zz_clear(&tmp);
+            return MP_MEM;
+            /* LCOV_EXCL_STOP */
+        }
+
+        mp_err ret = zz_powm(u, v, &tmp, res);
+
+        zz_clear(&tmp);
+        return ret;
+    }
 
     int negativeOutput = 0;
     zz_t o1, o2, o3;
@@ -1749,17 +1931,17 @@ zz_powm(const zz_t *u, const zz_t *v, const zz_t *w, zz_t *res)
         zz_clear(&tmp);
         u = &o1;
     }
-    if (w->size == 1 && w->digits[0] == 1) {
-        ret = zz_from_i64(0, res);
+    if (zz_cmp_i32(w, 1) == MP_EQ) {
+        ret = zz_from_i32(0, res);
     }
     else if (!v->size) {
-        ret = zz_from_i64(1, res);
+        ret = zz_from_i32(1, res);
     }
     else if (!u->size) {
-        ret = zz_from_i64(0, res);
+        ret = zz_from_i32(0, res);
     }
-    else if (u->size == 1 && u->digits[0] == 1) {
-        ret = zz_from_i64(1, res);
+    else if (zz_cmp_i32(u, 1) == MP_EQ) {
+        ret = zz_from_i32(1, res);
     }
     else {
         if (_zz_powm(u, v, w, res)) {
@@ -1823,12 +2005,9 @@ zz_sqrtrem(const zz_t *u, zz_t *v, zz_t *w)
 
 #define MK_ZZ_FUNC_UL(name, mpz_suff)                \
     mp_err                                           \
-    zz_##name(int64_t u, zz_t *v)                    \
+    zz_##name(uint64_t u, zz_t *v)                   \
     {                                                \
-        if (u < 0) {                                 \
-            return MP_VAL;                           \
-        }                                            \
-        if ((uint64_t)u > ULONG_MAX) {               \
+        if (u > ULONG_MAX) {                         \
             return MP_BUF;                           \
         }                                            \
         if (TMP_OVERFLOW) {                          \
