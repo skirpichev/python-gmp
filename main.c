@@ -2505,20 +2505,22 @@ gmp_exec(PyObject *m)
     return 0;
 }
 
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wpedantic"
+#ifdef __GNUC__
+#  pragma GCC diagnostic push
+#  pragma GCC diagnostic ignored "-Wpedantic"
+#endif
 static PyModuleDef_Slot gmp_slots[] = {
     {Py_mod_exec, gmp_exec},
-#  if PY_VERSION_HEX >= 0x030C0000
-    {Py_mod_multiple_interpreters,
-     Py_MOD_MULTIPLE_INTERPRETERS_NOT_SUPPORTED},
-#  endif
-#  if PY_VERSION_HEX >= 0x030D0000
+#if PY_VERSION_HEX >= 0x030C0000
+    {Py_mod_multiple_interpreters, Py_MOD_MULTIPLE_INTERPRETERS_NOT_SUPPORTED},
+#endif
+#if PY_VERSION_HEX >= 0x030D0000
     {Py_mod_gil, Py_MOD_GIL_NOT_USED},
-#  endif
-    {0, NULL}
-};
-#pragma GCC diagnostic pop
+#endif
+    {0, NULL}};
+#ifdef __GNUC__
+#  pragma GCC diagnostic pop
+#endif
 
 static struct PyModuleDef gmp_module = {
     PyModuleDef_HEAD_INIT,
