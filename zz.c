@@ -1177,6 +1177,9 @@ zz_and(const zz_t *u, const zz_t *v, zz_t *w)
     if (!u->size || !v->size) {
         return zz_from_i32(0, w);
     }
+
+    mp_size_t u_size = u->size, v_size = v->size;
+
     if (u->negative || v->negative) {
         zz_t o1, o2;
 
@@ -1194,6 +1197,7 @@ zz_and(const zz_t *u, const zz_t *v, zz_t *w)
             }
             o1.negative = true;
             u = &o1;
+            u_size = u->size;
         }
         if (v->negative) {
             if (zz_invert(v, &o2)) {
@@ -1201,66 +1205,67 @@ zz_and(const zz_t *u, const zz_t *v, zz_t *w)
             }
             o2.negative = true;
             v = &o2;
+            v_size = v->size;
         }
-        if (u->size < v->size) {
+        if (u_size < v_size) {
             SWAP(const zz_t *, u, v);
+            SWAP(mp_size_t, u_size, v_size);
         }
         if (u->negative & v->negative) {
-            if (!u->size) {
+            if (!u_size) {
                 zz_clear(&o1);
                 zz_clear(&o2);
                 return zz_from_i32(-1, w);
             }
-            if (zz_resize(u->size + 1, w)) {
+            if (zz_resize(u_size + 1, w)) {
                 goto err; /* LCOV_EXCL_LINE */
             }
             w->negative = true;
-            mpn_copyi(&w->digits[v->size], &u->digits[v->size],
-                      u->size - v->size);
-            if (v->size) {
-                mpn_ior_n(w->digits, u->digits, v->digits, v->size);
+            mpn_copyi(&w->digits[v_size], &u->digits[v_size], u_size - v_size);
+            if (v_size) {
+                mpn_ior_n(w->digits, u->digits, v->digits, v_size);
             }
-            w->digits[u->size] = mpn_add_1(w->digits, w->digits, u->size, 1);
+            w->digits[u_size] = mpn_add_1(w->digits, w->digits, u_size, 1);
             zz_normalize(w);
             zz_clear(&o1);
             zz_clear(&o2);
             return MP_OK;
         }
         else if (u->negative) {
-            if (zz_resize(v->size, w)) {
+            if (zz_resize(v_size, w)) {
                 goto err; /* LCOV_EXCL_LINE */
             }
             w->negative = false;
-            mpn_andn_n(w->digits, v->digits, u->digits, v->size);
+            mpn_andn_n(w->digits, v->digits, u->digits, v_size);
             zz_normalize(w);
             zz_clear(&o1);
             zz_clear(&o2);
             return MP_OK;
         }
         else {
-            if (zz_resize(u->size, w)) {
+            if (zz_resize(u_size, w)) {
                 goto err; /* LCOV_EXCL_LINE */
             }
             w->negative = false;
-            if (v->size) {
-                mpn_andn_n(w->digits, u->digits, v->digits, v->size);
+            if (v_size) {
+                mpn_andn_n(w->digits, u->digits, v->digits, v_size);
             }
-            mpn_copyi(&w->digits[v->size], &u->digits[v->size],
-                      u->size - v->size);
+            mpn_copyi(&w->digits[v_size], &u->digits[v_size], u_size - v_size);
             zz_normalize(w);
             zz_clear(&o1);
             zz_clear(&o2);
             return MP_OK;
         }
     }
-    if (u->size < v->size) {
+    if (u_size < v_size) {
         SWAP(const zz_t *, u, v);
+        SWAP(mp_size_t, u_size, v_size);
     }
-    if (zz_resize(v->size, w)) {
+    if (zz_resize(v_size, w)) {
         return MP_MEM; /* LCOV_EXCL_LINE */
     }
     w->negative = false;
-    mpn_and_n(w->digits, u->digits, v->digits, v->size);
+    mpn_and_n(w->digits, u->digits, v->digits, v_size);
     zz_normalize(w);
     return MP_OK;
 }
@@ -1274,6 +1279,9 @@ zz_or(const zz_t *u, const zz_t *v, zz_t *w)
     if (!v->size) {
         return zz_copy(u, w);
     }
+
+    mp_size_t u_size = u->size, v_size = v->size;
+
     if (u->negative || v->negative) {
         zz_t o1, o2;
 
@@ -1299,49 +1307,48 @@ zz_or(const zz_t *u, const zz_t *v, zz_t *w)
             o2.negative = true;
             v = &o2;
         }
-        if (u->size < v->size) {
+        if (u_size < v_size) {
             SWAP(const zz_t *, u, v);
+            SWAP(mp_size_t, u_size, v_size);
         }
         if (u->negative & v->negative) {
-            if (!v->size) {
+            if (!v_size) {
                 zz_clear(&o1);
                 zz_clear(&o2);
                 return zz_from_i32(-1, w);
             }
-            if (zz_resize(v->size + 1, w)) {
+            if (zz_resize(v_size + 1, w)) {
                 goto err; /* LCOV_EXCL_LINE */
             }
             w->negative = true;
-            mpn_and_n(w->digits, u->digits, v->digits, v->size);
-            w->digits[v->size] = mpn_add_1(w->digits, w->digits, v->size, 1);
+            mpn_and_n(w->digits, u->digits, v->digits, v_size);
+            w->digits[v_size] = mpn_add_1(w->digits, w->digits, v_size, 1);
             zz_normalize(w);
             zz_clear(&o1);
             zz_clear(&o2);
             return MP_OK;
         }
         else if (u->negative) {
-            if (zz_resize(u->size + 1, w)) {
+            if (zz_resize(u_size + 1, w)) {
                 goto err; /* LCOV_EXCL_LINE */
             }
             w->negative = true;
-            mpn_copyi(&w->digits[v->size], &u->digits[v->size],
-                      u->size - v->size);
-            mpn_andn_n(w->digits, u->digits, v->digits, v->size);
-            w->digits[u->size] = mpn_add_1(w->digits, w->digits, u->size, 1);
+            mpn_copyi(&w->digits[v_size], &u->digits[v_size], u_size - v_size);
+            mpn_andn_n(w->digits, u->digits, v->digits, v_size);
+            w->digits[u_size] = mpn_add_1(w->digits, w->digits, u_size, 1);
             zz_normalize(w);
             zz_clear(&o1);
             zz_clear(&o2);
             return MP_OK;
         }
         else {
-            if (zz_resize(v->size + 1, w)) {
+            if (zz_resize(v_size + 1, w)) {
                 goto err; /* LCOV_EXCL_LINE */
             }
             w->negative = true;
-            if (v->size) {
-                mpn_andn_n(w->digits, v->digits, u->digits, v->size);
-                w->digits[v->size] = mpn_add_1(w->digits, w->digits, v->size,
-                                               1);
+            if (v_size) {
+                mpn_andn_n(w->digits, v->digits, u->digits, v_size);
+                w->digits[v_size] = mpn_add_1(w->digits, w->digits, v_size, 1);
                 zz_normalize(w);
             }
             else {
@@ -1352,16 +1359,17 @@ zz_or(const zz_t *u, const zz_t *v, zz_t *w)
             return MP_OK;
         }
     }
-    if (u->size < v->size) {
+    if (u_size < v_size) {
         SWAP(const zz_t *, u, v);
+        SWAP(mp_size_t, u_size, v_size);
     }
-    if (zz_resize(u->size, w)) {
+    if (zz_resize(u_size, w)) {
         return MP_MEM; /* LCOV_EXCL_LINE */
     }
     w->negative = false;
-    mpn_ior_n(w->digits, u->digits, v->digits, v->size);
-    if (u->size != v->size) {
-        mpn_copyi(&w->digits[v->size], &u->digits[v->size], u->size - v->size);
+    mpn_ior_n(w->digits, u->digits, v->digits, v_size);
+    if (u_size != v_size) {
+        mpn_copyi(&w->digits[v_size], &u->digits[v_size], u_size - v_size);
     }
     return MP_OK;
 }
@@ -1375,6 +1383,9 @@ zz_xor(const zz_t *u, const zz_t *v, zz_t *w)
     if (!v->size) {
         return zz_copy(u, w);
     }
+
+    mp_size_t u_size = u->size, v_size = v->size;
+
     if (u->negative || v->negative) {
         zz_t o1, o2;
 
@@ -1400,23 +1411,23 @@ zz_xor(const zz_t *u, const zz_t *v, zz_t *w)
             o2.negative = true;
             v = &o2;
         }
-        if (u->size < v->size) {
+        if (u_size < v_size) {
             SWAP(const zz_t *, u, v);
+            SWAP(mp_size_t, u_size, v_size);
         }
         if (u->negative & v->negative) {
-            if (!u->size) {
+            if (!u_size) {
                 zz_clear(&o1);
                 zz_clear(&o2);
                 return zz_from_i32(0, w);
             }
-            if (zz_resize(u->size, w)) {
+            if (zz_resize(u_size, w)) {
                 goto err; /* LCOV_EXCL_LINE */
             }
             w->negative = false;
-            mpn_copyi(&w->digits[v->size], &u->digits[v->size],
-                      u->size - v->size);
-            if (v->size) {
-                mpn_xor_n(w->digits, u->digits, v->digits, v->size);
+            mpn_copyi(&w->digits[v_size], &u->digits[v_size], u_size - v_size);
+            if (v_size) {
+                mpn_xor_n(w->digits, u->digits, v->digits, v_size);
             }
             zz_normalize(w);
             zz_clear(&o1);
@@ -1424,46 +1435,45 @@ zz_xor(const zz_t *u, const zz_t *v, zz_t *w)
             return MP_OK;
         }
         else if (u->negative) {
-            if (zz_resize(u->size + 1, w)) {
+            if (zz_resize(u_size + 1, w)) {
                 goto err; /* LCOV_EXCL_LINE */
             }
             w->negative = true;
-            mpn_copyi(&w->digits[v->size], &u->digits[v->size],
-                      u->size - v->size);
-            mpn_xor_n(w->digits, v->digits, u->digits, v->size);
-            w->digits[u->size] = mpn_add_1(w->digits, w->digits, u->size, 1);
+            mpn_copyi(&w->digits[v_size], &u->digits[v_size], u_size - v_size);
+            mpn_xor_n(w->digits, v->digits, u->digits, v_size);
+            w->digits[u_size] = mpn_add_1(w->digits, w->digits, u_size, 1);
             zz_normalize(w);
             zz_clear(&o1);
             zz_clear(&o2);
             return MP_OK;
         }
         else {
-            if (zz_resize(u->size + 1, w)) {
+            if (zz_resize(u_size + 1, w)) {
                 goto err; /* LCOV_EXCL_LINE */
             }
             w->negative = true;
-            mpn_copyi(&w->digits[v->size], &u->digits[v->size],
-                      u->size - v->size);
-            if (v->size) {
-                mpn_xor_n(w->digits, u->digits, v->digits, v->size);
+            mpn_copyi(&w->digits[v_size], &u->digits[v_size], u_size - v_size);
+            if (v_size) {
+                mpn_xor_n(w->digits, u->digits, v->digits, v_size);
             }
-            w->digits[u->size] = mpn_add_1(w->digits, w->digits, u->size, 1);
+            w->digits[u_size] = mpn_add_1(w->digits, w->digits, u_size, 1);
             zz_normalize(w);
             zz_clear(&o1);
             zz_clear(&o2);
             return MP_OK;
         }
     }
-    if (u->size < v->size) {
+    if (u_size < v_size) {
         SWAP(const zz_t *, u, v);
+        SWAP(mp_size_t, u_size, v_size);
     }
-    if (zz_resize(u->size, w)) {
+    if (zz_resize(u_size, w)) {
         return MP_MEM; /* LCOV_EXCL_LINE */
     }
     w->negative = false;
-    mpn_xor_n(w->digits, u->digits, v->digits, v->size);
-    if (u->size != v->size) {
-        mpn_copyi(&w->digits[v->size], &u->digits[v->size], u->size - v->size);
+    mpn_xor_n(w->digits, u->digits, v->digits, v_size);
+    if (u_size != v_size) {
+        mpn_copyi(&w->digits[v_size], &u->digits[v_size], u_size - v_size);
     }
     else {
         zz_normalize(w);
