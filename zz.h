@@ -22,7 +22,6 @@ typedef enum {
 mp_err zz_init(zz_t *u);
 mp_err zz_resize(mp_size_t size, zz_t *u);
 void zz_clear(zz_t *u);
-void zz_normalize(zz_t *u);
 
 typedef enum {
     MP_GT = +1,

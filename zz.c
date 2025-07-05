@@ -56,7 +56,7 @@ zz_clear(zz_t *u)
     u->digits = NULL;
 }
 
-void
+static void
 zz_normalize(zz_t *u)
 {
     while (u->size && u->digits[u->size - 1] == 0) {

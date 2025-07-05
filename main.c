@@ -209,7 +209,7 @@ MPZ_from_str(PyObject *obj, int base)
                                                \
     z->_mp_d = LS(u);                          \
     z->_mp_size = (ISNEG(u) ? -1 : 1) * SZ(u); \
-    z->_mp_alloc = SZ(u);
+    z->_mp_alloc = (u->z).alloc;
 
 #if !defined(PYPY_VERSION) && !defined(GRAALVM_PYTHON)
 #  define BITS_TO_LIMBS(n) (((n) + (GMP_NUMB_BITS - 1))/GMP_NUMB_BITS)
@@ -239,7 +239,7 @@ MPZ_from_int(PyObject *obj)
         TMP_MPZ(z, res)
         mpz_import(z, ndigits, int_digits_order, int_digit_size,
                    int_endianness, int_nails, long_export.digits);
-        zz_normalize(&res->z);
+        SZ(res) = z->_mp_size;
         PyLong_FreeExport(&long_export);
     }
     else {
@@ -2129,11 +2129,14 @@ normalize_mpf(long sign, MPZ_Object *man, PyObject *exp, mp_bitcnt_t bc,
                 int t = (LS(res)[0]&1 && (LS(res)[0]&2
                          || mpn_scan1(LS(man), 0) + 2 <= shift));
 
-                mpn_rshift(LS(res), LS(res), SZ(res), 1);
-                if (t) {
-                    mpn_add_1(LS(res), LS(res), SZ(res), 1);
+                zz_quo_2exp(&res->z, 1, &res->z);
+                if (t && zz_add_i32(&res->z, 1, &res->z)) {
+                    /* LCOV_EXCL_START */
+                    Py_DECREF((PyObject *)res);
+                    Py_DECREF(exp);
+                    return NULL;
+                    /* LCOV_EXCL_STOP */
                 }
-                zz_normalize(&res->z);
         }
         if (!(tmp = PyLong_FromUnsignedLongLong(shift))) {
             /* LCOV_EXCL_START */
