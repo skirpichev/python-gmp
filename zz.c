@@ -996,17 +996,17 @@ err:
 }
 
 mp_err
-zz_quo_2exp(const zz_t *u, mp_limb_t rshift, zz_t *v)
+zz_quo_2exp(const zz_t *u, uint64_t shift, zz_t *v)
 {
     if (!u->size) {
         v->size = 0;
         return MP_OK;
     }
 
-    mp_size_t whole = rshift / GMP_NUMB_BITS;
+    mp_size_t whole = shift / GMP_NUMB_BITS;
     mp_size_t size = u->size;
 
-    rshift %= GMP_NUMB_BITS;
+    shift %= GMP_NUMB_BITS;
     if (whole >= size) {
         return zz_from_i32(u->negative ? -1 : 0, v);
     }
@@ -1033,8 +1033,8 @@ zz_quo_2exp(const zz_t *u, mp_limb_t rshift, zz_t *v)
     if (extra) {
         v->digits[size] = 0;
     }
-    if (rshift) {
-        if (mpn_rshift(v->digits, u->digits + whole, size, rshift)) {
+    if (shift) {
+        if (mpn_rshift(v->digits, u->digits + whole, size, shift)) {
             carry = u->negative;
         }
     }
@@ -1051,25 +1051,25 @@ zz_quo_2exp(const zz_t *u, mp_limb_t rshift, zz_t *v)
 }
 
 mp_err
-zz_mul_2exp(const zz_t *u, mp_limb_t lshift, zz_t *v)
+zz_mul_2exp(const zz_t *u, uint64_t shift, zz_t *v)
 {
     if (!u->size) {
         v->size = 0;
         return MP_OK;
     }
 
-    mp_size_t whole = lshift / GMP_NUMB_BITS;
+    mp_size_t whole = shift / GMP_NUMB_BITS;
     mp_size_t u_size = u->size, v_size = u_size + whole;
 
-    lshift %= GMP_NUMB_BITS;
-    if (zz_resize(v_size + (bool)lshift, v)) {
+    shift %= GMP_NUMB_BITS;
+    if (zz_resize(v_size + (bool)shift, v)) {
         return MP_MEM; /* LCOV_EXCL_LINE */
     }
     v->negative = u->negative;
-    if (lshift) {
+    if (shift) {
         v->size -= !(bool)(v->digits[v_size] = mpn_lshift(v->digits + whole,
                                                           u->digits, u_size,
-                                                          lshift));
+                                                          shift));
     }
     else {
         mpn_copyd(v->digits + whole, u->digits, u_size);
