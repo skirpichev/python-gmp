@@ -380,12 +380,9 @@ const unsigned char DIGIT_VALUE_TAB[] =
 };
 
 mp_err
-zz_from_str(const int8_t *str, size_t len, int base, zz_t *u)
+zz_from_str(const int8_t *str, size_t len, int8_t base, zz_t *u)
 {
-    if (base != 0 && (base < 2 || base > 36)) {
-        return MP_VAL;
-    }
-    if (!len) {
+    if (base < 2 || base > 36) {
         return MP_VAL;
     }
 
@@ -403,36 +400,6 @@ zz_from_str(const int8_t *str, size_t len, int base, zz_t *u)
     if (len && p[0] == '+') {
         p++;
         len--;
-    }
-    if (p[0] == '0' && len >= 2) {
-        if (base == 0) {
-            if (tolower(p[1]) == 'b') {
-                base = 2;
-            }
-            else if (tolower(p[1]) == 'o') {
-                base = 8;
-            }
-            else if (tolower(p[1]) == 'x') {
-                base = 16;
-            }
-            else {
-                goto err;
-            }
-        }
-        if ((tolower(p[1]) == 'b' && base == 2)
-            || (tolower(p[1]) == 'o' && base == 8)
-            || (tolower(p[1]) == 'x' && base == 16))
-        {
-            p += 2;
-            len -= 2;
-            if (len && p[0] == '_') {
-                p++;
-                len--;
-            }
-        }
-    }
-    if (base == 0) {
-        base = 10;
     }
     if (!len) {
         goto err;
