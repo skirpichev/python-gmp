@@ -628,6 +628,12 @@ def test_power_mixed(x, y):
 @example(1, 123, 12)
 @example(0, 123, 7)
 @example(123, 0, 7)
+@example(123, 1, 7)
+@example(123, 11, 4)
+@example(122, 11, 4)
+@example(111, 11, 10001)
+@example(111, 11, 10001*2**67)
+@example(110, 11*2**80, 10001*2**67)
 def test_power_mod(x, y, z):
     mx = mpz(x)
     my = mpz(y)
