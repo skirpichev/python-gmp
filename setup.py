@@ -16,7 +16,7 @@ else:
     library_dirs = []
 
 setup(ext_modules=[Extension("gmp",
-                             sources=["main.c", "zz.c"],
+                             sources=["fmt.c", "main.c", "zz.c"],
                              libraries=["gmp"],
                              include_dirs=include_dirs,
                              library_dirs=library_dirs)])
