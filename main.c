@@ -13,7 +13,7 @@
 extern jmp_buf gmp_env;
 
 #define TRACKER_MAX_SIZE 64
-static struct {
+_Thread_local struct {
     size_t size;
     void *ptrs[TRACKER_MAX_SIZE];
 } gmp_tracker;
