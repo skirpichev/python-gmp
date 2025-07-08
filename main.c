@@ -99,7 +99,7 @@ gmp_free_function(void *ptr, size_t size)
 #define SZ(op) (((op)->z).size)
 #define ISNEG(op) (((op)->z).negative)
 
-#if !defined(PYPY_VERSION) && !Py_GIL_DISABLED
+#if !defined(PYPY_VERSION) && !defined(Py_GIL_DISABLED)
 #  define CACHE_SIZE (99)
 #else
 #  define CACHE_SIZE (0)
@@ -312,15 +312,12 @@ MPZ_from_str(PyObject *obj, int base)
     return res;
 }
 
-#if !defined(PYPY_VERSION) && !defined(GRAALVM_PYTHON)
-static mp_layout *int_layout;
-#endif
-
 static MPZ_Object *
 MPZ_from_int(PyObject *obj)
 {
 #if !defined(PYPY_VERSION) && !defined(GRAALVM_PYTHON)
-    static PyLongExport long_export;
+    PyLongExport long_export = {0, 0, 0, 0, 0};
+    const mp_layout *int_layout = (mp_layout *)PyLong_GetNativeLayout();
     MPZ_Object *res = NULL;
 
     if (PyLong_Export(obj, &long_export) < 0) {
@@ -378,6 +375,7 @@ MPZ_to_int(MPZ_Object *u)
     }
 
 #if !defined(PYPY_VERSION) && !defined(GRAALVM_PYTHON)
+    const mp_layout *int_layout = (mp_layout *)PyLong_GetNativeLayout();
     size_t size = (zz_bitlen(&u->z) + int_layout->bits_per_digit
                    - 1)/int_layout->bits_per_digit;
     void *digits;
@@ -2492,10 +2490,6 @@ gmp_exec(PyObject *m)
 {
     mp_set_memory_functions(gmp_allocate_function, gmp_reallocate_function,
                             gmp_free_function);
-#if !defined(PYPY_VERSION) && !defined(GRAALVM_PYTHON)
-    /* Query parameters of Python’s internal representation of integers. */
-    int_layout = (mp_layout *)PyLong_GetNativeLayout();
-#endif
     if (PyModule_AddType(m, &MPZ_Type) < 0) {
         return -1; /* LCOV_EXCL_LINE */
     }
