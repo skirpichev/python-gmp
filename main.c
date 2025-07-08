@@ -13,8 +13,14 @@
 
 extern jmp_buf gmp_env;
 
+#if !defined(_MSC_VER)
+#  define _Py_thread_local _Thread_local
+#else
+#  define _Py_thread_local __declspec(thread)
+#endif
+
 #define TRACKER_MAX_SIZE 64
-_Thread_local struct {
+_Py_thread_local struct {
     size_t size;
     void *ptrs[TRACKER_MAX_SIZE];
 } gmp_tracker;
