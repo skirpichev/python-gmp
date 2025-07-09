@@ -401,6 +401,7 @@ typedef struct {
                                the n_grouped_digits width. */
 } NumberFieldWidths;
 
+#if PY_VERSION_HEX > 0x030D00A0
 /* _PyUnicode_InsertThousandsGrouping() helper functions */
 
 typedef struct {
@@ -477,7 +478,6 @@ InsertThousandsGrouping_fill(_PyUnicodeWriter *writer, Py_ssize_t *buffer_pos,
     }
 }
 
-#if PY_VERSION_HEX > 0x030D00A0
 static Py_ssize_t
 _PyUnicode_InsertThousandsGrouping(_PyUnicodeWriter *writer,
                                    Py_ssize_t n_buffer, PyObject *digits,
