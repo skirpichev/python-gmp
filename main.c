@@ -1454,7 +1454,7 @@ static PyObject *
 bit_count(PyObject *self, PyObject *Py_UNUSED(args))
 {
     MPZ_Object *u = (MPZ_Object *)self;
-    mp_bitcnt_t count = SZ(u) ? mpn_popcount(LS(u), SZ(u)) : 0;
+    mp_bitcnt_t count = zz_bitcnt(&u->z);
 
     return PyLong_FromUnsignedLongLong(count);
 }

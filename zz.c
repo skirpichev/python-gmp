@@ -615,6 +615,12 @@ zz_scan1(const zz_t *u, mp_bitcnt_t bit)
     }
 }
 
+mp_bitcnt_t
+zz_bitcnt(const zz_t *u)
+{
+    return u->size ? mpn_popcount(u->digits, u->size) : 0;
+}
+
 #define TMP_ZZ(z, u)                                \
     mpz_t z;                                        \
                                                     \
