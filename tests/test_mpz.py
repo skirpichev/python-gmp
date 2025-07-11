@@ -616,6 +616,8 @@ def test_xor(x, y):
 @example(1, 1<<128)
 @example(90605555449081991889354259339521952450308780844225461, 64)
 def test_lshift(x, y):
+    if platform.python_implementation() == "GraalVM" and y < 0:
+        return  # XXX: oracle/graalpython#516
     mx = mpz(x)
     my = mpz(y)
     try:
