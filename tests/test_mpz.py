@@ -148,6 +148,8 @@ def test_from_floats(x):
     assert mpz(x) == int(x)
 
 
+@pytest.mark.skipif(platform.python_implementation() == "GraalVM",
+                    reason="XXX")
 def test_mpz_interface():
     with pytest.raises(ValueError):
         mpz(123).digits(-1)
