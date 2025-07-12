@@ -685,8 +685,7 @@ calc_number_widths(NumberFieldWidths *spec, Py_ssize_t n_prefix,
             spec->n_lpadding = n_padding;
             break;
         default:
-            /* Shouldn't get here */
-            Py_UNREACHABLE();
+            Py_UNREACHABLE(); /* LCOV_EXCL_LINE */
         }
     }
     if (spec->n_lpadding || spec->n_spadding || spec->n_rpadding) {
@@ -1049,7 +1048,7 @@ format_long_internal(MPZ_Object *value, const InternalFormatSpec *format)
         /* Do the hard part, converting to a string in a given base */
         tmp = MPZ_to_str(value, base, OPT_PREFIX);
         if (tmp == NULL) {
-            goto done;
+            goto done; /* LCOV_EXCL_LINE */
         }
         /* The number of prefix chars is the same as the leading
            chars to skip */
@@ -1090,7 +1089,7 @@ format_long_internal(MPZ_Object *value, const InternalFormatSpec *format)
     PyUnicodeWriter *writer = PyUnicodeWriter_Create(n_total);
 
     if (!writer) {
-        goto done;
+        goto done; /* LCOV_EXCL_LINE */
     }
     /* Populate the memory. */
     if (fill_number(writer, &spec, tmp, inumeric_chars, tmp, prefix,
@@ -1122,7 +1121,7 @@ __format__(PyObject *self, PyObject *format_spec)
     if (!parse_internal_render_format_spec(self, format_spec, 0, end,
                                            &format, 'd', '>'))
     {
-        return NULL;
+        return NULL; /* LCOV_EXCL_LINE */
     }
     switch (format.type) {
     case 'b':
@@ -1144,7 +1143,7 @@ __format__(PyObject *self, PyObject *format_spec)
         PyObject *flt = PyNumber_Float(self);
 
         if (!flt) {
-            return NULL;
+            return NULL; /* LCOV_EXCL_LINE */
         }
 
         PyObject *res = PyObject_CallMethod(flt, "__format__", "O",

@@ -61,7 +61,7 @@ def test_underscores_auto(s):
 
 
 @composite
-def fmt_str(draw, types="bdoxX"):
+def fmt_str(draw, types="bdoxXn"):
     res = ""
     type = draw(sampled_from(types))
 
@@ -98,7 +98,8 @@ def fmt_str(draw, types="bdoxX"):
     # grouping character (thousand_separators)
     gchar = draw(sampled_from([""] + list(",_")))
     if (gchar and not skip_thousand_separators
-            and not (gchar == "," and type in ["b", "o", "x", "X"])):
+            and not (gchar == "," and type in ["b", "o", "x", "X"])
+            and not type == "n"):
         res += gchar
 
     # Type
@@ -113,6 +114,7 @@ def fmt_str(draw, types="bdoxX"):
 @example(-3912, "1=28d")
 @example(-3912, "0=28d")
 @example(-3912, "028d")
+@example(-3912, "28n")
 def test___format___bulk(x, fmt):
     mx = mpz(x)
     r = format(x, fmt)
@@ -123,7 +125,15 @@ def test___format___interface():
     mx = mpz(123)
     pytest.raises(ValueError, lambda: format(mx, "q"))
     pytest.raises(ValueError, lambda: format(mx, "\x81"))
+    pytest.raises(ValueError, lambda: format(mx, "zd"))
+    pytest.raises(ValueError, lambda: format(mx, ".10d"))
+    pytest.raises(ValueError, lambda: format(mx, "_n"))
+    pytest.raises(ValueError, lambda: format(mx, "_c"))
+    pytest.raises(ValueError, lambda: format(mx, "f=10dx"))
+    pytest.raises(ValueError, lambda: format(mx, ".d"))
+    pytest.raises(ValueError, lambda: format(mx, "f=10000000000000000000d"))
     assert format(mx, ".2f") == "123.00"
+    assert format(mx, "") == "123"
 
 
 @given(integers())
