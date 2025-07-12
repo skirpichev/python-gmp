@@ -544,7 +544,7 @@ zz_to_bytes(const zz_t *u, size_t length, bool is_signed, uint8_t **buffer)
         || (is_signed && nbits
             && (nbits == 8 * length ? !is_negative : is_negative)))
     {
-    overflow:
+overflow:
         zz_clear(&tmp);
         return MP_BUF;
     }
@@ -1122,7 +1122,7 @@ zz_truediv(const zz_t *u, const zz_t *v, double *res)
 
     if (zz_init(&tmp1) || zz_init(&tmp2)) {
         /* LCOV_EXCL_START */
-    tmp_clear:
+tmp_clear:
         zz_clear(&tmp1);
         zz_clear(&tmp2);
         return MP_MEM;
@@ -1205,7 +1205,7 @@ zz_and(const zz_t *u, const zz_t *v, zz_t *w)
 
         if (zz_init(&o1) || zz_init(&o2)) {
             /* LCOV_EXCL_START */
-        err:
+err:
             zz_clear(&o1);
             zz_clear(&o2);
             /* LCOV_EXCL_STOP */
@@ -1307,7 +1307,7 @@ zz_or(const zz_t *u, const zz_t *v, zz_t *w)
 
         if (zz_init(&o1) || zz_init(&o2)) {
             /* LCOV_EXCL_START */
-        err:
+err:
             zz_clear(&o1);
             zz_clear(&o2);
             /* LCOV_EXCL_STOP */
@@ -1411,7 +1411,7 @@ zz_xor(const zz_t *u, const zz_t *v, zz_t *w)
 
         if (zz_init(&o1) || zz_init(&o2)) {
             /* LCOV_EXCL_START */
-        err:
+err:
             zz_clear(&o1);
             zz_clear(&o2);
             /* LCOV_EXCL_STOP */
@@ -1886,7 +1886,7 @@ zz_powm(const zz_t *u, const zz_t *v, const zz_t *w, zz_t *res)
             goto end3; /* LCOV_EXCL_LINE */
         }
         if (ret == MP_VAL) {
-        end3:
+end3:
             zz_clear(&o1);
             zz_clear(&o2);
             zz_clear(&o3);

@@ -297,7 +297,7 @@ MPZ_from_str(PyObject *obj, int base)
     else if (ret == MP_VAL) {
         Py_DECREF(res);
         if (2 <= base && base <= 36) {
-        err:
+err:
             PyErr_Format(PyExc_ValueError,
                          "invalid literal for mpz() with base %d: %.200R",
                          base, obj);
