@@ -3,8 +3,8 @@
 #define PY_SSIZE_T_CLEAN
 #include <Python.h>
 
-#include "zz.h"
 #include "mpz.h"
+#include "zz.h"
 
 #include <float.h>
 #include <gmp.h>
@@ -700,16 +700,17 @@ static void
 dealloc(PyObject *self)
 {
     MPZ_Object *u = (MPZ_Object *)self;
+    PyTypeObject *type = Py_TYPE(self);
 
     if (global.gmp_cache_size < CACHE_SIZE
         && SZ(u) <= MAX_CACHE_MPZ_LIMBS
-        && MPZ_CheckExact((PyObject *)u))
+        && MPZ_CheckExact(self))
     {
         global.gmp_cache[(global.gmp_cache_size)++] = u;
     }
     else {
         zz_clear(&u->z);
-        Py_TYPE((PyObject *)u)->tp_free((PyObject *)u);
+        type->tp_free(self);
     }
 }
 
@@ -844,7 +845,20 @@ str(PyObject *self)
         goto fallback;          \
     }
 
-PyObject * to_float(PyObject *self);
+PyObject *
+to_float(PyObject *self)
+{
+    double d;
+    MPZ_Object *u = (MPZ_Object *)self;
+    mp_err ret = zz_to_double(&u->z, &d);
+
+    if (ret == MP_BUF) {
+        PyErr_SetString(PyExc_OverflowError,
+                        "integer too large to convert to float");
+        return NULL;
+    }
+    return PyFloat_FromDouble(d);
+}
 
 static PyObject *
 richcompare(PyObject *self, PyObject *other, int op)
@@ -955,20 +969,6 @@ PyObject *
 to_int(PyObject *self)
 {
     return MPZ_to_int((MPZ_Object *)self);
-}
-
-PyObject *
-to_float(PyObject *self)
-{
-    double d;
-    mp_err ret = zz_to_double(&((MPZ_Object *)self)->z, &d);
-
-    if (ret == MP_BUF) {
-        PyErr_SetString(PyExc_OverflowError,
-                        "integer too large to convert to float");
-        return NULL;
-    }
-    return PyFloat_FromDouble(d);
 }
 
 static int
@@ -1135,8 +1135,7 @@ nb_divmod(PyObject *self, PyObject *other)
         Py_DECREF(q);
         Py_DECREF(r);
         if (ret == MP_VAL) {
-            PyErr_SetString(PyExc_ZeroDivisionError,
-                            "division by zero");
+            PyErr_SetString(PyExc_ZeroDivisionError, "division by zero");
         }
         else {
             PyErr_NoMemory(); /* LCOV_EXCL_LINE */
@@ -1181,8 +1180,7 @@ nb_truediv(PyObject *self, PyObject *other)
         goto end;
     }
     if (ret == MP_VAL) {
-        PyErr_SetString(PyExc_ZeroDivisionError,
-                        "division by zero");
+        PyErr_SetString(PyExc_ZeroDivisionError, "division by zero");
     }
     else if (ret == MP_BUF) {
         PyErr_SetString(PyExc_OverflowError,
@@ -2312,7 +2310,7 @@ gmp__mpmath_normalize(PyObject *self, PyObject *const *args, Py_ssize_t nargs)
     }
 
     long sign = PyLong_AsLong(args[0]);
-    MPZ_Object *man = (MPZ_Object*)args[1];
+    MPZ_Object *man = (MPZ_Object *)args[1];
     PyObject *exp = args[2];
     mp_bitcnt_t bc = PyLong_AsUnsignedLongLong(args[3]);
     mp_bitcnt_t prec = PyLong_AsUnsignedLongLong(args[4]);
