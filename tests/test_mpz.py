@@ -113,10 +113,17 @@ def fmt_str(draw, types="bdoxX"):
 @example(-3912, "1=28d")
 @example(-3912, "0=28d")
 @example(-3912, "028d")
-def test___format__(x, fmt):
+def test___format___bulk(x, fmt):
     mx = mpz(x)
     r = format(x, fmt)
     assert format(mx, fmt) == r
+
+
+def test___format___interface():
+    mx = mpz(123)
+    pytest.raises(ValueError, lambda: format(mx, "q"))
+    pytest.raises(ValueError, lambda: format(mx, "\x81"))
+    assert format(mx, ".2f") == "123.00"
 
 
 @given(integers())

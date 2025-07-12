@@ -1119,12 +1119,11 @@ __format__(PyObject *self, PyObject *format_spec)
 
     InternalFormatSpec format;
 
-    /* parse the format_spec */
     if (!parse_internal_render_format_spec(self, format_spec, 0, end,
                                            &format, 'd', '>'))
-        goto done;
-
-    /* type conversion? */
+    {
+        return NULL;
+    }
     switch (format.type) {
     case 'b':
     case 'c':
@@ -1133,9 +1132,7 @@ __format__(PyObject *self, PyObject *format_spec)
     case 'x':
     case 'X':
     case 'n':
-        /* no type conversion needed, already an int.  do the formatting */
         return format_long_internal((MPZ_Object *)self, &format);
-
     case 'e':
     case 'E':
     case 'f':
@@ -1143,25 +1140,23 @@ __format__(PyObject *self, PyObject *format_spec)
     case 'g':
     case 'G':
     case '%':
-        {
-            /* convert to float */
-            PyObject *tmp = to_float(self);
+    {
+        PyObject *flt = PyNumber_Float(self);
 
-            if (tmp == NULL) {
-                return NULL;
-            }
-
-            PyObject *res = PyObject_CallMethod(tmp, "__format__", "O",
-                                                format_spec);
-            Py_DECREF(tmp);
-            return res;
+        if (!flt) {
+            return NULL;
         }
-    default:
-        /* unknown */
-        unknown_presentation_type(format.type, Py_TYPE(self)->tp_name);
+
+        PyObject *res = PyObject_CallMethod(flt, "__format__", "O",
+                                            format_spec);
+
+        Py_DECREF(flt);
+        return res;
     }
-done:
-    return NULL;
+    default:
+        unknown_presentation_type(format.type, Py_TYPE(self)->tp_name);
+        return NULL;
+    }
 }
 #else
 extern PyObject * to_int(PyObject *self);
