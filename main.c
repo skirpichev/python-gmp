@@ -111,7 +111,7 @@ typedef struct {
     size_t gmp_cache_size;
 } gmp_global;
 
-static gmp_global global = {
+_Py_thread_local gmp_global global = {
     .gmp_cache_size = 0,
 };
 
