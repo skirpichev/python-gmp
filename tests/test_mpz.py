@@ -169,6 +169,8 @@ def test_mpz_interface():
         mpz("1", base=10**1000)
     with pytest.raises(ValueError):
         mpz(" ")
+    with pytest.raises(ValueError):
+        mpz("ыыы")
     assert mpz() == mpz(0) == 0
     assert mpz("  -123") == -123
     assert mpz("123  ") == 123
@@ -176,6 +178,8 @@ def test_mpz_interface():
     assert mpz("+123") == 123
     assert mpz("١٢٣٤") == 1234  # unicode decimal digits
     assert mpz("١23") == 123
+    assert mpz("\t123") == 123
+    assert mpz("\xa0123") == 123
 
     class with_int:
         def __init__(self, value):
@@ -417,6 +421,8 @@ def test_divmod_errors():
         divmod(mx, 1j)
     with pytest.raises(TypeError):
         divmod(mx, object())
+    with pytest.raises(ZeroDivisionError):
+        divmod(mx, 0)
 
 
 @pytest.mark.skipif(platform.python_implementation() == "GraalVM",
@@ -447,6 +453,17 @@ def test_truediv(x, y):
 @given(integers(), floats(allow_nan=False), complex_numbers(allow_nan=False))
 def test_truediv_mixed(x, y, z):
     mx = mpz(x)
+    if not x:
+        with pytest.raises(ZeroDivisionError):
+            y / mx
+    else:
+        try:
+            r = y / mx
+        except OverflowError:
+            with pytest.raises(OverflowError):
+                y / mx
+        else:
+            assert y / mx == r
     if not y:
         with pytest.raises(ZeroDivisionError):
             mx / y
@@ -472,6 +489,12 @@ def test_truediv_mixed(x, y, z):
                 assert cmath.isnan(mx / z)
             else:
                 assert mx / z == r
+
+
+def test_truediv_errors():
+    mx = mpz(123)
+    pytest.raises(TypeError, lambda: mx / object())
+    pytest.raises(TypeError, lambda: object() / mx)
 
 
 @pytest.mark.skipif(platform.python_implementation() == "GraalVM",
