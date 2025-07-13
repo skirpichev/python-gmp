@@ -549,7 +549,6 @@ PyUnicode_TransformDecimalAndSpaceToASCII(PyObject *unicode)
             if (decimal < 0) {
                 out[i] = '?';
                 out[i + 1] = '\0';
-                ((PyASCIIObject *)result)->length = i + 1;
                 break;
             }
             out[i] = '0' + decimal;
@@ -1520,7 +1519,7 @@ to_bytes(PyObject *self, PyObject *const *args, Py_ssize_t nargs,
 }
 
 static PyObject *
-_from_bytes(PyObject *Py_UNUSED(module), PyObject *arg)
+_from_bytes(PyObject *Py_UNUSED(type), PyObject *arg)
 {
     return (PyObject *)MPZ_from_bytes(arg, 0, 1);
 }
@@ -1678,15 +1677,14 @@ __round__(PyObject *self, PyObject *const *args, Py_ssize_t nargs)
     return (PyObject *)res;
 }
 
-static PyObject *from_bytes_func;
-
 static PyObject *
 __reduce_ex__(PyObject *self, PyObject *Py_UNUSED(args))
 {
     MPZ_Object *u = (MPZ_Object *)self;
     Py_ssize_t len = zz_bitlen(&u->z);
 
-    return Py_BuildValue("O(N)", from_bytes_func,
+    return Py_BuildValue("N(N)",
+                         PyObject_GetAttrString(self, "_from_bytes"),
                          MPZ_to_bytes(u, (len + 7)/8 + 1, 0, 1));
 }
 
@@ -1822,6 +1820,7 @@ static PyMethodDef methods[] = {
      ("digits($self, base=10, prefix=False)\n--\n\n"
       "Return Python string representing self in the given base.\n\n"
       "Values for base can range between 2 to 62.")},
+    {"_from_bytes", _from_bytes, METH_O | METH_CLASS, NULL},
     {NULL} /* sentinel */
 };
 
@@ -2451,7 +2450,6 @@ static PyMethodDef gmp_functions[] = {
     {"fib", gmp_fib, METH_O,
      ("fib($module, n, /)\n--\n\n"
       "Return the n-th Fibonacci number.")},
-    {"_from_bytes", _from_bytes, METH_O, NULL},
     {"_mpmath_normalize", (PyCFunction)gmp__mpmath_normalize, METH_FASTCALL,
      NULL},
     {"_mpmath_create", (PyCFunction)gmp__mpmath_create, METH_FASTCALL, NULL},
@@ -2589,8 +2587,6 @@ gmp_exec(PyObject *m)
     Py_DECREF(ns);
     Py_DECREF(importlib);
     Py_DECREF(res);
-    from_bytes_func = PyObject_GetAttrString(m, "_from_bytes");
-    Py_INCREF(from_bytes_func);
     return 0;
 }
 
