@@ -543,7 +543,6 @@ PyUnicode_TransformDecimalAndSpaceToASCII(PyObject *unicode)
             if (decimal < 0) {
                 out[i] = '?';
                 out[i + 1] = '\0';
-                ((PyASCIIObject *)result)->length = i + 1;
                 break;
             }
             out[i] = '0' + decimal;
