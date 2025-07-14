@@ -684,16 +684,12 @@ calc_number_widths(NumberFieldWidths *spec, Py_ssize_t n_prefix,
         case '>':
             spec->n_lpadding = n_padding;
             break;
-        default:
-            Py_UNREACHABLE(); /* LCOV_EXCL_LINE */
+        default: /* LCOV_EXCL_LINE */
+            Py_UNREACHABLE();
         }
     }
     if (spec->n_lpadding || spec->n_spadding || spec->n_rpadding) {
         *maxchar = Py_MAX(*maxchar, format->fill_char);
-    }
-    if (spec->n_decimal) {
-        *maxchar = Py_MAX(*maxchar,
-                          PyUnicode_MAX_CHAR_VALUE(locale->decimal_point));
     }
 
     return (spec->n_lpadding + spec->n_sign + spec->n_prefix
@@ -746,10 +742,6 @@ fill_number(PyUnicodeWriter *writer, const NumberFieldWidths *spec,
         d_pos += spec->n_digits;
     }
     ((_PyUnicodeWriter *)writer)->pos += spec->n_grouped_digits;
-    if (spec->n_decimal) {
-        PyUnicodeWriter_WriteSubstring(writer, locale->decimal_point, 0, spec->n_decimal);
-        d_pos += 1;
-    }
     if (spec->n_remainder) {
         PyUnicodeWriter_WriteSubstring(writer, digits, d_pos, spec->n_remainder + d_pos);
     }
@@ -769,7 +761,7 @@ _PyMem_Strdup(const char *str)
     size_t size = strlen(str) + 1;
     char *copy = PyMem_Malloc(size);
     if (copy == NULL) {
-        return NULL;
+        return NULL; /* LCOV_EXCL_LINE */
     }
     memcpy(copy, str, size);
     return copy;
@@ -874,8 +866,10 @@ get_locale_info(enum LocaleType type, enum LocaleType frac_type,
            the string formatting. Copy the string to avoid this risk. */
         locale_info->grouping_buffer = _PyMem_Strdup(lc->grouping);
         if (locale_info->grouping_buffer == NULL) {
+            /* LCOV_EXCL_START */
             PyErr_NoMemory();
             return -1;
+            /* LCOV_EXCL_STOP */
         }
         locale_info->grouping = locale_info->grouping_buffer;
         break;
@@ -906,19 +900,6 @@ get_locale_info(enum LocaleType type, enum LocaleType frac_type,
         }
         locale_info->grouping = no_grouping;
         break;
-    }
-    if (frac_type != LT_NO_LOCALE) {
-        locale_info->frac_thousands_sep = PyUnicode_FromOrdinal(
-            frac_type == LT_DEFAULT_LOCALE ? ',' : '_');
-        if (!locale_info->frac_thousands_sep) {
-            return -1;
-        }
-        if (locale_info->grouping == no_grouping) {
-            locale_info->grouping = "\3";
-        }
-    }
-    else {
-        locale_info->frac_thousands_sep = Py_GetConstant(Py_CONSTANT_EMPTY_STR);
     }
     return 0;
 }
@@ -987,10 +968,7 @@ format_long_internal(MPZ_Object *value, const InternalFormatSpec *format)
         }
         /* taken from unicodeobject.c formatchar() */
         /* Integer input truncated to a character */
-        if (zz_to_i64(&value->z, &x)) {
-            goto done;
-        }
-        if (x < 0 || x > 0x10ffff) {
+        if (zz_to_i64(&value->z, &x) || x < 0 || x > 0x10ffff) {
             PyErr_SetString(PyExc_OverflowError,
                             "%c arg not in range(0x110000)");
             goto done;
