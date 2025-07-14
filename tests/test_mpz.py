@@ -1,4 +1,5 @@
 import cmath
+import locale
 import math
 import operator
 import pickle
@@ -114,6 +115,7 @@ def fmt_str(draw, types="bdoxXn"):
 @example(-3912, "1=28d")
 @example(-3912, "0=28d")
 @example(-3912, "028d")
+@example(-3912, "028_d")
 @example(-3912, "28n")
 def test___format___bulk(x, fmt):
     mx = mpz(x)
@@ -124,8 +126,8 @@ def test___format___bulk(x, fmt):
 def test___format___interface():
     mx = mpz(123)
     pytest.raises(ValueError, lambda: format(mx, "q"))
-    if (platform.python_implementation() == "PyPy"
-            and sys.version_info < (3, 11)):
+    if (platform.python_implementation() != "PyPy"
+            or sys.version_info >= (3, 11)):
         pytest.raises(ValueError, lambda: format(mx, "\x81"))
     pytest.raises(ValueError, lambda: format(mx, "zd"))
     pytest.raises(ValueError, lambda: format(mx, ".10d"))
@@ -157,6 +159,23 @@ def test___format___interface():
     if sys.version_info >= (3, 14):
         assert format(mx, ".,f") == "123.000,000"
         assert format(mx, "._f") == "123.000_000"
+
+    if platform.python_implementation() == "PyPy":
+        return  # issue pypy/pypy#5311
+
+    try:
+        locale.setlocale(locale.LC_ALL, "ru_RU.UTF-8")
+        s = locale.localeconv()["thousands_sep"]
+        assert format(mpz(123456789), "n") == f"123{s}456{s}789"
+        locale.setlocale(locale.LC_ALL, "C")
+        if platform.python_implementation() == "GraalVM":
+            return  # issue oracle/graalpython#521
+        locale.setlocale(locale.LC_NUMERIC, "ps_AF.UTF-8")
+        s = locale.localeconv()["thousands_sep"]
+        assert format(mpz(123456789), "n") == f"123{s}456{s}789"
+    except locale.Error:
+        pass
+    locale.setlocale(locale.LC_ALL, "C")
 
 
 @given(integers())

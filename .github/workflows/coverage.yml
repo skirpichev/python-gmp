@@ -22,6 +22,8 @@ jobs:
       - run: |
           sudo apt-get update
           sudo apt-get install lcov ninja-build
+      - run: sudo locale-gen ru_RU.UTF-8
+      - run: sudo locale-gen ps_AF.UTF-8
       - run: bash scripts/cibw_before_all.sh
       - run: pip install --upgrade pip
       - run: pip install --upgrade meson setuptools_scm
