@@ -62,6 +62,10 @@ jobs:
           path: build/
           merge-multiple: true
       - run: |
+          for f in build/coverage-*.info
+          do
+            lcov --remove $f "*.h" --ignore-errors unused --output-file $f
+          done
           genhtml build/coverage*.info --output-directory build/coverage
       - uses: actions/upload-artifact@v4
         with:
