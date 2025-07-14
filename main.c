@@ -1284,7 +1284,7 @@ power(PyObject *self, PyObject *other, PyObject *module)
             /* LCOV_EXCL_START */
             Py_CLEAR(res);
             PyErr_SetNone(PyExc_MemoryError);
-            /* LCOV_EXCL_END */
+            /* LCOV_EXCL_STOP */
         }
         Py_DECREF(u);
         Py_DECREF(v);
