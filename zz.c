@@ -9,6 +9,10 @@
 #include <stdlib.h>
 #include <string.h>
 
+#if GMP_NAIL_BITS != 0
+#  error "GMP_NAIL_BITS expected to be 0"
+#endif
+
 jmp_buf gmp_env;
 #define TMP_OVERFLOW (setjmp(gmp_env) == 1)
 
@@ -208,9 +212,6 @@ zz_to_i64(const zz_t *u, int64_t *v)
 
 #if GMP_NUMB_BITS < 64
     if (n == 2) {
-        if (u->digits[1] >> GMP_NAIL_BITS) {
-            return MP_VAL;
-        }
         uv += u->digits[1] << GMP_NUMB_BITS;
     }
 #else

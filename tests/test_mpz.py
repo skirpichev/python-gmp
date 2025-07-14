@@ -124,16 +124,39 @@ def test___format___bulk(x, fmt):
 def test___format___interface():
     mx = mpz(123)
     pytest.raises(ValueError, lambda: format(mx, "q"))
-    pytest.raises(ValueError, lambda: format(mx, "\x81"))
+    if (platform.python_implementation() == "PyPy"
+            and sys.version_info < (3, 11)):
+        pytest.raises(ValueError, lambda: format(mx, "\x81"))
     pytest.raises(ValueError, lambda: format(mx, "zd"))
     pytest.raises(ValueError, lambda: format(mx, ".10d"))
     pytest.raises(ValueError, lambda: format(mx, "_n"))
+    pytest.raises(ValueError, lambda: format(mx, ",n"))
     pytest.raises(ValueError, lambda: format(mx, "_c"))
     pytest.raises(ValueError, lambda: format(mx, "f=10dx"))
     pytest.raises(ValueError, lambda: format(mx, ".d"))
     pytest.raises(ValueError, lambda: format(mx, "f=10000000000000000000d"))
+    pytest.raises(ValueError, lambda: format(mx, ".10000000000000000000f"))
+    pytest.raises(ValueError, lambda: format(mx, ",_d"))
+    pytest.raises(ValueError, lambda: format(mx, "_,d"))
+    pytest.raises(ValueError, lambda: format(mx, ",x"))
+    pytest.raises(ValueError, lambda: format(mx, ",\xa0"))
+    pytest.raises(ValueError, lambda: format(mx, "+c"))
+    pytest.raises(ValueError, lambda: format(mx, "#c"))
+    pytest.raises(OverflowError, lambda: format(mpz(123456789), "c"))
+    if sys.version_info >= (3, 14):
+        pytest.raises(ValueError, lambda: format(mx, ".10,_f"))
+        pytest.raises(ValueError, lambda: format(mx, ".10_,f"))
+        pytest.raises(ValueError, lambda: format(mx, ".10_n"))
+        pytest.raises(ValueError, lambda: format(mx, ".10,n"))
     assert format(mx, ".2f") == "123.00"
     assert format(mx, "") == "123"
+    assert format(mx, "c") == "{"
+    assert format(mx, "010c") == "000000000{"
+    assert format(mx, "<10c") == "{         "
+
+    if sys.version_info >= (3, 14):
+        assert format(mx, ".,f") == "123.000,000"
+        assert format(mx, "._f") == "123.000_000"
 
 
 @given(integers())
