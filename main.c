@@ -172,7 +172,7 @@ MPZ_to_str(MPZ_Object *u, int base, int options)
     len++;
 
     int8_t *buf = malloc(len), *p = buf;
-    bool negative = ISNEG(u);
+    bool negative = zz_isneg(&u->z);
 
     if (!buf) {
         return PyErr_NoMemory(); /* LCOV_EXCL_LINE */
@@ -385,7 +385,7 @@ MPZ_to_int(MPZ_Object *u)
     size_t size = (zz_bitlen(&u->z) + int_layout->bits_per_digit
                    - 1)/int_layout->bits_per_digit;
     void *digits;
-    PyLongWriter *writer = PyLongWriter_Create(ISNEG(u), size, &digits);
+    PyLongWriter *writer = PyLongWriter_Create(zz_isneg(&u->z), size, &digits);
 
     if (!writer) {
         return NULL; /* LCOV_EXCL_LINE */
@@ -453,7 +453,7 @@ MPZ_to_bytes(MPZ_Object *u, Py_ssize_t length, int is_little, int is_signed)
     }
     Py_DECREF(bytes);
     if (ret == MP_BUF) {
-        if (ISNEG(u) && !is_signed) {
+        if (zz_isneg(&u->z) && !is_signed) {
             PyErr_SetString(PyExc_OverflowError,
                             "can't convert negative mpz to unsigned");
         }
@@ -674,7 +674,7 @@ new(PyTypeObject *type, PyObject *args, PyObject *keywds)
             return NULL;
             /* LCOV_EXCL_STOP */
         }
-        ISNEG(newobj) = ISNEG(tmp);
+        ISNEG(newobj) = zz_isneg(&tmp->z);
         if (zz_init(&newobj->z) || zz_resize(n, &newobj->z)) {
             /* LCOV_EXCL_START */
             Py_DECREF(tmp);
@@ -924,7 +924,7 @@ hash(PyObject *self)
     MPZ_Object *u = (MPZ_Object *)self;
     Py_hash_t r = mpn_mod_1(LS(u), SZ(u), _PyHASH_MODULUS);
 
-    if (ISNEG(u)) {
+    if (zz_isneg(&u->z)) {
         r = -r;
     }
     if (r == -1) {
@@ -960,7 +960,7 @@ to_int(PyObject *self)
 static int
 to_bool(PyObject *self)
 {
-    return SZ((MPZ_Object *)self) != 0;
+    return !zz_iszero(&((MPZ_Object *)self)->z);
 }
 
 #define BINOP_INT(suff)                                         \
@@ -1257,7 +1257,7 @@ power(PyObject *self, PyObject *other, PyObject *module)
     CHECK_OP(u, self);
     CHECK_OP(v, other);
     if (Py_IsNone(module)) {
-        if (ISNEG(v)) {
+        if (zz_isneg(&v->z)) {
             PyObject *uf, *vf, *resf;
 
             uf = to_float((PyObject *)u);
@@ -1278,8 +1278,8 @@ power(PyObject *self, PyObject *other, PyObject *module)
             return resf;
         }
         res = MPZ_new(0, 0);
-        if (!res || SZ(v) > 1 || ISNEG(v)
-            || zz_pow(&u->z, SZ(v) ? LS(v)[0] : 0, &res->z))
+        if (!res || SZ(v) > 1 || zz_isneg(&v->z)
+            || zz_pow(&u->z, !zz_iszero(&v->z) ? LS(v)[0] : 0, &res->z))
         {
             /* LCOV_EXCL_START */
             Py_CLEAR(res);
@@ -1903,12 +1903,6 @@ gmp_gcd(PyObject *Py_UNUSED(module), PyObject *const *args, Py_ssize_t nargs)
         Py_DECREF(arg);
         Py_SETREF(res, tmp);
     }
-    if (zz_resize(SZ(res), &res->z) == MP_MEM) {
-        /* LCOV_EXCL_START */
-        Py_DECREF(res);
-        return PyErr_NoMemory();
-        /* LCOV_EXCL_STOP */
-    }
     return (PyObject *)res;
 }
 
@@ -2098,7 +2092,7 @@ err:
                             #name "() argument must be an integer");     \
             goto err;                                                    \
         }                                                                \
-        if (ISNEG(x)) {                                                  \
+        if (zz_isneg(&x->z)) {                                                  \
             PyErr_SetString(PyExc_ValueError,                            \
                             #name "() not defined for negative values"); \
             goto err;                                                    \
@@ -2177,12 +2171,12 @@ normalize_mpf(long sign, MPZ_Object *man, PyObject *exp, mp_bitcnt_t bc,
     MPZ_Object *res = NULL;
 
     /* If the mantissa is 0, return the normalized representation. */
-    if (!SZ(man)) {
+    if (zz_iszero(&man->z)) {
         Py_INCREF((PyObject *)man);
         return build_mpf(0, man, 0, 0);
     }
     /* if bc <= prec and the number is odd return it */
-    if ((bc <= prec) && LS(man)[0] & 1) {
+    if (bc <= prec && zz_isodd(&man->z)) {
         Py_INCREF((PyObject *)man);
         Py_INCREF((PyObject *)exp);
         return build_mpf(sign, man, exp, bc);
@@ -2218,8 +2212,9 @@ normalize_mpf(long sign, MPZ_Object *man, PyObject *exp, mp_bitcnt_t bc,
             default:
                 res = MPZ_rshift1(man, shift - 1);
 
-                int t = (LS(res)[0]&1 && (LS(res)[0]&2
-                         || zz_scan1(&man->z, 0) + 2 <= shift));
+                int t = (zz_isodd(&res->z)
+                         && (LS(res)[0]&2
+                             || zz_scan1(&man->z, 0) + 2 <= shift));
 
                 zz_quo_2exp(&res->z, 1, &res->z);
                 if (t && zz_add_i32(&res->z, 1, &res->z)) {
@@ -2253,7 +2248,7 @@ normalize_mpf(long sign, MPZ_Object *man, PyObject *exp, mp_bitcnt_t bc,
         res = (MPZ_Object *)plus((PyObject *)man);
     }
     /* Strip trailing 0 bits. */
-    if (SZ(res) && (zbits = zz_scan1(&res->z, 0))) {
+    if (!zz_iszero(&res->z) && (zbits = zz_scan1(&res->z, 0))) {
         tmp = (PyObject *)MPZ_rshift1(res, zbits);
         if (!tmp) {
             /* LCOV_EXCL_START */
@@ -2350,7 +2345,7 @@ gmp__mpmath_create(PyObject *self, PyObject *const *args, Py_ssize_t nargs)
     }
 
     PyObject *exp = args[1];
-    long sign = ISNEG(man);
+    long sign = zz_isneg(&man->z);
 
     if (sign) {
         ISNEG(man) = 0;
@@ -2379,7 +2374,7 @@ gmp__mpmath_create(PyObject *self, PyObject *const *args, Py_ssize_t nargs)
     }
 
     if (!prec) {
-        if (!SZ(man)) {
+        if (zz_iszero(&man->z)) {
             return build_mpf(0, man, 0, 0);
         }
 
@@ -2387,7 +2382,7 @@ gmp__mpmath_create(PyObject *self, PyObject *const *args, Py_ssize_t nargs)
         PyObject *tmp, *newexp;
 
         /* Strip trailing 0 bits. */
-        if (SZ(man) && (zbits = zz_scan1(&man->z, 0))) {
+        if (!zz_iszero(&man->z) && (zbits = zz_scan1(&man->z, 0))) {
             tmp = (PyObject *)MPZ_rshift1(man, zbits);
             if (!tmp) {
                 /* LCOV_EXCL_START */
