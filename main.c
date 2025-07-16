@@ -675,7 +675,6 @@ new(PyTypeObject *type, PyObject *args, PyObject *keywds)
             return NULL; /* LCOV_EXCL_LINE */
         }
 
-        mp_size_t n = SZ(tmp);
         MPZ_Object *newobj = (MPZ_Object *)type->tp_alloc(type, 0);
 
         if (!newobj) {
@@ -684,17 +683,12 @@ new(PyTypeObject *type, PyObject *args, PyObject *keywds)
             return NULL;
             /* LCOV_EXCL_STOP */
         }
-        if (zz_isneg(&tmp->z)) {
-            (void)zz_neg(&newobj->z, &newobj->z);
-        }
-        if (zz_init(&newobj->z) || zz_resize(n, &newobj->z)) {
+        if (zz_init(&newobj->z) || zz_copy(&tmp->z, &newobj->z)) {
             /* LCOV_EXCL_START */
             Py_DECREF(tmp);
             return PyErr_NoMemory();
             /* LCOV_EXCL_STOP */
         }
-        memcpy(LS(newobj), LS(tmp), sizeof(mp_limb_t)*n);
-
         Py_DECREF(tmp);
         return (PyObject *)newobj;
     }
