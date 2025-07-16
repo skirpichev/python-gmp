@@ -95,9 +95,6 @@ gmp_free_function(void *ptr, size_t size)
     }
 }
 
-#define LS(op) (((op)->z).digits)
-#define SZ(op) (((op)->z).size)
-
 #if !defined(PYPY_VERSION) && !defined(Py_GIL_DISABLED)
 #  define CACHE_SIZE (99)
 #else
@@ -714,7 +711,7 @@ dealloc(PyObject *self)
     PyTypeObject *type = Py_TYPE(self);
 
     if (global.gmp_cache_size < CACHE_SIZE
-        && SZ(u) <= MAX_CACHE_MPZ_LIMBS
+        && (u->z).alloc <= MAX_CACHE_MPZ_LIMBS
         && MPZ_CheckExact(self))
     {
         global.gmp_cache[(global.gmp_cache_size)++] = u;
@@ -928,7 +925,7 @@ static Py_hash_t
 hash(PyObject *self)
 {
     MPZ_Object *u = (MPZ_Object *)self;
-    Py_hash_t r = mpn_mod_1(LS(u), SZ(u), _PyHASH_MODULUS);
+    Py_hash_t r = mpn_mod_1((u->z).digits, (u->z).size, _PyHASH_MODULUS);
 
     if (zz_isneg(&u->z)) {
         r = -r;
@@ -1284,9 +1281,10 @@ power(PyObject *self, PyObject *other, PyObject *module)
             return resf;
         }
         res = MPZ_new(0, 0);
-        if (!res || SZ(v) > 1 || zz_isneg(&v->z)
-            || zz_pow(&u->z, !zz_iszero(&v->z) ? LS(v)[0] : 0, &res->z))
-        {
+
+        int64_t exp;
+
+        if (!res || zz_to_i64(&v->z, &exp) || zz_pow(&u->z, exp, &res->z)) {
             /* LCOV_EXCL_START */
             Py_CLEAR(res);
             PyErr_SetNone(PyExc_MemoryError);
@@ -1699,7 +1697,8 @@ __sizeof__(PyObject *self, PyObject *Py_UNUSED(ignored))
 {
     MPZ_Object *u = (MPZ_Object *)self;
 
-    return PyLong_FromSize_t(sizeof(MPZ_Object) + SZ(u)*sizeof(mp_limb_t));
+    return PyLong_FromSize_t(sizeof(MPZ_Object)
+                             + (u->z).alloc*sizeof(mp_limb_t));
 }
 
 static PyObject *
@@ -2219,7 +2218,7 @@ normalize_mpf(long sign, MPZ_Object *man, PyObject *exp, mp_bitcnt_t bc,
                 res = MPZ_rshift1(man, shift - 1);
 
                 int t = (zz_isodd(&res->z)
-                         && (LS(res)[0]&2
+                         && (zz_scan1(&res->z, 1) == 1
                              || zz_scan1(&man->z, 0) + 2 <= shift));
 
                 zz_quo_2exp(&res->z, 1, &res->z);

@@ -945,9 +945,9 @@ def test___round__interface():
                     reason="sys.getsizeof raises TypeError")
 def test___sizeof__():
     limb_size = gmp_info[1]
-    ms = [mpz(1<<i*(8*limb_size)) for i in range(3)]
-    sz = sys.getsizeof(ms[1]) - sys.getsizeof(ms[0])
-    assert sys.getsizeof(ms[2]) - sys.getsizeof(ms[1]) == sz
+    for i in [1, 20, 300]:
+        ms = mpz(1<<i*(8*limb_size))
+        assert sys.getsizeof(ms) >= limb_size*i
 
 
 def to_digits(n, base):
