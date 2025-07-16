@@ -234,6 +234,30 @@ zz_to_i64(const zz_t *u, int64_t *v)
     return MP_VAL;
 }
 
+bool
+zz_iszero(const zz_t *u)
+{
+    return u->size == 0;
+}
+
+bool
+zz_isneg(const zz_t *u)
+{
+    return u->negative;
+}
+
+bool
+zz_isodd(const zz_t *u)
+{
+    return u->size && u->digits[0] & 1;
+}
+
+bool
+zz_iseven(const zz_t *u)
+{
+    return !u->size || !(u->digits[0] & 1);
+}
+
 mp_err
 zz_copy(const zz_t *u, zz_t *v)
 {

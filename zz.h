@@ -37,6 +37,11 @@ mp_err zz_to_i32(const zz_t *u, int32_t *v);
 mp_err zz_from_i64(int64_t u, zz_t *v);
 mp_err zz_to_i64(const zz_t *u, int64_t *v);
 
+bool zz_iszero(const zz_t *u);
+bool zz_isneg(const zz_t *u);
+bool zz_isodd(const zz_t *u);
+bool zz_iseven(const zz_t *u);
+
 mp_err zz_copy(const zz_t *u, zz_t *v);
 mp_err zz_abs(const zz_t *u, zz_t *v);
 mp_err zz_neg(const zz_t *u, zz_t *v);

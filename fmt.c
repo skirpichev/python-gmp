@@ -473,8 +473,7 @@ InsertThousandsGrouping_fill(_PyUnicodeWriter *writer, Py_ssize_t *buffer_pos,
                                   n_chars);
     if (n_zeros) {
         *buffer_pos -= n_zeros;
-        void *data = PyUnicode_DATA(writer->buffer);
-        PyUnicode_Fill(data, *buffer_pos, n_zeros, '0');
+        PyUnicode_Fill(writer->buffer, *buffer_pos, n_zeros, '0');
     }
 }
 
@@ -642,7 +641,13 @@ calc_number_widths(NumberFieldWidths *spec, Py_ssize_t n_prefix,
         + spec->n_frac + spec->n_remainder;
     /* min_width can go negative, that's okay. format->width == -1 means
        we don't care. */
-    spec->n_min_width = 0;
+    if (format->fill_char == '0' && format->align == '=') {
+        spec->n_min_width = (format->width - n_non_digit_non_padding
+                             + spec->n_frac - spec->n_grouped_frac_digits);
+    }
+    else {
+        spec->n_min_width = 0;
+    }
     if (spec->n_digits == 0)
         /* This case only occurs when using 'c' formatting, we need
            to special case it because the grouping code always wants
@@ -656,7 +661,7 @@ calc_number_widths(NumberFieldWidths *spec, Py_ssize_t n_prefix,
             spec->n_min_width,
             locale->grouping, locale->thousands_sep, &grouping_maxchar);
         if (spec->n_grouped_digits == -1) {
-            return -1;
+            return -1; /* LCOV_EXCL_LINE */
         }
         *maxchar = Py_MAX(*maxchar, grouping_maxchar);
     }
@@ -684,8 +689,10 @@ calc_number_widths(NumberFieldWidths *spec, Py_ssize_t n_prefix,
         case '>':
             spec->n_lpadding = n_padding;
             break;
-        default: /* LCOV_EXCL_LINE */
+        /* LCOV_EXCL_START */
+        default:
             Py_UNREACHABLE();
+        /* LCOV_EXCL_STOP */
         }
     }
     if (spec->n_lpadding || spec->n_spadding || spec->n_rpadding) {
@@ -736,7 +743,7 @@ fill_number(PyUnicodeWriter *writer, const NumberFieldWidths *spec,
                                                locale->grouping,
                                                locale->thousands_sep, NULL);
         if (r == -1) {
-            return -1;
+            return -1; /* LCOV_EXCL_LINE */
         }
         assert(r == spec->n_grouped_digits);
         d_pos += spec->n_digits;
@@ -793,14 +800,18 @@ _Py_GetLocaleconvNumeric(struct lconv *lc,
     if (change_locale) {
         oldloc = setlocale(LC_CTYPE, NULL);
         if (!oldloc) {
+            /* LCOV_EXCL_START */
             PyErr_SetString(PyExc_RuntimeWarning,
                             "failed to get LC_CTYPE locale");
             return -1;
+            /* LCOV_EXCL_STOP */
         }
         oldloc = _PyMem_Strdup(oldloc);
         if (!oldloc) {
+            /* LCOV_EXCL_START */
             PyErr_NoMemory();
             return -1;
+            /* LCOV_EXCL_STOP */
         }
         loc = setlocale(LC_NUMERIC, NULL);
         if (loc != NULL && strcmp(loc, oldloc) == 0) {
@@ -824,11 +835,11 @@ _Py_GetLocaleconvNumeric(struct lconv *lc,
 
     *decimal_point = GET_LOCALE_STRING(decimal_point);
     if (*decimal_point == NULL) {
-        goto done;
+        goto done; /* LCOV_EXCL_LINE */
     }
     *thousands_sep = GET_LOCALE_STRING(thousands_sep);
     if (*thousands_sep == NULL) {
-        goto done;
+        goto done; /* LCOV_EXCL_LINE */
     }
     res = 0;
 done:
@@ -859,7 +870,7 @@ get_locale_info(enum LocaleType type, enum LocaleType frac_type,
                                      &locale_info->decimal_point,
                                      &locale_info->thousands_sep) < 0)
         {
-            return -1;
+            return -1; /* LCOV_EXCL_LINE */
         }
         /* localeconv() grouping can become a dangling pointer or point
            to a different string if another thread calls localeconv() during
@@ -881,7 +892,7 @@ get_locale_info(enum LocaleType type, enum LocaleType frac_type,
         locale_info->thousands_sep = PyUnicode_FromOrdinal(
             type == LT_DEFAULT_LOCALE ? ',' : '_');
         if (!locale_info->decimal_point || !locale_info->thousands_sep) {
-            return -1;
+            return -1;  /* LCOV_EXCL_LINE */
         }
         if (type != LT_UNDER_FOUR_LOCALE) {
             locale_info->grouping = "\3"; /* Group every 3 characters.  The
@@ -896,7 +907,7 @@ get_locale_info(enum LocaleType type, enum LocaleType frac_type,
         locale_info->decimal_point = PyUnicode_FromOrdinal('.');
         locale_info->thousands_sep = Py_GetConstant(Py_CONSTANT_EMPTY_STR);
         if (!locale_info->decimal_point || !locale_info->thousands_sep) {
-            return -1;
+            return -1; /* LCOV_EXCL_LINE */
         }
         locale_info->grouping = no_grouping;
         break;
@@ -1053,28 +1064,31 @@ format_long_internal(MPZ_Object *value, const InternalFormatSpec *format)
                         format->thousands_separators, 0,
                         &locale) == -1)
     {
-        goto done;
+        goto done; /* LCOV_EXCL_LINE */
     }
     /* Calculate how much memory we'll need. */
     n_total = calc_number_widths(&spec, n_prefix, sign_char, inumeric_chars,
                                  inumeric_chars + n_digits, n_remainder, 0, 0,
                                  &locale, format, &maxchar);
     if (n_total == -1) {
-        goto done;
+        goto done; /* LCOV_EXCL_LINE */
     }
     /* Allocate the memory. */
 
     PyUnicodeWriter *writer = PyUnicodeWriter_Create(n_total);
 
-    if (!writer) {
+    if (!writer || PyUnicodeWriter_WriteChar(writer, maxchar)) {
         goto done; /* LCOV_EXCL_LINE */
     }
+    ((_PyUnicodeWriter *)writer)->pos = 0;
     /* Populate the memory. */
     if (fill_number(writer, &spec, tmp, inumeric_chars, tmp, prefix,
                     format->fill_char, &locale))
     {
+        /* LCOV_EXCL_START */
         PyUnicodeWriter_Discard(writer);
         goto done;
+        /* LCOV_EXCL_STOP */
     }
     return PyUnicodeWriter_Finish(writer);
 done:
