@@ -97,7 +97,6 @@ gmp_free_function(void *ptr, size_t size)
 
 #define LS(op) (((op)->z).digits)
 #define SZ(op) (((op)->z).size)
-#define ISNEG(op) (((op)->z).negative)
 
 #if !defined(PYPY_VERSION) && !defined(Py_GIL_DISABLED)
 #  define CACHE_SIZE (99)
@@ -128,14 +127,14 @@ MPZ_new(mp_size_t size, bool negative)
 
     if (global.gmp_cache_size && size <= MAX_CACHE_MPZ_LIMBS) {
         res = global.gmp_cache[--(global.gmp_cache_size)];
-        if (SZ(res) < size && zz_resize(size, &res->z) == MP_MEM) {
+        if (zz_resize(size, &res->z) == MP_MEM) {
             /* LCOV_EXCL_START */
             global.gmp_cache[(global.gmp_cache_size)++] = res;
             return (MPZ_Object *)PyErr_NoMemory();
             /* LCOV_EXCL_STOP */
         }
         Py_INCREF((PyObject *)res);
-        SZ(res) = size;
+        (void)zz_abs(&res->z, &res->z);
     }
     else {
         res = PyObject_New(MPZ_Object, &MPZ_Type);
@@ -146,7 +145,9 @@ MPZ_new(mp_size_t size, bool negative)
             return (MPZ_Object *)PyErr_NoMemory(); /* LCOV_EXCL_LINE */
         }
     }
-    ISNEG(res) = negative;
+    if (negative) {
+        (void)zz_neg(&res->z, &res->z);
+    }
     return res;
 }
 
@@ -205,15 +206,19 @@ MPZ_to_str(MPZ_Object *u, int base, int options)
     else if (negative) {
         *(p++) = '-';
     }
-    ISNEG(u) = false;
+    (void)zz_abs(&u->z, &u->z);
     if (zz_to_str(&u->z, base, p, &len)) {
         /* LCOV_EXCL_START */
-        ISNEG(u) = negative;
+        if (negative) {
+            (void)zz_neg(&u->z, &u->z);
+        }
         free(buf);
         return PyErr_NoMemory();
         /* LCOV_EXCL_STOP */
     }
-    ISNEG(u) = negative;
+    if (negative) {
+        (void)zz_neg(&u->z, &u->z);
+    }
     p += len;
     if (options & OPT_TAG) {
         *(p++) = ')';
@@ -314,7 +319,9 @@ err:
         }
         return NULL;
     }
-    ISNEG(res) = negative;
+    if (negative) {
+        (void)zz_neg(&res->z, &res->z);
+    }
     return res;
 }
 
@@ -330,11 +337,14 @@ MPZ_from_int(PyObject *obj)
         return res; /* LCOV_EXCL_LINE */
     }
     if (long_export.digits) {
-        res = MPZ_new(0, long_export.negative);
+        res = MPZ_new(0, 0);
         if (!res || zz_import(long_export.ndigits,
                               long_export.digits, *int_layout, &res->z))
         {
             return (MPZ_Object *)PyErr_NoMemory(); /* LCOV_EXCL_LINE */
+        }
+        if (long_export.negative) {
+            (void)zz_neg(&res->z, &res->z);
         }
         PyLong_FreeExport(&long_export);
     }
@@ -674,7 +684,9 @@ new(PyTypeObject *type, PyObject *args, PyObject *keywds)
             return NULL;
             /* LCOV_EXCL_STOP */
         }
-        ISNEG(newobj) = zz_isneg(&tmp->z);
+        if (zz_isneg(&tmp->z)) {
+            (void)zz_neg(&newobj->z, &newobj->z);
+        }
         if (zz_init(&newobj->z) || zz_resize(n, &newobj->z)) {
             /* LCOV_EXCL_START */
             Py_DECREF(tmp);
@@ -2206,7 +2218,7 @@ normalize_mpf(long sign, MPZ_Object *man, PyObject *exp, mp_bitcnt_t bc,
                 }
                 res = MPZ_rshift1((MPZ_Object *)tmp, shift);
                 Py_DECREF(tmp);
-                ISNEG(res) = 0;
+                (void)zz_abs(&res->z, &res->z);
                 break;
             case (Py_UCS4)'n':
             default:
@@ -2348,7 +2360,7 @@ gmp__mpmath_create(PyObject *self, PyObject *const *args, Py_ssize_t nargs)
     long sign = zz_isneg(&man->z);
 
     if (sign) {
-        ISNEG(man) = 0;
+        (void)zz_abs(&man->z, &man->z);
     }
 
     mp_bitcnt_t bc = zz_bitlen(&man->z);
