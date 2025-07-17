@@ -62,9 +62,6 @@ line-length = 79
 select = ["E", "F", "I", "PT", "W", "Q000"]
 ignore = ["PT011"]
 
-[tool.ruff.lint.isort]
-lines-after-imports = 2
-
 [tool.cibuildwheel]
 enable = "pypy cpython-prerelease cpython-freethreading graalpy"
 skip = """*-win32 *-manylinux_i686 *-musllinux_* \
