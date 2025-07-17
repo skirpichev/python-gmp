@@ -160,13 +160,15 @@ def test___format___interface():
         assert format(mx, ".,f") == "123.000,000"
         assert format(mx, "._f") == "123.000_000"
 
-    if platform.python_implementation() == "PyPy":
+    if (platform.python_implementation() == "PyPy"
+            and sys.pypy_version_info[:3] <= (7, 3, 20)):
         return  # issue pypy/pypy#5311
 
     try:
         locale.setlocale(locale.LC_ALL, "ru_RU.UTF-8")
         s = locale.localeconv()["thousands_sep"]
         assert format(mpz(123456789), "n") == f"123{s}456{s}789"
+        assert format(mpz(123), "011n") == f"000{s}000{s}123"
         locale.setlocale(locale.LC_ALL, "C")
         if platform.python_implementation() == "GraalVM":
             return  # issue oracle/graalpython#521
