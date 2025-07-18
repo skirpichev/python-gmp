@@ -139,8 +139,8 @@ MPZ_new(mp_size_t size)
             return (MPZ_Object *)PyErr_NoMemory();
             /* LCOV_EXCL_STOP */
         }
-        Py_INCREF((PyObject *)res);
         (void)zz_abs(&res->z, &res->z);
+        Py_INCREF((PyObject *)res);
     }
     else {
         res = PyObject_New(MPZ_Object, &MPZ_Type);
@@ -627,10 +627,8 @@ new_impl(PyTypeObject *Py_UNUSED(type), PyObject *arg, PyObject *base_arg)
                 return NULL;
             }
 
-            PyObject *res = (PyObject *)MPZ_from_int(integer);
-
-            Py_DECREF(integer);
-            return res;
+            Py_SETREF(integer, (PyObject *)MPZ_from_int(integer));
+            return integer;
         }
         goto str;
     }
