@@ -154,9 +154,8 @@ MPZ_to_str(MPZ_Object *u, int base, int options)
 {
     size_t len;
 
-    if (zz_sizeinbase(&u->z, Py_ABS(base), &len)) {
-        PyErr_SetString(PyExc_ValueError, "mpz base must be >= 2 and <= 36");
-        return NULL;
+    if (zz_sizeinbase(&u->z, base, &len)) {
+        goto bad_base;
     }
     if (options & OPT_TAG) {
         len += strlen(MPZ_TAG) + 1;
@@ -167,7 +166,7 @@ MPZ_to_str(MPZ_Object *u, int base, int options)
     len++;
 
     int8_t *buf = malloc(len), *p = buf;
-    bool negative = zz_isneg(&u->z);
+    bool negative = zz_isneg(&u->z), cast_abs = false;
 
     if (!buf) {
         return PyErr_NoMemory(); /* LCOV_EXCL_LINE */
@@ -179,6 +178,7 @@ MPZ_to_str(MPZ_Object *u, int base, int options)
     if (options & OPT_PREFIX) {
         if (negative) {
             *(p++) = '-';
+            cast_abs = true;
         }
         if (base == 2) {
             *(p++) = '0';
@@ -197,20 +197,26 @@ MPZ_to_str(MPZ_Object *u, int base, int options)
             *(p++) = 'X';
         }
     }
-    else if (negative) {
-        *(p++) = '-';
+    if (cast_abs) {
+        (void)zz_abs(&u->z, &u->z);
     }
-    (void)zz_abs(&u->z, &u->z);
-    if (zz_to_str(&u->z, base, p, &len)) {
-        /* LCOV_EXCL_START */
-        if (negative) {
+
+    mp_err ret = zz_to_str(&u->z, base, p, &len);
+
+    if (ret) {
+        if (cast_abs) {
             (void)zz_neg(&u->z, &u->z);
         }
         free(buf);
-        return PyErr_NoMemory();
-        /* LCOV_EXCL_STOP */
+        if (ret == MP_VAL) {
+bad_base:
+            PyErr_SetString(PyExc_ValueError,
+                            "mpz base must be >= 2 and <= 36");
+            return NULL;
+        }
+        return PyErr_NoMemory(); /* LCOV_EXCL_LINE */
     }
-    if (negative) {
+    if (cast_abs) {
         (void)zz_neg(&u->z, &u->z);
     }
     p += len;
@@ -245,10 +251,10 @@ MPZ_from_str(PyObject *obj, int base)
         len--;
     }
 
-    bool negative = (str[0] == '-');
+    bool cast_negative = (str[0] == '-');
 
-    str += negative;
-    len -= negative;
+    str += cast_negative;
+    len -= cast_negative;
     if (len && str[0] == '+') {
         str++;
         len--;
@@ -279,6 +285,15 @@ MPZ_from_str(PyObject *obj, int base)
                 len--;
             }
         }
+        else {
+            goto skip_negation;
+        }
+    }
+    else {
+skip_negation:
+        str -= cast_negative;
+        len += cast_negative;
+        cast_negative = false;
     }
     if (base == 0) {
         base = 10;
@@ -313,7 +328,7 @@ err:
         }
         return NULL;
     }
-    if (negative) {
+    if (cast_negative) {
         (void)zz_neg(&res->z, &res->z);
     }
     return res;
