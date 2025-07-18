@@ -149,7 +149,7 @@ zz_to_i32(const zz_t *u, int32_t *v)
         return MP_VAL;
     }
 
-    uint32_t uv = u->digits[0];
+    uint64_t uv = u->digits[0];
 
     if (u->negative) {
         if (uv <= INT32_MAX + 1UL) {
