@@ -929,6 +929,9 @@ def test_from_bytes_interface():
 @example(9007199254740993)
 @example(10965857771245191)
 @example(10<<10000)
+@example((1<<53) + 1)
+@example(1<<116)
+@example(646541478744828163276576707651635923929979156076518566789121)
 def test___float__(x):
     mx = mpz(x)
     try:

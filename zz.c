@@ -14,6 +14,10 @@
 #  error "GMP_NAIL_BITS expected to be 0"
 #endif
 
+#if GMP_NUMB_BITS < DBL_MANT_DIG
+#  error GMP_NUMB_BITS expected to be more than GMP_NUMB_BITS
+#endif
+
 jmp_buf gmp_env;
 #define TMP_OVERFLOW (setjmp(gmp_env) == 1)
 
@@ -474,10 +478,7 @@ _zz_to_double(const zz_t *u, mp_size_t shift, double *d)
         }
         i = us - 1;
         e = (us - 1)*GMP_NUMB_BITS + DBL_MANT_DIG - bits;
-        for (i = us - 1; i && bits >= GMP_NUMB_BITS;) {
-            bits -= GMP_NUMB_BITS;
-            man += u->digits[--i] << bits;
-        }
+        assert(bits < GMP_NUMB_BITS);
         if (i == 0) {
             goto done;
         }
