@@ -83,6 +83,7 @@ repair-wheel-command = """delvewheel repair -w {dest_dir} {wheel} \
 LD_LIBRARY_PATH = "$(pwd)/.local/lib:$LD_LIBRARY_PATH"
 PKG_CONFIG_PATH = "$(pwd)/.local/lib/pkgconfig"
 PYTEST_ADDOPTS = "--verbose"
+CFLAGS = "-Wall -Wpedantic -Werror -std=c17"
 
 [tool.cibuildwheel.windows.environment]
 PYTEST_ADDOPTS = "--verbose"
