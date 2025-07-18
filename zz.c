@@ -253,12 +253,6 @@ zz_isodd(const zz_t *u)
     return u->size && u->digits[0] & 1;
 }
 
-bool
-zz_iseven(const zz_t *u)
-{
-    return !u->size || !(u->digits[0] & 1);
-}
-
 mp_err
 zz_copy(const zz_t *u, zz_t *v)
 {
@@ -786,12 +780,6 @@ mp_err
 zz_add_i32(const zz_t *u, int32_t v, zz_t *w)
 {
     return _zz_addsub_i32(u, v, false, w);
-}
-
-mp_err
-zz_sub_i32(const zz_t *u, int32_t v, zz_t *w)
-{
-    return _zz_addsub_i32(u, v, true, w);
 }
 
 mp_err
