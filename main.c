@@ -2513,10 +2513,6 @@ gmp_exec(PyObject *m)
         return -1;
         /* LCOV_EXCL_STOP */
     }
-    if (PyModule_AddObject(m, "fac",
-                           PyObject_GetAttrString(m, "factorial")) < 0) {
-        return -1; /* LCOV_EXCL_LINE */
-    }
 
     PyObject *ns = PyDict_New();
 
@@ -2530,62 +2526,17 @@ gmp_exec(PyObject *m)
         /* LCOV_EXCL_STOP */
     }
 
-    PyObject *numbers = PyImport_ImportModule("numbers");
-
-    if (!numbers) {
-        /* LCOV_EXCL_START */
-        Py_DECREF(ns);
-        return -1;
-        /* LCOV_EXCL_STOP */
-    }
-
-    const char *str = "numbers.Integral.register(gmp.mpz)\n";
-
-    if (PyDict_SetItemString(ns, "numbers", numbers) < 0) {
-        /* LCOV_EXCL_START */
-        Py_DECREF(numbers);
-        Py_DECREF(ns);
-        return -1;
-        /* LCOV_EXCL_STOP */
-    }
+    const char *str = ("import numbers, importlib.metadata as imp\n"
+                       "numbers.Integral.register(gmp.mpz)\n"
+                       "gmp.fac = gmp.factorial\n"
+                       "gmp.__version__ = imp.version('python-gmp')\n");
 
     PyObject *res = PyRun_String(str, Py_file_input, ns, ns);
 
-    if (!res) {
-        /* LCOV_EXCL_START */
-        Py_DECREF(numbers);
-        Py_DECREF(ns);
-        return -1;
-        /* LCOV_EXCL_STOP */
-    }
-    Py_DECREF(res);
-
-    PyObject *importlib = PyImport_ImportModule("importlib.metadata");
-
-    if (!importlib) {
-        /* LCOV_EXCL_START */
-        Py_DECREF(ns);
-        return -1;
-        /* LCOV_EXCL_STOP */
-    }
-    if (PyDict_SetItemString(ns, "importlib", importlib) < 0) {
-        /* LCOV_EXCL_START */
-        Py_DECREF(ns);
-        Py_DECREF(importlib);
-        return -1;
-        /* LCOV_EXCL_STOP */
-    }
-    str = "gmp.__version__ = importlib.version('python-gmp')\n";
-    res = PyRun_String(str, Py_file_input, ns, ns);
-    if (!res) {
-        /* LCOV_EXCL_START */
-        Py_DECREF(ns);
-        Py_DECREF(importlib);
-        return -1;
-        /* LCOV_EXCL_STOP */
-    }
     Py_DECREF(ns);
-    Py_DECREF(importlib);
+    if (!res) {
+        return -1; /* LCOV_EXCL_LINE */
+    }
     Py_DECREF(res);
     return 0;
 }
