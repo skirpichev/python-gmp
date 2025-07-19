@@ -52,7 +52,7 @@ docs = ["sphinx>=8.2"]
 develop = ["python-gmp[tests,docs]", "pre-commit", "pyperf"]
 
 [tool.pytest.ini_options]
-addopts = "--durations=7"
+addopts = "--durations=7 --capture=no"
 xfail_strict = true
 
 [tool.ruff]
