@@ -32,7 +32,7 @@ jobs:
           PKG_CONFIG_PATH: .local/lib/pkgconfig
       - name: Build and run coverage tests
         run: |
-          meson setup build --prefix=/usr -Db_coverage=true
+          meson setup build -Db_coverage=true -Ddebug=true
           meson install -C build --destdir ../build-install
           export PYTHONPATH="$(find build-install -name site-packages)"
           python -m pytest --hypothesis-profile=default
