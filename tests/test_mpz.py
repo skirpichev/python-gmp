@@ -23,6 +23,24 @@ from hypothesis.strategies import (
 )
 
 
+class with_int:
+    def __init__(self, value):
+        self.value = value
+    def __int__(self):
+        try:
+            exc = issubclass(self.value, Exception)
+        except TypeError:
+            exc = False
+        if exc:
+            raise self.value
+        return self.value
+
+class int2(int):
+    pass
+
+class mpz2(mpz):
+    pass
+
 @given(integers())
 @example(0)
 @example(123)
@@ -244,15 +262,9 @@ def test_mpz_interface():
     assert mpz("-010") == -10
     assert mpz("-10") == -10
 
-    class with_int:
-        def __init__(self, value):
-            self.value = value
-        def __int__(self):
-            return self.value
-    class int2(int):
-        pass
-
     assert mpz(with_int(123)) == 123
+    with pytest.raises(RuntimeError):
+        mpz(with_int(RuntimeError))
     with pytest.deprecated_call():
         assert mpz(with_int(int2(123))) == 123
     with warnings.catch_warnings():
@@ -264,9 +276,6 @@ def test_mpz_interface():
 
 
 def test_mpz_subclasses():
-    class mpz2(mpz):
-        pass
-
     assert issubclass(mpz2, mpz)
     x = mpz2(123)
     assert type(x) is mpz2
@@ -280,15 +289,9 @@ def test_mpz_subclasses():
     with pytest.raises(TypeError):
         mpz2(1, spam=2)
 
-    class with_int:
-        def __init__(self, value):
-            self.value = value
-        def __int__(self):
-            return self.value
-    class int2(int):
-        pass
-
     assert mpz2(with_int(123)) == 123
+    with pytest.raises(RuntimeError):
+        mpz2(with_int(RuntimeError))
     with pytest.deprecated_call():
         assert mpz2(with_int(int2(123))) == 123
     with warnings.catch_warnings():
