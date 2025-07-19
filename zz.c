@@ -109,7 +109,7 @@ zz_cmp_i32(const zz_t *u, int32_t v)
         return sign;
     }
     else if (u->size != 1) {
-        return (u->size < 1) ? -sign : sign;
+        return u->size ? sign : (v ? -sign : MP_EQ);
     }
 
     mp_limb_t digit = ABS(v);
