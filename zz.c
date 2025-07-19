@@ -985,6 +985,43 @@ err:
 }
 
 mp_err
+zz_rem_u64(const zz_t* u, uint64_t v, uint64_t *w)
+{
+    if (!v) {
+        return MP_VAL;
+    }
+    if (!u->size) {
+        *w = 0;
+        goto sub;
+    }
+#if GMP_NUMB_BITS < 64
+    if (v > GMP_NUMB_MAX) {
+        if (u->size == 1) {
+            *w = u->digits[0];
+            goto sub;
+        }
+
+        mp_limb_t vd[2], rd[2];
+        zz_t t = {false, 0, 0, vd}, r = {false, 2, 2, rd};
+
+        vd[0] = v & GMP_NUMB_MASK;
+        vd[1] = v >> GMP_NUMB_BITS;
+        if (zz_div(u, &t, MP_RNDD, NULL, &r)) {
+            return MP_MEM; /* LCOV_EXCL_LINE */
+        }
+        *w = rd[0] + (rd[1] << GMP_NUMB_BITS);
+        return MP_OK;
+    }
+#endif
+    *w = mpn_mod_1(u->digits, u->size, v);
+sub:
+    if (*w && u->negative) {
+        *w = v - *w;
+    }
+    return MP_OK;
+}
+
+mp_err
 zz_quo_2exp(const zz_t *u, uint64_t shift, zz_t *v)
 {
     if (!u->size) {

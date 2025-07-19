@@ -944,9 +944,18 @@ static Py_hash_t
 hash(PyObject *self)
 {
     MPZ_Object *u = (MPZ_Object *)self;
-    Py_hash_t r = mpn_mod_1((u->z).digits, (u->z).size, _PyHASH_MODULUS);
+    bool negative = zz_isneg(&u->z);
 
-    if (zz_isneg(&u->z)) {
+    if (negative) {
+        (void)zz_abs(&u->z, &u->z);
+    }
+
+    Py_hash_t r;
+
+    assert(-(uint64_t)INT64_MIN > PyHASH_MODULUS);
+    (void)zz_rem_u64(&u->z, PyHASH_MODULUS, (uint64_t *)&r);
+    if (negative) {
+        (void)zz_neg(&u->z, &u->z);
         r = -r;
     }
     if (r == -1) {
