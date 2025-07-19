@@ -2237,8 +2237,8 @@ normalize_mpf(long sign, MPZ_Object *man, PyObject *exp, mp_bitcnt_t bc,
                 res = MPZ_rshift1(man, shift - 1);
 
                 int t = (zz_isodd(&res->z)
-                         && (zz_scan1(&res->z, 1) == 1
-                             || zz_scan1(&man->z, 0) + 2 <= shift));
+                         && ((&res->z)->digits[0]&2
+                             || zz_lsbpos(&man->z) + 2 <= shift));
 
                 zz_quo_2exp(&res->z, 1, &res->z);
                 if (t && zz_add_i32(&res->z, 1, &res->z)) {
@@ -2272,7 +2272,7 @@ normalize_mpf(long sign, MPZ_Object *man, PyObject *exp, mp_bitcnt_t bc,
         res = (MPZ_Object *)plus((PyObject *)man);
     }
     /* Strip trailing 0 bits. */
-    if (!zz_iszero(&res->z) && (zbits = zz_scan1(&res->z, 0))) {
+    if (!zz_iszero(&res->z) && (zbits = zz_lsbpos(&res->z))) {
         tmp = (PyObject *)MPZ_rshift1(res, zbits);
         if (!tmp) {
             /* LCOV_EXCL_START */
@@ -2406,7 +2406,7 @@ gmp__mpmath_create(PyObject *self, PyObject *const *args, Py_ssize_t nargs)
         PyObject *tmp, *newexp;
 
         /* Strip trailing 0 bits. */
-        if (!zz_iszero(&man->z) && (zbits = zz_scan1(&man->z, 0))) {
+        if (!zz_iszero(&man->z) && (zbits = zz_lsbpos(&man->z))) {
             tmp = (PyObject *)MPZ_rshift1(man, zbits);
             if (!tmp) {
                 /* LCOV_EXCL_START */

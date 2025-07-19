@@ -627,14 +627,9 @@ zz_bitlen(const zz_t *u)
 }
 
 mp_bitcnt_t
-zz_scan1(const zz_t *u, mp_bitcnt_t bit)
+zz_lsbpos(const zz_t *u)
 {
-    if (!u->size || u->negative) {
-        return ~(mp_bitcnt_t)0; /* XXX */
-    }
-    else {
-        return mpn_scan1(u->digits, bit);
-    }
+    return u->size ? mpn_scan1(u->digits, 0) : 0;
 }
 
 mp_bitcnt_t
