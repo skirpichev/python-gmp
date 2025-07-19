@@ -23,6 +23,24 @@ from hypothesis.strategies import (
 )
 
 
+class with_int:
+    def __init__(self, value):
+        self.value = value
+    def __int__(self):
+        try:
+            exc = issubclass(self.value, Exception)
+        except TypeError:
+            exc = False
+        if exc:
+            raise self.value
+        return self.value
+
+class int2(int):
+    pass
+
+class mpz2(mpz):
+    pass
+
 @given(integers())
 @example(0)
 @example(123)
@@ -145,6 +163,9 @@ def test___format___interface():
     pytest.raises(ValueError, lambda: format(mx, "+c"))
     pytest.raises(ValueError, lambda: format(mx, "#c"))
     pytest.raises(OverflowError, lambda: format(mpz(123456789), "c"))
+    pytest.raises(OverflowError, lambda: format(mpz(10**100), "c"))
+    pytest.raises(OverflowError, lambda: format(mpz(-1), "c"))
+    pytest.raises(OverflowError, lambda: format(mpz(1<<32), "c"))
     if sys.version_info >= (3, 14):
         pytest.raises(ValueError, lambda: format(mx, ".10,_f"))
         pytest.raises(ValueError, lambda: format(mx, ".10_,f"))
@@ -153,6 +174,7 @@ def test___format___interface():
     assert format(mx, ".2f") == "123.00"
     assert format(mx, "") == "123"
     assert format(mx, "c") == "{"
+    assert format(mpz(0), "c") == "\x00"
     assert format(mx, "010c") == "000000000{"
     assert format(mx, "<10c") == "{         "
 
@@ -187,6 +209,7 @@ def test___format___interface():
 @example(1284673497348563845623546741523784516734143215346712)
 @example(65869376547959985897597359)
 @example(-1329227995784915872903807060280344576)
+@example(1<<63)
 def test_from_to_int(x):
     sx = str(x)
     bx = bytes(sx, "ascii")
@@ -207,6 +230,8 @@ def test_mpz_interface():
         mpz(123).digits(-1)
     with pytest.raises(ValueError):
         mpz(123).digits(123)
+    with pytest.raises(ValueError):
+        mpz(-123).digits(123, prefix=True)
     with pytest.raises(ValueError):
         mpz("123", 1)
     with pytest.raises(ValueError):
@@ -234,16 +259,12 @@ def test_mpz_interface():
     assert mpz("١23") == 123
     assert mpz("\t123") == 123
     assert mpz("\xa0123") == 123
-
-    class with_int:
-        def __init__(self, value):
-            self.value = value
-        def __int__(self):
-            return self.value
-    class int2(int):
-        pass
+    assert mpz("-010") == -10
+    assert mpz("-10") == -10
 
     assert mpz(with_int(123)) == 123
+    with pytest.raises(RuntimeError):
+        mpz(with_int(RuntimeError))
     with pytest.deprecated_call():
         assert mpz(with_int(int2(123))) == 123
     with warnings.catch_warnings():
@@ -255,9 +276,6 @@ def test_mpz_interface():
 
 
 def test_mpz_subclasses():
-    class mpz2(mpz):
-        pass
-
     assert issubclass(mpz2, mpz)
     x = mpz2(123)
     assert type(x) is mpz2
@@ -271,15 +289,9 @@ def test_mpz_subclasses():
     with pytest.raises(TypeError):
         mpz2(1, spam=2)
 
-    class with_int:
-        def __init__(self, value):
-            self.value = value
-        def __int__(self):
-            return self.value
-    class int2(int):
-        pass
-
     assert mpz2(with_int(123)) == 123
+    with pytest.raises(RuntimeError):
+        mpz2(with_int(RuntimeError))
     with pytest.deprecated_call():
         assert mpz2(with_int(int2(123))) == 123
     with warnings.catch_warnings():
@@ -382,6 +394,7 @@ def test_add_sub_mixed(x, y, z):
 
 
 @given(integers(), integers())
+@example(123 + (1<<64), 1<<200)
 def test_mul(x, y):
     mx = mpz(x)
     my = mpz(y)
@@ -439,6 +452,7 @@ def test_mul_mixed(x, y, z):
 @example(18446744073709551615<<64, -1<<64)
 @example(int("0x"+"f"*32, 0), -1<<64)  # XXX: assuming limb_size == 64
 @example(-68501870735943706700000000000000000001, 10**20)  # issue 117
+@example(0, 123)
 def test_divmod(x, y):
     mx = mpz(x)
     my = mpz(y)
@@ -486,6 +500,7 @@ def test_divmod_errors():
 @example(0, 123)
 @example(10**1000, 2)
 @example(2, 18446744073709551616)
+@example(11811160064<<606, 11<<11)
 def test_truediv(x, y):
     mx = mpz(x)
     my = mpz(y)
@@ -611,6 +626,8 @@ def test_power_mixed(x, y):
 @example(123, 111, 1)
 @example(123, 1, 12)
 @example(1, 123, 12)
+@example(0, 123, 7)
+@example(123, 0, 7)
 def test_power_mod(x, y, z):
     mx = mpz(x)
     my = mpz(y)
@@ -805,6 +822,7 @@ def test_methods(x):
 @example(-65281, 3, "big", True)
 @example(-65281, 3, "little", True)
 @example(128, 1, "big", False)
+@example(-32383289396013590652, 0, "big", True)
 def test_to_bytes(x, length, byteorder, signed):
     try:
         rx = x.to_bytes(length, byteorder, signed=signed)
@@ -914,6 +932,9 @@ def test_from_bytes_interface():
 @example(9007199254740993)
 @example(10965857771245191)
 @example(10<<10000)
+@example((1<<53) + 1)
+@example(1<<116)
+@example(646541478744828163276576707651635923929979156076518566789121)
 def test___float__(x):
     mx = mpz(x)
     try:
@@ -927,6 +948,7 @@ def test___float__(x):
 @given(integers(), integers(min_value=-20, max_value=30))
 @example(-75, -1)
 @example(-68501870735943706700000000000000000001, -20)  # issue 117
+@example(20775, -1)
 def test___round__(x, n):
     mx = mpz(x)
     mn = mpz(n)

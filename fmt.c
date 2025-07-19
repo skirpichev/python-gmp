@@ -1,7 +1,16 @@
+#if defined(__clang__)
+#  pragma GCC diagnostic push
+#  pragma GCC diagnostic ignored "-Wnewline-eof"
+#endif
+
 #include "pythoncapi_compat.h"
 
 #define PY_SSIZE_T_CLEAN
 #include <Python.h>
+
+#if defined(__clang__)
+#  pragma GCC diagnostic pop
+#endif
 
 #include <locale.h>
 
@@ -942,7 +951,7 @@ format_long_internal(MPZ_Object *value, const InternalFormatSpec *format)
     Py_ssize_t n_total;
     Py_ssize_t prefix = 0;
     NumberFieldWidths spec;
-    int64_t x;
+    int32_t x = -1;
 
     /* Locale settings, either from the actual locale or
        from a hard-code pseudo-locale */
@@ -979,7 +988,7 @@ format_long_internal(MPZ_Object *value, const InternalFormatSpec *format)
         }
         /* taken from unicodeobject.c formatchar() */
         /* Integer input truncated to a character */
-        if (zz_to_i64(&value->z, &x) || x < 0 || x > 0x10ffff) {
+        if (zz_to_i32(&value->z, &x) || x < 0 || x > 0x10ffff) {
             PyErr_SetString(PyExc_OverflowError,
                             "%c arg not in range(0x110000)");
             goto done;
