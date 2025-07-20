@@ -84,4 +84,4 @@ jobs:
           source .test-venv/bin/activate
           python -m pip install --upgrade pip
           pip --verbose install .[tests] -Csetup-args=-Dbuildtype=debug
-      - run: pytest
+          pytest
