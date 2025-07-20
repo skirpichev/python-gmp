@@ -57,7 +57,7 @@ mp_err zz_from_bytes(const uint8_t *buffer, size_t length,
                      bool is_signed, zz_t *u);
 
 size_t zz_bitlen(const zz_t *u);
-mp_bitcnt_t zz_scan1(const zz_t *u, mp_bitcnt_t bit);
+mp_bitcnt_t zz_lsbpos(const zz_t *u);
 mp_bitcnt_t zz_bitcnt(const zz_t *u);
 
 typedef struct {
@@ -82,6 +82,8 @@ typedef enum {
 } mp_rnd;
 
 mp_err zz_div(const zz_t *u, const zz_t *v, mp_rnd rnd, zz_t *q, zz_t *r);
+
+mp_err zz_rem_u64(const zz_t* u, uint64_t v, uint64_t *w);
 
 mp_err zz_quo_2exp(const zz_t *u, uint64_t rshift, zz_t *v);
 mp_err zz_mul_2exp(const zz_t *u, uint64_t lshift, zz_t *v);

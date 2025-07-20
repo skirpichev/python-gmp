@@ -944,9 +944,18 @@ static Py_hash_t
 hash(PyObject *self)
 {
     MPZ_Object *u = (MPZ_Object *)self;
-    Py_hash_t r = mpn_mod_1((u->z).digits, (u->z).size, _PyHASH_MODULUS);
+    bool negative = zz_isneg(&u->z);
 
-    if (zz_isneg(&u->z)) {
+    if (negative) {
+        (void)zz_abs(&u->z, &u->z);
+    }
+
+    Py_hash_t r;
+
+    assert(-(uint64_t)INT64_MIN > PyHASH_MODULUS);
+    (void)zz_rem_u64(&u->z, PyHASH_MODULUS, (uint64_t *)&r);
+    if (negative) {
+        (void)zz_neg(&u->z, &u->z);
         r = -r;
     }
     if (r == -1) {
@@ -2237,8 +2246,8 @@ normalize_mpf(long sign, MPZ_Object *man, PyObject *exp, mp_bitcnt_t bc,
                 res = MPZ_rshift1(man, shift - 1);
 
                 int t = (zz_isodd(&res->z)
-                         && (zz_scan1(&res->z, 1) == 1
-                             || zz_scan1(&man->z, 0) + 2 <= shift));
+                         && ((&res->z)->digits[0]&2
+                             || zz_lsbpos(&man->z) + 2 <= shift));
 
                 zz_quo_2exp(&res->z, 1, &res->z);
                 if (t && zz_add_i32(&res->z, 1, &res->z)) {
@@ -2272,7 +2281,7 @@ normalize_mpf(long sign, MPZ_Object *man, PyObject *exp, mp_bitcnt_t bc,
         res = (MPZ_Object *)plus((PyObject *)man);
     }
     /* Strip trailing 0 bits. */
-    if (!zz_iszero(&res->z) && (zbits = zz_scan1(&res->z, 0))) {
+    if (!zz_iszero(&res->z) && (zbits = zz_lsbpos(&res->z))) {
         tmp = (PyObject *)MPZ_rshift1(res, zbits);
         if (!tmp) {
             /* LCOV_EXCL_START */
@@ -2406,7 +2415,7 @@ gmp__mpmath_create(PyObject *self, PyObject *const *args, Py_ssize_t nargs)
         PyObject *tmp, *newexp;
 
         /* Strip trailing 0 bits. */
-        if (!zz_iszero(&man->z) && (zbits = zz_scan1(&man->z, 0))) {
+        if (!zz_iszero(&man->z) && (zbits = zz_lsbpos(&man->z))) {
             tmp = (PyObject *)MPZ_rshift1(man, zbits);
             if (!tmp) {
                 /* LCOV_EXCL_START */
@@ -2548,6 +2557,7 @@ gmp_exec(PyObject *m)
     const char *str = ("import numbers, importlib.metadata as imp\n"
                        "numbers.Integral.register(gmp.mpz)\n"
                        "gmp.fac = gmp.factorial\n"
+                       "gmp.__all__ = ['factorial', 'gcd', 'isqrt', 'mpz']\n"
                        "gmp.__version__ = imp.version('python-gmp')\n");
 
     PyObject *res = PyRun_String(str, Py_file_input, ns, ns);

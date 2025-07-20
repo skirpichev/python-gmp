@@ -8,6 +8,7 @@ from ctypes import (
     c_int8,
     c_long,
     c_uint8,
+    c_uint64,
     c_ulong,
 )
 from enum import IntEnum
@@ -48,10 +49,11 @@ libzz = CDLL("libzz.so")
 zz_from_i64 = libzz.zz_from_i64
 zz_cmp_i32 = libzz.zz_cmp_i32
 zz_add_i32 = libzz.zz_add_i32
-zz_scan1 = libzz.zz_scan1
+zz_lsbpos = libzz.zz_lsbpos
 zz_export = libzz.zz_export
 zz_mul = libzz.zz_mul
 zz_div = libzz.zz_div
+zz_rem_u64 = libzz.zz_rem_u64
 zz_pow = libzz.zz_pow
 zz_powm = libzz.zz_powm
 zz_sqrtrem = libzz.zz_sqrtrem
@@ -72,9 +74,9 @@ def test_zz_add_i32():
     assert zz_cmp_i32(u, 2) == mp_ord.MP_EQ
 
 
-def test_zz_scan1():
+def test_zz_lsbpos():
     assert zz_from_i64(0, u) == mp_err.MP_OK
-    assert zz_scan1(u, 0) == -1
+    assert zz_lsbpos(u, 0) == 0
 
 
 @pytest.mark.skipif(platform.python_implementation() == "GraalVM",
@@ -100,6 +102,19 @@ def test_zz_div():
     assert zz_div(u, v, mp_rnd.MP_RNDD, v, 0) == mp_err.MP_OK
     assert zz_cmp_i32(v, 2) == mp_ord.MP_EQ
     assert zz_div(u, v, 123, u, 0) == mp_err.MP_VAL
+
+
+def test_zz_rem_u64():
+    assert zz_from_i64(123, u) == mp_err.MP_OK
+    p = c_uint64(0)
+    assert zz_rem_u64(u, 0, byref(p)) == mp_err.MP_VAL
+    assert zz_from_i64(111, u) == mp_err.MP_OK
+    assert zz_rem_u64(u, 12, byref(p)) == mp_err.MP_OK
+    assert p.value == 3
+    assert zz_from_i64(-111, u) == mp_err.MP_OK
+    assert zz_rem_u64(u, 12, byref(p)) == mp_err.MP_OK
+    assert p.value == 9
+
 
 def test_zz_pow():
     assert zz_from_i64(2, u) == mp_err.MP_OK
