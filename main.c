@@ -2557,6 +2557,7 @@ gmp_exec(PyObject *m)
     const char *str = ("import numbers, importlib.metadata as imp\n"
                        "numbers.Integral.register(gmp.mpz)\n"
                        "gmp.fac = gmp.factorial\n"
+                       "gmp.__all__ = ['factorial', 'gcd', 'isqrt', 'mpz']\n"
                        "gmp.__version__ = imp.version('python-gmp')\n");
 
     PyObject *res = PyRun_String(str, Py_file_input, ns, ns);
