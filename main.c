@@ -750,8 +750,8 @@ typedef struct gmp_pyargs {
 } gmp_pyargs;
 
 static int
-gmp_parse_pyargs(const gmp_pyargs *fnargs, int argidx[], PyObject *const *args,
-                 Py_ssize_t nargs, PyObject *kwnames)
+gmp_parse_pyargs(const gmp_pyargs *fnargs, Py_ssize_t argidx[],
+                 PyObject *const *args, Py_ssize_t nargs, PyObject *kwnames)
 {
     if (nargs > fnargs->maxpos) {
         PyErr_Format(PyExc_TypeError,
@@ -823,7 +823,7 @@ vectorcall(PyObject *type, PyObject *const *args, size_t nargsf,
         .maxargs = 2,
         .fname = "mpz",
     };
-    int argidx[2] = {-1, -1};
+    Py_ssize_t argidx[2] = {-1, -1};
 
     if (gmp_parse_pyargs(&fnargs, argidx, args, nargs, kwnames) == -1) {
         return NULL;
@@ -1491,7 +1491,7 @@ to_bytes(PyObject *self, PyObject *const *args, Py_ssize_t nargs,
         .maxargs = 3,
         .fname = "to_bytes",
     };
-    int argidx[3] = {-1, -1, -1};
+    Py_ssize_t argidx[3] = {-1, -1, -1};
 
     if (gmp_parse_pyargs(&fnargs, argidx, args, nargs, kwnames) == -1) {
         return NULL;
@@ -1568,7 +1568,7 @@ from_bytes(PyTypeObject *Py_UNUSED(type), PyObject *const *args,
         .maxargs = 3,
         .fname = "from_bytes",
     };
-    int argidx[3] = {-1, -1, -1};
+    Py_ssize_t argidx[3] = {-1, -1, -1};
 
     if (gmp_parse_pyargs(&fnargs, argidx, args, nargs, kwnames) == -1) {
         return NULL;
@@ -1747,7 +1747,7 @@ digits(PyObject *self, PyObject *const *args, Py_ssize_t nargs,
         .maxargs = 2,
         .fname = "digits",
     };
-    int argidx[2] = {-1, -1};
+    Py_ssize_t argidx[2] = {-1, -1};
 
     if (gmp_parse_pyargs(&fnargs, argidx, args, nargs, kwnames) == -1) {
         return NULL;
