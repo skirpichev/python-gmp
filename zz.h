@@ -56,7 +56,7 @@ mp_err zz_to_bytes(const zz_t *u, size_t length, bool is_signed,
 mp_err zz_from_bytes(const uint8_t *buffer, size_t length,
                      bool is_signed, zz_t *u);
 
-size_t zz_bitlen(const zz_t *u);
+mp_bitcnt_t zz_bitlen(const zz_t *u);
 mp_bitcnt_t zz_lsbpos(const zz_t *u);
 mp_bitcnt_t zz_bitcnt(const zz_t *u);
 

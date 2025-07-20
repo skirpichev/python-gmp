@@ -620,10 +620,10 @@ zz_from_bytes(const uint8_t *buffer, size_t length, bool is_signed, zz_t *u)
     return MP_OK;
 }
 
-size_t
+mp_bitcnt_t
 zz_bitlen(const zz_t *u)
 {
-    return u->size ? mpn_sizeinbase(u->digits, u->size, 2) : 0;
+    return u->size ? (mp_bitcnt_t)mpn_sizeinbase(u->digits, u->size, 2) : 0;
 }
 
 mp_bitcnt_t
