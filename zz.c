@@ -1771,53 +1771,6 @@ zz_inverse(const zz_t *u, const zz_t *v, zz_t *w)
     return MP_VAL;
 }
 
-static mp_err
-_zz_powm(const zz_t *u, const zz_t *v, const zz_t *w, zz_t *res)
-{
-    if (mpn_scan1(w->digits, 0)) {
-        mpz_t z;
-        TMP_ZZ(b, u)
-        TMP_ZZ(e, v)
-        TMP_ZZ(m, w)
-        if (TMP_OVERFLOW) {
-            return MP_MEM; /* LCOV_EXCL_LINE */
-        }
-        mpz_init(z);
-        mpz_powm(z, b, e, m);
-        if (zz_resize(z->_mp_size, res)) {
-            /* LCOV_EXCL_START */
-            mpz_clear(z);
-            return MP_MEM;
-            /* LCOV_EXCL_STOP */
-        }
-        res->negative = false;
-        mpn_copyi(res->digits, z->_mp_d, res->size);
-        mpz_clear(z);
-        return MP_OK;
-    }
-    if (zz_resize(w->size, res)) {
-        return MP_MEM; /* LCOV_EXCL_LINE */
-    }
-    res->negative = false;
-
-    mp_size_t enb = v->size * GMP_NUMB_BITS;
-    mp_size_t tmp_size = mpn_sec_powm_itch(u->size, enb, w->size);
-    mp_limb_t *volatile tmp = malloc(tmp_size * sizeof(mp_limb_t));
-
-    if (!tmp || TMP_OVERFLOW) {
-        /* LCOV_EXCL_START */
-        free(tmp);
-        zz_clear(res);
-        return MP_MEM;
-        /* LCOV_EXCL_STOP */
-    }
-    mpn_sec_powm(res->digits, u->digits, u->size, v->digits, enb, w->digits,
-                 w->size, tmp);
-    free(tmp);
-    zz_normalize(res);
-    return MP_OK;
-}
-
 mp_err
 zz_powm(const zz_t *u, const zz_t *v, const zz_t *w, zz_t *res)
 {
@@ -1870,83 +1823,55 @@ zz_powm(const zz_t *u, const zz_t *v, const zz_t *w, zz_t *res)
         return ret;
     }
 
-    int negativeOutput = 0;
-    zz_t o1, o2, o3;
-    mp_err ret = MP_OK;
+    zz_t o1, o2;
 
-    if (zz_init(&o1) || zz_init(&o2) || zz_init(&o3)) {
+    if (zz_init(&o1) || zz_init(&o2)) {
         /* LCOV_EXCL_START */
+mem:
         zz_clear(&o1);
         zz_clear(&o2);
-        zz_clear(&o3);
         return MP_MEM;
         /* LCOV_EXCL_STOP */
     }
-    if (w->negative) {
-        if (zz_copy(w, &o3)) {
-            goto end; /* LCOV_EXCL_LINE */
-        }
-        negativeOutput = 1;
-        o3.negative = false;
-        w = &o3;
-    }
     if (v->negative) {
-        if (zz_copy(v, &o2)) {
-            goto end; /* LCOV_EXCL_LINE */
-        }
-        o2.negative = false;
-        v = &o2;
+        mp_err ret = zz_inverse(u, w, &o2);
 
-        if ((ret = zz_inverse(u, w, &o1)) == MP_MEM) {
-            goto end; /* LCOV_EXCL_LINE */
-        }
         if (ret == MP_VAL) {
-end:
             zz_clear(&o1);
             zz_clear(&o2);
-            zz_clear(&o3);
             return MP_VAL;
         }
-        u = &o1;
+        if (ret == MP_MEM || zz_abs(v, &o1)) {
+            goto mem; /* LCOV_EXCL_LINE */
+        }
+        u = &o2;
+        v = &o1;
     }
-    if (u->negative || u->size > w->size) {
-        zz_t tmp;
 
-        if (zz_init(&tmp) || zz_div(u, w, MP_RNDD, NULL, &tmp)
-            || zz_copy(&tmp, &o1))
-        {
-            /* LCOV_EXCL_START */
-            zz_clear(&tmp);
-            goto end;
-            /* LCOV_EXCL_STOP */
-        }
-        zz_clear(&tmp);
-        u = &o1;
+    mpz_t z;
+    TMP_ZZ(b, u)
+    TMP_ZZ(e, v)
+    TMP_ZZ(m, w)
+    if (TMP_OVERFLOW) {
+        return MP_MEM; /* LCOV_EXCL_LINE */
     }
-    if (zz_cmp_i32(w, 1) == MP_EQ) {
-        ret = zz_from_i32(0, res);
+    mpz_init(z);
+    mpz_powm(z, b, e, m);
+    if (zz_resize(z->_mp_size, res)) {
+        /* LCOV_EXCL_START */
+        mpz_clear(z);
+        goto mem;
+        /* LCOV_EXCL_STOP */
     }
-    else if (!v->size) {
-        ret = zz_from_i32(1, res);
-    }
-    else if (!u->size) {
-        ret = zz_from_i32(0, res);
-    }
-    else if (zz_cmp_i32(u, 1) == MP_EQ) {
-        ret = zz_from_i32(1, res);
-    }
-    else {
-        if (_zz_powm(u, v, w, res)) {
-            goto end; /* LCOV_EXCL_LINE */
-        }
-    }
-    if (negativeOutput && !ret && res->size && zz_sub(res, w, res)) {
-        goto end; /* LCOV_EXCL_LINE */
+    res->negative = false;
+    mpn_copyi(res->digits, z->_mp_d, res->size);
+    mpz_clear(z);
+    if (w->negative && res->size && zz_add(w, res, res)) {
+        goto mem; /* LCOV_EXCL_LINE */
     }
     zz_clear(&o1);
     zz_clear(&o2);
-    zz_clear(&o3);
-    return ret;
+    return MP_OK;
 }
 
 mp_err
