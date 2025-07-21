@@ -1994,14 +1994,12 @@ gmp_gcdext(PyObject *Py_UNUSED(module), PyObject *const *args,
     if (ret == MP_MEM) {
         PyErr_NoMemory(); /* LCOV_EXCL_LINE */
     }
-    if (ret == MP_OK) {
-        PyObject *tup = PyTuple_Pack(3, g, s, t);
+    PyObject *tup = PyTuple_Pack(3, g, s, t);
 
-        Py_DECREF(g);
-        Py_DECREF(s);
-        Py_DECREF(t);
-        return tup;
-    }
+    Py_DECREF(g);
+    Py_DECREF(s);
+    Py_DECREF(t);
+    return tup;
 err:
     Py_DECREF(g);
     Py_DECREF(s);

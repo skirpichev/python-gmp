@@ -260,6 +260,7 @@ def test_mpz_interface():
     assert mpz("\xa0123") == 123
     assert mpz("-010") == -10
     assert mpz("-10") == -10
+    assert mpz("0b_10", 0) == 2
 
     assert mpz(with_int(123)) == 123
     with pytest.raises(RuntimeError):
