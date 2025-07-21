@@ -5,19 +5,22 @@
 #include <stdbool.h>
 #include <stdint.h>
 
-typedef struct {
-    bool negative;
-    mp_size_t alloc;
-    mp_size_t size;
-    mp_limb_t *digits;
-} zz_t;
-
 typedef enum {
     MP_OK = 0,
     MP_MEM = -1,
     MP_VAL = -2,
     MP_BUF = -3,
 } mp_err;
+
+mp_err zz_setup(uint8_t *, char **);
+void zz_finish(void);
+
+typedef struct {
+    bool negative;
+    mp_size_t alloc;
+    mp_size_t size;
+    mp_limb_t *digits;
+} zz_t;
 
 mp_err zz_init(zz_t *u);
 mp_err zz_resize(mp_size_t size, zz_t *u);

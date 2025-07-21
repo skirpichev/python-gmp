@@ -16,93 +16,14 @@
 #include "zz.h"
 
 #include <float.h>
-#include <gmp.h>
 #include <setjmp.h>
 #include <stdbool.h>
-
-extern jmp_buf gmp_env;
 
 #if !defined(_MSC_VER)
 #  define _Py_thread_local _Thread_local
 #else
 #  define _Py_thread_local __declspec(thread)
 #endif
-
-#define TRACKER_MAX_SIZE 64
-_Py_thread_local struct {
-    size_t size;
-    void *ptrs[TRACKER_MAX_SIZE];
-} gmp_tracker;
-
-static void *
-gmp_reallocate_function(void *ptr, size_t old_size, size_t new_size)
-{
-    if (gmp_tracker.size >= TRACKER_MAX_SIZE) {
-        goto err; /* LCOV_EXCL_LINE */
-    }
-    if (!ptr) {
-        void *ret = malloc(new_size);
-
-        if (!ret) {
-            goto err; /* LCOV_EXCL_LINE */
-        }
-        gmp_tracker.ptrs[gmp_tracker.size] = ret;
-        gmp_tracker.size++;
-        return ret;
-    }
-    size_t i = gmp_tracker.size - 1;
-
-    for (;; i--) {
-        if (gmp_tracker.ptrs[i] == ptr) {
-            break;
-        }
-    }
-
-    void *ret = realloc(ptr, new_size);
-
-    if (!ret) {
-        goto err; /* LCOV_EXCL_LINE */
-    }
-    gmp_tracker.ptrs[i] = ret;
-    return ret;
-err:
-    /* LCOV_EXCL_START */
-    for (size_t i = 0; i < gmp_tracker.size; i++) {
-        free(gmp_tracker.ptrs[i]);
-        gmp_tracker.ptrs[i] = NULL;
-    }
-    gmp_tracker.size = 0;
-    longjmp(gmp_env, 1);
-    /* LCOV_EXCL_STOP */
-}
-
-static void *
-gmp_allocate_function(size_t size)
-{
-    return gmp_reallocate_function(NULL, 0, size);
-}
-
-static void
-gmp_free_function(void *ptr, size_t size)
-{
-    for (size_t i = gmp_tracker.size - 1; i >= 0; i--) {
-        if (gmp_tracker.ptrs[i] == ptr) {
-            gmp_tracker.ptrs[i] = NULL;
-            break;
-        }
-    }
-    free(ptr);
-
-    size_t i = gmp_tracker.size - 1;
-
-    while (gmp_tracker.size > 0) {
-        if (gmp_tracker.ptrs[i]) {
-            break;
-        }
-        gmp_tracker.size--;
-        i--;
-    }
-}
 
 #if !defined(PYPY_VERSION) && !defined(Py_GIL_DISABLED)
 #  define CACHE_SIZE (99)
@@ -119,12 +40,6 @@ typedef struct {
 _Py_thread_local gmp_global global = {
     .gmp_cache_size = 0,
 };
-
-typedef struct {
-    void *(*default_allocate_func)(size_t);
-    void *(*default_reallocate_func)(void *, size_t, size_t);
-    void (*default_free_func)(void *, size_t);
-} gmp_state;
 
 static MPZ_Object *
 MPZ_new(mp_size_t size)
@@ -2501,13 +2416,12 @@ static PyStructSequence_Desc gmp_info_desc = {
 static int
 gmp_exec(PyObject *m)
 {
-    gmp_state *state = PyModule_GetState(m);
+    uint8_t gmp_limb_bits;
+    char *gmp_version;
 
-    mp_get_memory_functions(&state->default_allocate_func,
-                            &state->default_reallocate_func,
-                            &state->default_free_func);
-    mp_set_memory_functions(gmp_allocate_function, gmp_reallocate_function,
-                            gmp_free_function);
+    if (zz_setup(&gmp_limb_bits, &gmp_version)) {
+        return -1; /* LCOV_EXCL_LINE */
+    }
     if (PyModule_AddType(m, &MPZ_Type) < 0) {
         return -1; /* LCOV_EXCL_LINE */
     }
@@ -2524,8 +2438,9 @@ gmp_exec(PyObject *m)
     if (gmp_info == NULL) {
         return -1; /* LCOV_EXCL_LINE */
     }
-    PyStructSequence_SET_ITEM(gmp_info, 0, PyLong_FromLong(GMP_LIMB_BITS));
-    PyStructSequence_SET_ITEM(gmp_info, 1, PyLong_FromLong(sizeof(mp_limb_t)));
+    PyStructSequence_SET_ITEM(gmp_info, 0, PyLong_FromLong(gmp_limb_bits));
+    PyStructSequence_SET_ITEM(gmp_info, 1,
+                              PyLong_FromLong((gmp_limb_bits + 7)/8));
     PyStructSequence_SET_ITEM(gmp_info, 2, PyUnicode_FromString(gmp_version));
     if (PyErr_Occurred()) {
         /* LCOV_EXCL_START */
@@ -2569,13 +2484,9 @@ gmp_exec(PyObject *m)
 }
 
 static int
-gmp_clear(PyObject *module)
+gmp_clear(PyObject *Py_UNUSED(module))
 {
-    gmp_state *state = (gmp_state *)PyModule_GetState(module);
-
-    mp_set_memory_functions(state->default_allocate_func,
-                            state->default_reallocate_func,
-                            state->default_free_func);
+    zz_finish();
     return 0;
 }
 
@@ -2606,7 +2517,7 @@ static struct PyModuleDef gmp_module = {
     PyModuleDef_HEAD_INIT,
     .m_name = "gmp",
     .m_doc = "Bindings to the GNU GMP for Python.",
-    .m_size = sizeof(gmp_state),
+    .m_size = 0,
     .m_methods = gmp_functions,
     .m_slots = gmp_slots,
     .m_free = gmp_free,
