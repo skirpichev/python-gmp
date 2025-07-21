@@ -6,6 +6,7 @@ jobs:
     runs-on: ubuntu-24.04
     env:
       PYTEST_ADDOPTS: --verbose
+      CFLAGS: -Wall -Wpedantic -Werror -std=c17
     strategy:
       fail-fast: true
       matrix:
@@ -31,7 +32,6 @@ jobs:
             -Csetup-args=-Dbuildtype=debug -Csetup-args=-Db_coverage=true
         env:
           PKG_CONFIG_PATH: .local/lib/pkgconfig
-          CFLAGS: -Wall -Wpedantic -Werror -std=c17
       - run: pytest --hypothesis-profile=default
         env:
           LD_LIBRARY_PATH: .local/lib

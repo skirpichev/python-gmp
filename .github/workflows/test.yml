@@ -19,6 +19,7 @@ jobs:
     runs-on: ubuntu-24.04
     env:
       PYTEST_ADDOPTS: --verbose
+      CFLAGS: -Wall -Wpedantic -Werror -std=c17
     steps:
       - uses: actions/checkout@v4
         with:
@@ -32,7 +33,6 @@ jobs:
       - run: pip --verbose install .[tests] -Csetup-args=-Dbuildtype=debug
         env:
           PKG_CONFIG_PATH: .local/lib/pkgconfig
-          CFLAGS: -Wall -Wpedantic -Werror -std=c17
       - run: pytest
         env:
           LD_LIBRARY_PATH: .local/lib
