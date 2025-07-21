@@ -1602,7 +1602,6 @@ zz_pow(const zz_t *u, uint64_t v, zz_t *w)
 }
 
 #define MIN(a, b) ((a) < (b) ? (a) : (b))
-#define MAX(a, b) ((a) > (b) ? (a) : (b))
 
 mp_err
 zz_gcd(const zz_t *u, const zz_t *v, zz_t *w)
@@ -1772,158 +1771,6 @@ zz_inverse(const zz_t *u, const zz_t *v, zz_t *w)
     return MP_VAL;
 }
 
-extern void __gmpn_powm(mp_limb_t *rp, const mp_limb_t *bp, mp_size_t bn,
-                        const mp_limb_t *ep, mp_size_t en, const mp_limb_t *mp,
-                        mp_size_t n, mp_limb_t *tp);
-extern mp_size_t __gmpn_binvert_itch(mp_size_t n);
-extern void __gmpn_powlo(mp_limb_t *rp, const mp_limb_t *bp,
-                         const mp_limb_t *ep, mp_size_t en, mp_size_t n,
-                         mp_limb_t *tp);
-extern void __gmpn_binvert(mp_limb_t *rp, const mp_limb_t *up, mp_size_t n,
-                           mp_limb_t *scratch);
-extern void __gmpn_mullo_n(mp_limb_t *rp, const mp_limb_t *xp,
-                           const mp_limb_t *yp, mp_size_t n);
-
-static mp_err
-_zz_powm(const zz_t *u, const zz_t *v, const zz_t *w, zz_t *res)
-{
-    if (zz_resize(w->size, res)) {
-        return MP_MEM; /* LCOV_EXCL_LINE */
-    }
-    res->negative = false;
-    /* Handle (u**1 mod w) early, since mpn_pow* can't */
-    if (zz_cmp_i32(v, 1) == MP_EQ) {
-        if (zz_div(u, w, MP_RNDD, NULL, res)) {
-            return MP_MEM; /* LCOV_EXCL_LINE */
-        }
-        return MP_OK;
-    }
-    mp_bitcnt_t lsbpos = zz_lsbpos(w);
-    mp_size_t n = w->size;
-
-    zz_t t1;
-
-    zz_init(&t1);
-    if (lsbpos) {
-        if (zz_quo_2exp(w, lsbpos, &t1)) {
-            /* LCOV_EXCL_START */
-            zz_clear(&t1);
-            return MP_MEM;
-            /* LCOV_EXCL_STOP */
-        }
-        w = &t1;
-    }
-
-    mp_size_t nodd = w->size;
-    mp_size_t neven = (lsbpos + GMP_NUMB_BITS - 1)/GMP_NUMB_BITS;
-    mp_size_t cnt = lsbpos % GMP_NUMB_BITS;
-    mp_size_t n_largest_binvert = MAX(neven, nodd);
-    mp_size_t itch_binvert = __gmpn_binvert_itch(n_largest_binvert);
-    mp_size_t itch = n + MAX(itch_binvert, 2*n);
-
-    /* Now w factored as w * BASE**neven */
-    if (neven != 0) {
-        /* We will call both mpn_powm() and mpn_powlo() */
-        itch += 2*n;
-    }
-
-    mp_limb_t *volatile tp = malloc(itch * sizeof(mp_limb_t));
-    mp_limb_t *volatile newup = NULL;
-    mp_limb_t *volatile newwp = NULL;
-    mp_limb_t *volatile rp = tp;
-
-    if (!tp || TMP_OVERFLOW) {
-        /* LCOV_EXCL_START */
-clear:
-        free(rp);
-        free(newup);
-        free(newwp);
-        zz_clear(&t1);
-        zz_clear(res);
-        return MP_MEM;
-        /* LCOV_EXCL_STOP */
-    }
-    tp += n;
-    /* Compute r = u**v mod w */
-    __gmpn_powm (rp, u->digits, u->size, v->digits, v->size,
-                 w->digits, nodd, tp);
-    if (neven != 0) {
-        mp_limb_t *r2, *xp, *yp, *odd_inv_2exp, *up, *wp;
-
-        if (u->size < neven) {
-            /* Padd u with zeros. */
-            newup = malloc(neven * sizeof(mp_limb_t));
-            if (!newup) {
-                goto clear; /* LCOV_EXCL_LINE */
-            }
-            mpn_copyi(newup, u->digits, u->size);
-            mpn_zero(newup + u->size, neven - u->size);
-            up = newup;
-        }
-        else {
-            up = u->digits;
-        }
-        r2 = tp;
-        if (up[0] % 2 == 0) {
-            if (v->size > 1) {
-                mpn_zero(r2, neven);
-                goto zero;
-            }
-        }
-        /* Compute r2 = u**v mod BASE**neven */
-        __gmpn_powlo(r2, up, v->digits, v->size, neven, tp + neven);
-zero:
-        free(newup);
-        if (nodd < neven) {
-            /* Padd w with zeros */
-            newwp = malloc(neven * sizeof(mp_limb_t));
-            if (!newwp) {
-                goto clear; /* LCOV_EXCL_LINE */
-            }
-            mpn_copyi(newwp, w->digits, nodd);
-            mpn_zero(newwp + nodd, neven - nodd);
-            wp = newwp;
-            zz_clear(&t1);
-        }
-        else {
-            wp = w->digits;
-        }
-        odd_inv_2exp = tp + n;
-        /* odd_inv_2exp = w**(-1) mod BASE**neven */
-        __gmpn_binvert(odd_inv_2exp, wp, neven, tp + 2*n);
-        /* r2 = r2 - r */
-        mpn_sub(r2, r2, neven, rp, MIN(nodd, neven));
-        xp = tp + 2*n;
-        /* x = (odd_inv_2exp * r2) mod BASE**neven */
-        __gmpn_mullo_n(xp, odd_inv_2exp, r2, neven);
-        if (cnt) {
-            xp[neven - 1] &= ((mp_limb_t)1 << cnt) - 1;
-        }
-        yp = tp;
-        if (neven > nodd) {
-            mpn_mul(yp, xp, neven, wp, nodd);
-        }
-        else {
-            mpn_mul(yp, wp, nodd, xp, neven);
-        }
-        free(newwp);
-        /* r += x * w */
-        mpn_add(rp, yp, n, rp, nodd);
-    }
-    zz_clear(&t1);
-    if (zz_resize(n, res)) {
-        /* LCOV_EXCL_START */
-        free(rp);
-        zz_clear(res);
-        return MP_MEM;
-        /* LCOV_EXCL_STOP */
-    }
-    mpn_copyi(res->digits, rp, n);
-    free(rp);
-    zz_normalize(res);
-    return MP_OK;
-}
-
 mp_err
 zz_powm(const zz_t *u, const zz_t *v, const zz_t *w, zz_t *res)
 {
@@ -1976,83 +1823,55 @@ zz_powm(const zz_t *u, const zz_t *v, const zz_t *w, zz_t *res)
         return ret;
     }
 
-    int negativeOutput = 0;
-    zz_t o1, o2, o3;
-    mp_err ret = MP_OK;
+    zz_t o1, o2;
 
-    if (zz_init(&o1) || zz_init(&o2) || zz_init(&o3)) {
+    if (zz_init(&o1) || zz_init(&o2)) {
         /* LCOV_EXCL_START */
+mem:
         zz_clear(&o1);
         zz_clear(&o2);
-        zz_clear(&o3);
         return MP_MEM;
         /* LCOV_EXCL_STOP */
     }
-    if (w->negative) {
-        if (zz_copy(w, &o3)) {
-            goto end; /* LCOV_EXCL_LINE */
-        }
-        negativeOutput = 1;
-        o3.negative = false;
-        w = &o3;
-    }
     if (v->negative) {
-        if (zz_copy(v, &o2)) {
-            goto end; /* LCOV_EXCL_LINE */
-        }
-        o2.negative = false;
-        v = &o2;
+        mp_err ret = zz_inverse(u, w, &o2);
 
-        if ((ret = zz_inverse(u, w, &o1)) == MP_MEM) {
-            goto end; /* LCOV_EXCL_LINE */
-        }
         if (ret == MP_VAL) {
-end:
             zz_clear(&o1);
             zz_clear(&o2);
-            zz_clear(&o3);
             return MP_VAL;
         }
-        u = &o1;
+        if (ret == MP_MEM || zz_abs(v, &o1)) {
+            goto mem; /* LCOV_EXCL_LINE */
+        }
+        u = &o2;
+        v = &o1;
     }
-    if (u->negative || u->size > w->size) {
-        zz_t tmp;
 
-        if (zz_init(&tmp) || zz_div(u, w, MP_RNDD, NULL, &tmp)
-            || zz_copy(&tmp, &o1))
-        {
-            /* LCOV_EXCL_START */
-            zz_clear(&tmp);
-            goto end;
-            /* LCOV_EXCL_STOP */
-        }
-        zz_clear(&tmp);
-        u = &o1;
+    mpz_t z;
+    TMP_ZZ(b, u)
+    TMP_ZZ(e, v)
+    TMP_ZZ(m, w)
+    if (TMP_OVERFLOW) {
+        return MP_MEM; /* LCOV_EXCL_LINE */
     }
-    if (zz_cmp_i32(w, 1) == MP_EQ) {
-        ret = zz_from_i32(0, res);
+    mpz_init(z);
+    mpz_powm(z, b, e, m);
+    if (zz_resize(z->_mp_size, res)) {
+        /* LCOV_EXCL_START */
+        mpz_clear(z);
+        goto mem;
+        /* LCOV_EXCL_STOP */
     }
-    else if (!v->size) {
-        ret = zz_from_i32(1, res);
-    }
-    else if (!u->size) {
-        ret = zz_from_i32(0, res);
-    }
-    else if (zz_cmp_i32(u, 1) == MP_EQ) {
-        ret = zz_from_i32(1, res);
-    }
-    else {
-        if (_zz_powm(u, v, w, res)) {
-            goto end; /* LCOV_EXCL_LINE */
-        }
-    }
-    if (negativeOutput && !ret && res->size && zz_sub(res, w, res)) {
-        goto end; /* LCOV_EXCL_LINE */
+    res->negative = false;
+    mpn_copyi(res->digits, z->_mp_d, res->size);
+    mpz_clear(z);
+    if (w->negative && res->size && zz_add(w, res, res)) {
+        goto mem; /* LCOV_EXCL_LINE */
     }
     zz_clear(&o1);
     zz_clear(&o2);
-    zz_clear(&o3);
-    return ret;
+    return MP_OK;
 }
 
 mp_err
