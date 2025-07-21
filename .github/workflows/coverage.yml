@@ -3,8 +3,7 @@ on:
   workflow_call:
 jobs:
   coverage:
-    # Meson doesn't support lcov>=2.0, see mesonbuild/meson#11995
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     env:
       PYTEST_ADDOPTS: --verbose
     strategy:
@@ -27,30 +26,28 @@ jobs:
           sudo locale-gen ps_AF.UTF-8
       - run: bash scripts/cibw_before_all.sh
       - run: pip install --upgrade pip
-      - run: pip install --upgrade meson setuptools_scm
-      - run: pip install --verbose .[tests]
+      - run: |
+          pip install --verbose .[tests] -Cbuild-dir=build \
+            -Csetup-args=-Dbuildtype=debug -Csetup-args=-Db_coverage=true
         env:
           PKG_CONFIG_PATH: .local/lib/pkgconfig
-      - name: Build and run coverage tests
-        run: |
-          meson setup build -Db_coverage=true -Ddebug=true
-          meson install -C build --destdir ../build-install
-          export PYTHONPATH="$(find build-install -name site-packages)"
-          python -m pytest --hypothesis-profile=default
-          ninja -C build coverage-html
-          cp build/meson-logs/coverage.info \
-             build/coverage-${{ matrix.python-version }}.info
-        env:
-          PKG_CONFIG_PATH: .local/lib/pkgconfig
-          LD_LIBRARY_PATH: .local/lib
           CFLAGS: -Wall -Wpedantic -Werror -std=c17
+      - run: pytest --hypothesis-profile=default
+        env:
+          LD_LIBRARY_PATH: .local/lib
+      - name: Get coverage data
+        run: |
+          lcov --capture --directory build/ --output-file coverage.info
+          lcov --remove coverage.info "*.h" --ignore-errors unused \
+             --output-file coverage.info
+          cp coverage.info build/coverage-${{ matrix.python-version }}.info
       - uses: actions/upload-artifact@v4
         with:
           name: coverage-${{ matrix.python-version }}
           path: |
             build/coverage-${{ matrix.python-version }}.info
   merge-coverage:
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     needs:
       - coverage
     steps:
@@ -64,12 +61,7 @@ jobs:
           pattern: coverage-*
           path: build/
           merge-multiple: true
-      - run: |
-          for f in build/coverage-*.info
-          do
-            lcov --remove $f "*.h" --ignore-errors unused --output-file $f
-          done
-          genhtml build/coverage*.info --output-directory build/coverage
+      - run: genhtml build/coverage*.info --output-directory build/coverage
       - uses: actions/upload-artifact@v4
         with:
           name: coverage
