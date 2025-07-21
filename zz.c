@@ -1,5 +1,3 @@
-#include "zz.h"
-
 #include <assert.h>
 #include <ctype.h>
 #include <float.h>
@@ -9,6 +7,8 @@
 #include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
+
+#include "zz.h"
 
 #if GMP_NAIL_BITS != 0
 #  error "GMP_NAIL_BITS expected to be 0"

@@ -1,9 +1,17 @@
 #ifndef ZZ_H
 #define ZZ_H
 
-#include <gmp.h>
 #include <stdbool.h>
+#include <stddef.h>
 #include <stdint.h>
+
+typedef int32_t mp_size_t;
+#ifndef __APPLE__
+typedef uint64_t mp_limb_t;
+#else
+typedef unsigned long mp_limb_t;
+#endif
+typedef uint64_t mp_bitcnt_t;
 
 typedef enum {
     MP_OK = 0,

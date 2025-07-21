@@ -13,7 +13,6 @@
 #endif
 
 #include "mpz.h"
-#include "zz.h"
 
 #include <float.h>
 #include <setjmp.h>
