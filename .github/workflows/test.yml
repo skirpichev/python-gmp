@@ -1,4 +1,4 @@
-name: test
+name: CI tests
 on: [push, pull_request]
 jobs:
   linter:
@@ -7,7 +7,7 @@ jobs:
     uses: ./.github/workflows/docs.yml
   coverage:
     uses: ./.github/workflows/coverage.yml
-  linux:
+  tests:
     needs:
       - linter
       - coverage
@@ -36,29 +36,13 @@ jobs:
       - run: pytest
         env:
           LD_LIBRARY_PATH: .local/lib
-  macos:
+  os:
+    uses: ./.github/workflows/os.yml
     needs:
-      - linux
-    runs-on: macos-14
-    env:
-      CFLAGS: -Wall -Wpedantic -Werror -std=c17
-      PYTEST_ADDOPTS: --verbose
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.x"
-      - run: pip install --upgrade pip
-      - run: |
-          export CFLAGS="$CFLAGS -I$(brew --prefix gmp)/include"
-          export LDFLAGS="-L$(brew --prefix gmp)/lib"
-          pip --verbose install .[tests] -Csetup-args=-Dbuildtype=debug
-      - run: pytest
+      - tests
   windows:
     needs:
-      - linux
+      - tests
     runs-on: windows-2022
     env:
       PYTEST_ADDOPTS: --verbose

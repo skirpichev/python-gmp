@@ -1,0 +1,45 @@
+name: Run tests on different OS
+on:
+  workflow_call:
+jobs:
+  os:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-24.04, macos-14]
+        shell: [bash]
+#       include:
+#         - os: windows-2022
+#           shell: 'msys2 {0}'
+    defaults:
+      run:
+        shell: ${{ matrix.shell }}
+    env:
+      PYTEST_ADDOPTS: --verbose
+      CFLAGS: -Wpedantic -Werror -std=c17
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.x"
+      - uses: msys2/setup-msys2@v2.27.0
+        with:
+          install: >-
+            mingw-w64-ucrt-x86_64-pkg-config
+            mingw-w64-ucrt-x86_64-gcc
+            autotools
+            patch
+          msystem: ucrt64
+          path-type: inherit
+        if: ${{ startsWith(matrix.os, 'windows') }}
+      - run: bash scripts/cibw_before_all.sh
+      - run: pip install --upgrade pip
+      - run: pip --verbose install .[tests] -Csetup-args=-Dbuildtype=debug
+        env:
+          PKG_CONFIG_PATH: .local/lib/pkgconfig
+      - run: pytest
+        env:
+          LD_LIBRARY_PATH: .local/lib
