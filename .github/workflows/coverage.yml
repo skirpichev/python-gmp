@@ -46,6 +46,7 @@ jobs:
           name: coverage-${{ matrix.python-version }}
           path: |
             build/coverage-${{ matrix.python-version }}.info
+          retention-days: 1
   merge-coverage:
     runs-on: ubuntu-24.04
     needs:
