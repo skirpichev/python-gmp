@@ -1,13 +1,11 @@
-name: test
+name: CI tests
 on: [push, pull_request]
 jobs:
   linter:
     uses: ./.github/workflows/linter.yml
-  docs:
-    uses: ./.github/workflows/docs.yml
   coverage:
     uses: ./.github/workflows/coverage.yml
-  linux:
+  tests:
     needs:
       - linter
       - coverage
@@ -15,10 +13,11 @@ jobs:
       fail-fast: true
       matrix:
         python-version: [3.9, '3.10', pypy3.11, graalpy-24.2,
-                         3.11, 3.12, 3.13, 3.13t, 3.14]
+                         3.11, 3.12, 3.13, 3.13t, 3.14, 3.14t]
     runs-on: ubuntu-24.04
     env:
       PYTEST_ADDOPTS: --verbose
+      CFLAGS: -Wall -Wpedantic -Werror -std=c17
     steps:
       - uses: actions/checkout@v4
         with:
@@ -32,33 +31,16 @@ jobs:
       - run: pip --verbose install .[tests] -Csetup-args=-Dbuildtype=debug
         env:
           PKG_CONFIG_PATH: .local/lib/pkgconfig
-          CFLAGS: -Wall -Wpedantic -Werror -std=c17
       - run: pytest
         env:
           LD_LIBRARY_PATH: .local/lib
-  macos:
+  os:
+    uses: ./.github/workflows/os.yml
     needs:
-      - linux
-    runs-on: macos-14
-    env:
-      CFLAGS: -Wall -Wpedantic -Werror -std=c17
-      PYTEST_ADDOPTS: --verbose
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.x"
-      - run: pip install --upgrade pip
-      - run: |
-          export CFLAGS="$CFLAGS -I$(brew --prefix gmp)/include"
-          export LDFLAGS="-L$(brew --prefix gmp)/lib"
-          pip --verbose install .[tests] -Csetup-args=-Dbuildtype=debug
-      - run: pytest
+      - tests
   windows:
     needs:
-      - linux
+      - tests
     runs-on: windows-2022
     env:
       PYTEST_ADDOPTS: --verbose
