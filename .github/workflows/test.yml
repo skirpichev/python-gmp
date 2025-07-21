@@ -3,8 +3,6 @@ on: [push, pull_request]
 jobs:
   linter:
     uses: ./.github/workflows/linter.yml
-  docs:
-    uses: ./.github/workflows/docs.yml
   coverage:
     uses: ./.github/workflows/coverage.yml
   tests:
