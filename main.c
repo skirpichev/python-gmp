@@ -1166,7 +1166,7 @@ numbers:
 static mp_err
 zz_lshift(const zz_t *u, const zz_t *v, zz_t *w)
 {
-    if (v->negative) {
+    if (zz_isneg(v)) {
         return MP_VAL;
     }
     if (v->size > 1) {
@@ -1178,11 +1178,11 @@ zz_lshift(const zz_t *u, const zz_t *v, zz_t *w)
 static mp_err
 zz_rshift(const zz_t *u, const zz_t *v, zz_t *w)
 {
-    if (v->negative) {
+    if (zz_isneg(v)) {
         return MP_VAL;
     }
     if (v->size > 1) {
-        return zz_from_i32(u->negative ? -1 : 0, w);
+        return zz_from_i32(zz_isneg(u) ? -1 : 0, w);
     }
     return zz_quo_2exp(u, v->size ? v->digits[0] : 0, w);
 }
