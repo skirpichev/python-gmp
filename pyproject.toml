@@ -69,8 +69,6 @@ skip = """*-win32 *-manylinux_i686 *-musllinux_* \
 before-all = "bash scripts/cibw_before_all.sh"
 test-extras = "tests"
 test-command = "pytest {package}/tests"
-repair-wheel-command = """bash scripts/cibw_repair_wheel_command.sh \
-                          {dest_dir} {wheel}"""
 
 [tool.cibuildwheel.windows]
 before-all = "msys2 -c scripts/cibw_before_all.sh"
