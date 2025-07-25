@@ -6,11 +6,12 @@ from ctypes import (
     byref,
     c_bool,
     c_int8,
+    c_int32,
     c_int64,
-    c_long,
     c_uint8,
     c_uint64,
     c_ulong,
+    cast,
 )
 from enum import IntEnum
 
@@ -21,8 +22,8 @@ if platform.system() != "Linux":
 
 class zz_t_struct(Structure):
     _fields_ = [("negative", c_bool),
-                ("alloc", c_long),
-                ("size", c_long),
+                ("alloc", c_int32),
+                ("size", c_int32),
                 ("digits", POINTER(c_ulong))]
 
 class zz_layout(Structure):
@@ -126,6 +127,11 @@ def test_zz_quo_2exp():
     assert zz_add_i32(u, 1, u) == zz_err.ZZ_OK
     assert zz_mul_2exp(u, 64, u) == zz_err.ZZ_OK
     assert zz_quo_2exp(u, 64, u) == zz_err.ZZ_OK
+    a = cast(u, POINTER(zz_t_struct)).contents
+    assert a.negative is False
+    assert a.alloc >= 1
+    assert a.size == 1
+    assert a.digits[0] == 0xffffffffffffffff
     assert zz_from_i64(c_int64(0x7fffffffffffffff), v) == zz_err.ZZ_OK
     assert zz_mul_2exp(v, 1, v) == zz_err.ZZ_OK
     assert zz_add_i32(v, 1, v) == zz_err.ZZ_OK
