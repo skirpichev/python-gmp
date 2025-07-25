@@ -15,7 +15,7 @@ from gmp import (
     mpz,
 )
 from hypothesis import example, given
-from hypothesis.strategies import booleans, integers, sampled_from
+from hypothesis.strategies import booleans, integers, lists, sampled_from
 from test_utils import python_gcdext
 
 
@@ -73,6 +73,15 @@ def test_gcd_binary(x, y):
     assert gcd(mx, y) == r
 
 
+@given(lists(integers(), max_size=6))
+@example([])
+@example([2, 3, 4])
+def test_gcd_nary(xs):
+    mxs = list(map(mpz, xs))
+    r = math.gcd(*xs)
+    assert gcd(*mxs) == r
+
+
 @given(integers(), integers())
 @example(1<<(67*2), 1<<65)
 @example(123, 1<<70)
@@ -118,8 +127,6 @@ def test__mpmath_create(man, exp, prec, rnd):
 
 
 def test_interfaces():
-    assert gcd() == 0
-    assert gcd(2, 3, 4) == 1
     assert factorial(123) == fac(123)
     with pytest.raises(TypeError):
         gcd(1j)
