@@ -708,6 +708,7 @@ def test_lshift(x, y):
 @example(-1, 1<<128)
 @example(-340282366920938463444927863358058659840, 64)
 @example(-514220174162876888173427869549172032807104958010493707296440352, 206)
+@example(-6277101735386680763495507056286727952638980837032266301441, 128)
 def test_rshift(x, y):
     # XXX: mp_size_t might be smaller than mp_limb_t
     if abs(y) >= 2**32 and platform.system() == "Windows":

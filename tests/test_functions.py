@@ -116,18 +116,22 @@ def test_gcdext(x, y, c):
 @example(1, 9727076909039105, -48, 53, "c")
 @example(1, 9727076909039105, -48, 53, "d")
 @example(1, 9727076909039105, -48, 53, "u")
+@example(1, 6277101735386680763495507056286727952638980837032266301441,
+         0, 64, "f")
 def test__mpmath_normalize(sign, man, exp, prec, rnd):
     mpmath = pytest.importorskip("mpmath")
     mman = mpz(man)
     sign = int(sign)
     bc = mman.bit_length()
-    res = mpmath.libmp.libmpf._normalize(sign, mman, exp, bc, prec, rnd)
+    res = mpmath.libmp.libmpf._normalize(sign, man, exp, bc, prec, rnd)
     assert _mpmath_normalize(sign, mman, exp, bc, prec, rnd) == res
 
 
 @given(bigints(), bigints(),
        integers(min_value=0, max_value=1<<30),
        sampled_from(["n", "f", "c", "u", "d"]))
+@example(-6277101735386680763495507056286727952638980837032266301441,
+         0, 64, "f")
 def test__mpmath_create(man, exp, prec, rnd):
     mpmath = pytest.importorskip("mpmath")
     mman = mpz(man)

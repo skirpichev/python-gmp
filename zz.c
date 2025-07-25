@@ -1176,7 +1176,9 @@ zz_quo_2exp(const zz_t *u, uint64_t shift, zz_t *v)
         v->digits[size] = 0;
     }
     if (carry) {
-        mpn_add_1(v->digits, v->digits, size, 1);
+        if (mpn_add_1(v->digits, v->digits, size, 1)) {
+            v->digits[size] = 1;
+        }
     }
     zz_normalize(v);
     return ZZ_OK;
