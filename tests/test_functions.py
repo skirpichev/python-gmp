@@ -62,9 +62,11 @@ def test_fac(x):
     assert factorial(x) == r
 
 
-@given(integers(), integers())
-@example(1<<(67*2), 1<<65)
-def test_gcd_binary(x, y):
+@given(integers(), integers(), integers())
+@example(1<<(67*2), 1<<65, 1)
+def test_gcd_binary(x, y, c):
+    x *= c
+    y *= c
     mx = mpz(x)
     my = mpz(y)
     r = math.gcd(x, y)
@@ -73,19 +75,22 @@ def test_gcd_binary(x, y):
     assert gcd(mx, y) == r
 
 
-@given(lists(integers(), max_size=6))
-@example([])
-@example([2, 3, 4])
-def test_gcd_nary(xs):
+@given(lists(integers(), max_size=6), integers())
+@example([], 1)
+@example([2, 3, 4], 1)
+def test_gcd_nary(xs, c):
+    xs = [_*c for _ in xs]
     mxs = list(map(mpz, xs))
     r = math.gcd(*xs)
     assert gcd(*mxs) == r
 
 
-@given(integers(), integers())
-@example(1<<(67*2), 1<<65)
-@example(123, 1<<70)
-def test_gcdext(x, y):
+@given(integers(), integers(), integers())
+@example(1<<(67*2), 1<<65, 1)
+@example(123, 1<<70, 1)
+def test_gcdext(x, y, c):
+    x *= c
+    y *= c
     mx = mpz(x)
     my = mpz(y)
     r = python_gcdext(x, y)
