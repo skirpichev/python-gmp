@@ -65,6 +65,7 @@ MPZ_new(zz_size_t size)
             return (MPZ_Object *)PyErr_NoMemory(); /* LCOV_EXCL_LINE */
         }
     }
+    res->hash_cache = -1;
     return res;
 }
 
@@ -858,6 +859,11 @@ static Py_hash_t
 hash(PyObject *self)
 {
     MPZ_Object *u = (MPZ_Object *)self;
+
+    if (u->hash_cache != -1) {
+        return u->hash_cache;
+    }
+
     bool negative = zz_isneg(&u->z);
 
     if (negative) {

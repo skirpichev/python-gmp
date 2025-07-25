@@ -15,11 +15,12 @@ from gmp import (
     mpz,
 )
 from hypothesis import example, given
-from hypothesis.strategies import booleans, integers, sampled_from
+from hypothesis.strategies import booleans, integers, lists, sampled_from
+from test_utils import python_gcdext
 
 
 @given(integers(min_value=0))
-def test_isqrt(x):
+def test_isqrt_root(x):
     mx = mpz(x)
     r = math.isqrt(x)
     assert isqrt(mx) == r
@@ -61,9 +62,11 @@ def test_fac(x):
     assert factorial(x) == r
 
 
-@given(integers(), integers())
-@example(1<<(67*2), 1<<65)
-def test_gcd(x, y):
+@given(integers(), integers(), integers())
+@example(1<<(67*2), 1<<65, 1)
+def test_gcd_binary(x, y, c):
+    x *= c
+    y *= c
     mx = mpz(x)
     my = mpz(y)
     r = math.gcd(x, y)
@@ -72,32 +75,22 @@ def test_gcd(x, y):
     assert gcd(mx, y) == r
 
 
-def python_gcdext(a, b):
-    if not a and not b:
-        return 0, 0, 0
-    if not a:
-        return 0, b//abs(b), abs(b)
-    if not b:
-        return a//abs(a), 0, abs(a)
-    if a < 0:
-        a, x_sign = -a, -1
-    else:
-        x_sign = 1
-    if b < 0:
-        b, y_sign = -b, -1
-    else:
-        y_sign = 1
-    x, y, r, s = 1, 0, 0, 1
-    while b:
-        c, q = a % b, a // b
-        a, b, r, s, x, y = b, c, x - q*r, y - q*s, r, s
-    return x*x_sign, y*y_sign, a
+@given(lists(integers(), max_size=6), integers())
+@example([], 1)
+@example([2, 3, 4], 1)
+def test_gcd_nary(xs, c):
+    xs = [_*c for _ in xs]
+    mxs = list(map(mpz, xs))
+    r = math.gcd(*xs)
+    assert gcd(*mxs) == r
 
 
-@given(integers(), integers())
-@example(1<<(67*2), 1<<65)
-@example(123, 1<<70)
-def test_gcdext(x, y):
+@given(integers(), integers(), integers())
+@example(1<<(67*2), 1<<65, 1)
+@example(123, 1<<70, 1)
+def test_gcdext(x, y, c):
+    x *= c
+    y *= c
     mx = mpz(x)
     my = mpz(y)
     r = python_gcdext(x, y)
@@ -139,8 +132,6 @@ def test__mpmath_create(man, exp, prec, rnd):
 
 
 def test_interfaces():
-    assert gcd() == 0
-    assert gcd(2, 3, 4) == 1
     assert factorial(123) == fac(123)
     with pytest.raises(TypeError):
         gcd(1j)
