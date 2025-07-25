@@ -46,7 +46,7 @@ jobs:
       - run: pip install --upgrade pip
       - run: pip --verbose install .[tests] -Csetup-args=-Dbuildtype=debug
         env:
-          PKG_CONFIG_PATH: .local/lib/pkgconfig
+          PKG_CONFIG_PATH: ${{ github.workspace }}/.local/lib/pkgconfig
       - run: pytest --hypothesis-profile=default
         env:
-          LD_LIBRARY_PATH: .local/lib
+          LD_LIBRARY_PATH: ${{ github.workspace }}/.local/lib
