@@ -4,7 +4,6 @@ import math
 import operator
 import pickle
 import platform
-import string
 import sys
 import warnings
 
@@ -15,12 +14,12 @@ from hypothesis.strategies import (
     booleans,
     characters,
     complex_numbers,
-    composite,
     floats,
     integers,
     sampled_from,
     text,
 )
+from test_utils import fmt_str, to_digits
 
 
 class with_int:
@@ -79,52 +78,6 @@ def test_underscores_auto(s):
         assert mpz(s, base=0) == i
 
 
-@composite
-def fmt_str(draw, types="bdoxXn"):
-    res = ""
-    type = draw(sampled_from(types))
-
-    # fill_char and align
-    fill_char = draw(sampled_from([""]*3 + list("z;clxvjqwer")))
-    if fill_char:
-        skip_0_padding = True
-        align = draw(sampled_from(list("<^>=")))
-        res += fill_char + align
-    else:
-        align = draw(sampled_from([""] + list("<^>=")))
-        if align:
-            skip_0_padding = True
-            res += align
-        else:
-            skip_0_padding = False
-
-    # sign character
-    res += draw(sampled_from([""] + list("-+ ")))
-
-    # alternate mode
-    res += draw(sampled_from(["", "#"]))
-
-    # pad with 0s
-    pad0 = draw(sampled_from(["", "0"]))
-    skip_thousand_separators = False
-    if pad0 and not skip_0_padding:
-        res += pad0
-        skip_thousand_separators = True
-
-    # Width
-    res += draw(sampled_from([""]*7 + list(map(str, range(1, 40)))))
-
-    # grouping character (thousand_separators)
-    gchar = draw(sampled_from([""] + list(",_")))
-    if (gchar and not skip_thousand_separators
-            and not (gchar == "," and type in ["b", "o", "x", "X"])
-            and not type == "n"):
-        res += gchar
-
-    # Type
-    res += type
-
-    return res
 
 
 @given(integers(), fmt_str())
@@ -978,26 +931,6 @@ def test___sizeof__():
     for i in [1, 20, 300]:
         ms = mpz(1<<i*(8*limb_size))
         assert sys.getsizeof(ms) >= limb_size*i
-
-
-def to_digits(n, base):
-    if n == 0:
-        return "0"
-    if base < 2 or base > 36:
-        raise ValueError("mpz base must be >= 2 and <= 36")
-    num_to_text = string.digits + string.ascii_lowercase
-    digits = []
-    if n < 0:
-        sign = "-"
-        n = -n
-    else:
-        sign = ""
-    while n:
-        i = n % base
-        d = num_to_text[i]
-        digits.append(d)
-        n //= base
-    return sign + "".join(digits[::-1])
 
 
 @given(integers(), integers(min_value=2, max_value=36))
