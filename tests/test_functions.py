@@ -64,6 +64,9 @@ def test_fac(x):
 
 @given(bigints(), bigints(), bigints())
 @example(1<<(67*2), 1<<65, 1)
+@example(6277101735386680763835789423207666416102355444464034512895,
+         6277101735386680763835789423207666416102355444464034512895,
+         340282366920938463463374607431768211456)
 def test_gcd_binary(x, y, c):
     x *= c
     y *= c
@@ -78,6 +81,8 @@ def test_gcd_binary(x, y, c):
 @given(lists(bigints(), max_size=6), bigints())
 @example([], 1)
 @example([2, 3, 4], 1)
+@example([18446744073709551616, 18446744073709551616,
+          -340282366920938463446414324134825139571], -18446744073709551615)
 def test_gcd_nary(xs, c):
     xs = [_*c for _ in xs]
     mxs = list(map(mpz, xs))
