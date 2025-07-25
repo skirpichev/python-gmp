@@ -8,7 +8,7 @@ import sys
 import warnings
 
 import pytest
-from gmp import gmp_info, mpz
+from gmp import mpz
 from hypothesis import assume, example, given
 from hypothesis.strategies import (
     booleans,
@@ -19,7 +19,7 @@ from hypothesis.strategies import (
     sampled_from,
     text,
 )
-from test_utils import fmt_str, to_digits
+from test_utils import BITS_PER_LIMB, SIZEOF_LIMB, bigints, fmt_str, to_digits
 
 
 class with_int:
@@ -40,7 +40,8 @@ class int2(int):
 class mpz2(mpz):
     pass
 
-@given(integers())
+
+@given(bigints())
 @example(0)
 @example(123)
 @example(75424656551107706)
@@ -80,7 +81,7 @@ def test_underscores_auto(s):
 
 
 
-@given(integers(), fmt_str())
+@given(bigints(), fmt_str())
 @example(69, "r<-6_b")
 @example(3351, "e=+8o")
 @example(-3912, "1=28d")
@@ -154,7 +155,7 @@ def test___format___interface():
     locale.setlocale(locale.LC_ALL, "C")
 
 
-@given(integers())
+@given(bigints())
 @example(0)
 @example(123)
 @example(75424656551107706)
@@ -255,13 +256,13 @@ def test_mpz_subclasses():
         mpz2(with_int(1j))
 
 
-@given(integers())
+@given(bigints())
 def test_repr(x):
     mx = mpz(x)
     assert repr(mx) == f"mpz({x!s})"
 
 
-@given(integers(), integers())
+@given(bigints(), bigints())
 def test_richcompare_bulk(x, y):
     mx = mpz(x)
     my = mpz(y)
@@ -271,7 +272,7 @@ def test_richcompare_bulk(x, y):
     assert bool(mx) == bool(x)
 
 
-@given(integers(), floats(allow_nan=False))
+@given(bigints(), floats(allow_nan=False))
 def test_richcompare_mixed(x, y):
     mx = mpz(x)
     for op in [operator.eq, operator.ne, operator.lt, operator.le,
@@ -292,7 +293,7 @@ def test_richcompare_errors():
         mpz(10**1000) > 1.1
 
 
-@given(integers())
+@given(bigints())
 @example(0)
 @example(-1)
 @example(-2)
@@ -301,7 +302,7 @@ def test_hash(x):
     assert hash(mx) == hash(x)
 
 
-@given(integers())
+@given(bigints())
 @example(0)
 @example(123)
 @example(75424656551107706)
@@ -316,7 +317,7 @@ def test_plus_minus_abs(x):
     assert abs(mx) == abs(x)
 
 
-@given(integers(), integers())
+@given(bigints(), bigints())
 def test_add_sub_bulk(x, y):
     mx = mpz(x)
     my = mpz(y)
@@ -331,7 +332,7 @@ def test_add_sub_bulk(x, y):
     assert x - my == r
 
 
-@given(integers(), floats(allow_nan=False), complex_numbers(allow_nan=False))
+@given(bigints(), floats(allow_nan=False), complex_numbers(allow_nan=False))
 def test_add_sub_mixed(x, y, z):
     mx = mpz(x)
     r = x + y
@@ -346,7 +347,7 @@ def test_add_sub_mixed(x, y, z):
     assert mx - z == r
 
 
-@given(integers(), integers())
+@given(bigints(), bigints())
 @example(123 + (1<<64), 1<<200)
 def test_mul_bulk(x, y):
     mx = mpz(x)
@@ -359,7 +360,7 @@ def test_mul_bulk(x, y):
     assert x * my == r
 
 
-@given(integers(), integers(), integers())
+@given(bigints(), bigints(), bigints())
 def test_addmul_associativity(x, y, z):
     mx = mpz(x)
     my = mpz(y)
@@ -368,7 +369,7 @@ def test_addmul_associativity(x, y, z):
     assert (mx * my) * mz == mx * (my * mz)
 
 
-@given(integers(), integers(), integers())
+@given(bigints(), bigints(), bigints())
 def test_mul_distributivity(x, y, z):
     mx = mpz(x)
     my = mpz(y)
@@ -377,7 +378,7 @@ def test_mul_distributivity(x, y, z):
     assert (mx - my) * mz == mx*mz - my*mz
 
 
-@given(integers(), floats(allow_nan=False), complex_numbers(allow_nan=False))
+@given(bigints(), floats(allow_nan=False), complex_numbers(allow_nan=False))
 def test_mul_mixed(x, y, z):
     mx = mpz(x)
     r = x * y
@@ -398,12 +399,12 @@ def test_mul_mixed(x, y, z):
 
 @pytest.mark.skipif(platform.python_implementation() == "GraalVM",
                     reason="XXX: fails in CI for x,y=0,-1382074480823709287")
-@given(integers(), integers())
+@given(bigints(), bigints())
 @example(18446744073709551615, -1)
 @example(-2, 1<<64)
 @example(2, 1<<64)
 @example(18446744073709551615<<64, -1<<64)
-@example(int("0x"+"f"*32, 0), -1<<64)  # XXX: assuming limb_size == 64
+@example(int("0x"+"f"*32, 0), -1<<64)  # XXX: assuming BITS_PER_LIMB == 64
 @example(-68501870735943706700000000000000000001, 10**20)  # issue 117
 @example(0, 123)
 def test_divmod_bulk(x, y):
@@ -425,7 +426,7 @@ def test_divmod_bulk(x, y):
     assert divmod(mx, my) == r
 
 
-@given(integers(), floats(allow_nan=False))
+@given(bigints(), floats(allow_nan=False))
 def test_divmod_mixed(x, y):
     mx = mpz(x)
     if not y:
@@ -448,7 +449,7 @@ def test_divmod_errors():
 
 @pytest.mark.skipif(platform.python_implementation() == "GraalVM",
                     reason="XXX: oracle/graalpython#474")
-@given(integers(), integers())
+@given(bigints(), bigints())
 @example(0, -1)
 @example(0, 123)
 @example(10**1000, 2)
@@ -472,7 +473,7 @@ def test_truediv_bulk(x, y):
         assert x / my == r
 
 
-@given(integers(), floats(allow_nan=False), complex_numbers(allow_nan=False))
+@given(bigints(), floats(allow_nan=False), complex_numbers(allow_nan=False))
 def test_truediv_mixed(x, y, z):
     mx = mpz(x)
     if not x:
@@ -521,7 +522,7 @@ def test_truediv_errors():
 
 @pytest.mark.skipif(platform.python_implementation() == "GraalVM",
                     reason="XXX: oracle/graalpython#473")
-@given(integers(), integers(max_value=100000))
+@given(bigints(), integers(max_value=100000))
 @example(0, 123)
 @example(123, 0)
 @example(-321, 0)
@@ -550,7 +551,7 @@ def test_power_bulk(x, y):
         assert x**my == r
 
 
-@given(integers(), floats(allow_nan=False))
+@given(bigints(), floats(allow_nan=False))
 def test_power_mixed(x, y):
     mx = mpz(x)
     try:
@@ -575,7 +576,7 @@ def test_power_mixed(x, y):
         assert y**mx == r
 
 
-@given(integers(), integers(max_value=1000000), integers())
+@given(bigints(), integers(max_value=1000000), bigints())
 @example(123, 111, 1)
 @example(123, 1, 12)
 @example(1, 123, 12)
@@ -623,13 +624,13 @@ def test_power_errors():
         pow(object(), mpz(321))
 
 
-@given(integers())
+@given(bigints())
 def test_invert(x):
     mx = mpz(x)
     assert ~mx == ~x
 
 
-@given(integers(), integers())
+@given(bigints(), bigints())
 @example(1, 1<<67)
 @example(1, -(1<<67))
 @example(-2, -1)
@@ -643,7 +644,7 @@ def test_and(x, y):
     assert x & my == r
 
 
-@given(integers(), integers())
+@given(bigints(), bigints())
 @example(1, 1<<67)
 @example(1, -(1<<67))
 @example(-2, -1)
@@ -657,7 +658,7 @@ def test_or(x, y):
     assert x | my == r
 
 
-@given(integers(), integers())
+@given(bigints(), bigints())
 @example(1, 1<<67)
 @example(1, -(1<<67))
 @example(-2, -1)
@@ -671,7 +672,7 @@ def test_xor(x, y):
     assert x ^ my == r
 
 
-@given(integers(), integers(max_value=12345))
+@given(bigints(), integers(max_value=12345))
 @example(18446744073709551618, 64)
 @example(1, 1<<128)
 @example(90605555449081991889354259339521952450308780844225461, 64)
@@ -702,7 +703,7 @@ def test_lshift(x, y):
         assert x << my == r
 
 
-@given(integers(), integers())
+@given(bigints(), bigints())
 @example(1, 1<<78)
 @example(-1, 1<<128)
 @example(-340282366920938463444927863358058659840, 64)
@@ -735,7 +736,7 @@ def test_rshift(x, y):
         assert x >> my == r
 
 
-@given(integers())
+@given(bigints())
 def test_getseters(x):
     mx = mpz(x)
     assert mx.numerator == x.numerator
@@ -744,7 +745,7 @@ def test_getseters(x):
     assert mx.imag == x.imag
 
 
-@given(integers())
+@given(bigints())
 def test_methods(x):
     mx = mpz(x)
     assert mx.conjugate() == x.conjugate()
@@ -759,7 +760,7 @@ def test_methods(x):
     assert math.ceil(mx) == math.ceil(x)
 
 
-@given(integers(), integers(min_value=0, max_value=10000),
+@given(bigints(), integers(min_value=0, max_value=10000),
        sampled_from(["big", "little"]), booleans())
 @example(0, 0, "big", False)
 @example(0, 0, "little", False)
@@ -824,7 +825,7 @@ def test_to_bytes_interface():
     assert x.to_bytes() == x.to_bytes(signed=False)
 
 
-@given(integers(), integers(min_value=0, max_value=10000),
+@given(bigints(), integers(min_value=0, max_value=10000),
        sampled_from(["big", "little"]), booleans())
 @example(0, 0, "big", False)
 @example(0, 0, "little", False)
@@ -885,7 +886,7 @@ def test_from_bytes_interface():
     assert mpz.from_bytes(b"\x01") == mpz.from_bytes(b"\x01", signed=False)
 
 
-@given(integers())
+@given(bigints())
 @example(117529601297931785)
 @example(1<<64)
 @example(9007199254740993)
@@ -904,7 +905,7 @@ def test___float__(x):
         assert float(mx) == fx
 
 
-@given(integers(), integers(min_value=-20, max_value=30))
+@given(bigints(), integers(min_value=-20, max_value=30))
 @example(-75, -1)
 @example(-68501870735943706700000000000000000001, -20)  # issue 117
 @example(20775, -1)
@@ -927,13 +928,12 @@ def test___round__interface():
 @pytest.mark.skipif(platform.python_implementation() == "PyPy",
                     reason="sys.getsizeof raises TypeError")
 def test___sizeof__():
-    limb_size = gmp_info[1]
     for i in [1, 20, 300]:
-        ms = mpz(1<<i*(8*limb_size))
-        assert sys.getsizeof(ms) >= limb_size*i
+        ms = mpz(1 << i*BITS_PER_LIMB)
+        assert sys.getsizeof(ms) >= i*SIZEOF_LIMB
 
 
-@given(integers(), integers(min_value=2, max_value=36))
+@given(bigints(), integers(min_value=2, max_value=36))
 def test_digits_bulk(x, base):
     mx = mpz(x)
     res = to_digits(x, base)
@@ -963,7 +963,7 @@ def test_digits_interface():
 
 @pytest.mark.skipif(platform.python_implementation() == "GraalVM",
                     reason="XXX: oracle/graalpython#479")
-@given(integers(), integers(min_value=2, max_value=36))
+@given(bigints(), integers(min_value=2, max_value=36))
 def test_digits_frombase(x, base):
     mx = mpz(x)
     smx = mx.digits(base)
@@ -980,7 +980,7 @@ def test_digits_frombase(x, base):
         assert mpz(smx, smaller_base) == i
 
 
-@given(integers())
+@given(bigints())
 def test_frombase_auto(x):
     mx = mpz(x)
     smx10 = mx.digits(10)
@@ -998,7 +998,7 @@ def test_frombase_auto(x):
 
 @pytest.mark.parametrize("protocol",
                          range(pickle.HIGHEST_PROTOCOL + 1))
-@given(integers())
+@given(bigints())
 def test_pickle(protocol, x):
     mx = mpz(x)
     assert mx == pickle.loads(pickle.dumps(mx, protocol))

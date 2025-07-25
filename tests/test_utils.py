@@ -1,9 +1,14 @@
 import string
 
+from gmp import gmp_info
 from hypothesis.strategies import (
     composite,
+    integers,
     sampled_from,
 )
+
+BITS_PER_LIMB = gmp_info[0]
+SIZEOF_LIMB = gmp_info[1]
 
 
 def python_gcdext(a, b):
@@ -94,3 +99,28 @@ def fmt_str(draw, types="bdoxXn"):
     res += type
 
     return res
+
+
+@composite
+def bigints(draw, min_value=None, max_value=None):
+    # Hypothesis uses integer sizes up to 128-bit in unbounded case with
+    # different weights (16-bit - most preferred).  If upper/lower boundaries
+    # are specified, values near boundries are more likely (roughly 1.56%
+    # chance for boundary and 0.78% - for 1-bit off).
+    max_digit = 1<<BITS_PER_LIMB
+    ndigits = draw(sampled_from([1]*12 +
+                                [2]*8 +
+                                [3]*6 +
+                                [4]*4 +
+                                [5]*2 +
+                                [6]))
+    max_abs = max_digit**ndigits
+    if min_value is None:
+        min_value = -max_abs
+    else:
+        min_value = max(min_value, -max_abs)
+    if max_value is None:
+        max_value = max_abs
+    else:
+        max_value = min(max_value, max_abs)
+    return draw(integers(min_value=min_value, max_value=max_value))
