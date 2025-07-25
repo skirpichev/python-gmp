@@ -20,7 +20,7 @@ from test_utils import python_gcdext
 
 
 @given(integers(min_value=0))
-def test_isqrt(x):
+def test_isqrt_root(x):
     mx = mpz(x)
     r = math.isqrt(x)
     assert isqrt(mx) == r
@@ -64,7 +64,7 @@ def test_fac(x):
 
 @given(integers(), integers())
 @example(1<<(67*2), 1<<65)
-def test_gcd(x, y):
+def test_gcd_binary(x, y):
     mx = mpz(x)
     my = mpz(y)
     r = math.gcd(x, y)

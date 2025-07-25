@@ -54,7 +54,7 @@ def test_from_to_str(x):
 
 @given(text(alphabet=characters(min_codepoint=48, max_codepoint=57,
                                 include_characters=["_"])))
-def test_underscores(s):
+def test_underscores_bulk(s):
     try:
         i = int(s)
     except ValueError:
@@ -262,7 +262,7 @@ def test_repr(x):
 
 
 @given(integers(), integers())
-def test_richcompare(x, y):
+def test_richcompare_bulk(x, y):
     mx = mpz(x)
     my = mpz(y)
     for op in [operator.eq, operator.ne, operator.lt, operator.le,
@@ -317,7 +317,7 @@ def test_plus_minus_abs(x):
 
 
 @given(integers(), integers())
-def test_add_sub(x, y):
+def test_add_sub_bulk(x, y):
     mx = mpz(x)
     my = mpz(y)
     r = x + y
@@ -348,7 +348,7 @@ def test_add_sub_mixed(x, y, z):
 
 @given(integers(), integers())
 @example(123 + (1<<64), 1<<200)
-def test_mul(x, y):
+def test_mul_bulk(x, y):
     mx = mpz(x)
     my = mpz(y)
     assert mx * mx == x * x
@@ -406,7 +406,7 @@ def test_mul_mixed(x, y, z):
 @example(int("0x"+"f"*32, 0), -1<<64)  # XXX: assuming limb_size == 64
 @example(-68501870735943706700000000000000000001, 10**20)  # issue 117
 @example(0, 123)
-def test_divmod(x, y):
+def test_divmod_bulk(x, y):
     mx = mpz(x)
     my = mpz(y)
     if not y:
@@ -454,7 +454,7 @@ def test_divmod_errors():
 @example(10**1000, 2)
 @example(2, 18446744073709551616)
 @example(11811160064<<606, 11<<11)
-def test_truediv(x, y):
+def test_truediv_bulk(x, y):
     mx = mpz(x)
     my = mpz(y)
     if not y:
@@ -531,7 +531,7 @@ def test_truediv_errors():
 @example(-56, 321)
 @example(10**1000, -1)
 @example(10, -10**1000)
-def test_power(x, y):
+def test_power_bulk(x, y):
     if y > 0 and abs(x) > 1000000:
         return
     mx = mpz(x)
@@ -782,7 +782,7 @@ def test_methods(x):
 @example(-65281, 3, "little", True)
 @example(128, 1, "big", False)
 @example(-32383289396013590652, 0, "big", True)
-def test_to_bytes(x, length, byteorder, signed):
+def test_to_bytes_bulk(x, length, byteorder, signed):
     try:
         rx = x.to_bytes(length, byteorder, signed=signed)
     except OverflowError:
@@ -841,7 +841,7 @@ def test_to_bytes_interface():
 @example(-1, 3, "big", True)
 @example(-2, 3, "big", True)
 @example(-2, 5, "little", True)
-def test_from_bytes(x, length, byteorder, signed):
+def test_from_bytes_bulk(x, length, byteorder, signed):
     try:
         bytes = x.to_bytes(length, byteorder, signed=signed)
     except OverflowError:
@@ -908,7 +908,7 @@ def test___float__(x):
 @example(-75, -1)
 @example(-68501870735943706700000000000000000001, -20)  # issue 117
 @example(20775, -1)
-def test___round__(x, n):
+def test___round__bulk(x, n):
     mx = mpz(x)
     mn = mpz(n)
     assert round(mx, n) == round(mx, mn) == round(x, n)
@@ -934,7 +934,7 @@ def test___sizeof__():
 
 
 @given(integers(), integers(min_value=2, max_value=36))
-def test_digits(x, base):
+def test_digits_bulk(x, base):
     mx = mpz(x)
     res = to_digits(x, base)
     assert mx.digits(base) == res
