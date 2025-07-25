@@ -37,7 +37,8 @@ jobs:
       - run: pip install --upgrade pip
       - run: |
           pip install --verbose .[tests] -Cbuild-dir=build \
-            -Csetup-args=-Dbuildtype=debug -Csetup-args=-Db_coverage=true
+                                         -Csetup-args=-Dbuildtype=debug \
+                                         -Csetup-args=-Db_coverage=true
         env:
           PKG_CONFIG_PATH: ${{ github.workspace }}/.local/lib/pkgconfig
       - run: pytest --hypothesis-profile=default
@@ -47,7 +48,7 @@ jobs:
         run: |
           lcov --capture --directory build/ --output-file coverage.info
           lcov --remove coverage.info "*.h" --ignore-errors unused \
-             --output-file coverage.info
+               --output-file coverage.info
           cp coverage.info build/coverage-${{ matrix.python-version }}.info
       - uses: actions/upload-artifact@v4
         with:
