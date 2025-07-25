@@ -39,10 +39,10 @@ jobs:
           pip install --verbose .[tests] -Cbuild-dir=build \
             -Csetup-args=-Dbuildtype=debug -Csetup-args=-Db_coverage=true
         env:
-          PKG_CONFIG_PATH: .local/lib/pkgconfig
+          PKG_CONFIG_PATH: ${{ github.workspace }}/.local/lib/pkgconfig
       - run: pytest --hypothesis-profile=default
         env:
-          LD_LIBRARY_PATH: .local/lib
+          LD_LIBRARY_PATH: ${{ github.workspace }}/.local/lib
       - name: Get coverage data
         run: |
           lcov --capture --directory build/ --output-file coverage.info
