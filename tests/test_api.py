@@ -6,10 +6,12 @@ from ctypes import (
     byref,
     c_bool,
     c_int8,
-    c_long,
+    c_int32,
+    c_int64,
     c_uint8,
     c_uint64,
     c_ulong,
+    cast,
 )
 from enum import IntEnum
 
@@ -20,8 +22,8 @@ if platform.system() != "Linux":
 
 class zz_t_struct(Structure):
     _fields_ = [("negative", c_bool),
-                ("alloc", c_long),
-                ("size", c_long),
+                ("alloc", c_int32),
+                ("size", c_int32),
                 ("digits", POINTER(c_ulong))]
 
 class zz_layout(Structure):
@@ -48,12 +50,15 @@ class zz_rnd(IntEnum):
 libzz = CDLL("libzz.so")
 zz_from_i64 = libzz.zz_from_i64
 zz_cmp_i32 = libzz.zz_cmp_i32
+zz_cmp = libzz.zz_cmp
 zz_add_i32 = libzz.zz_add_i32
 zz_lsbpos = libzz.zz_lsbpos
 zz_export = libzz.zz_export
 zz_mul = libzz.zz_mul
 zz_div = libzz.zz_div
 zz_rem_u64 = libzz.zz_rem_u64
+zz_mul_2exp = libzz.zz_mul_2exp
+zz_quo_2exp = libzz.zz_quo_2exp
 zz_pow = libzz.zz_pow
 zz_powm = libzz.zz_powm
 zz_sqrtrem = libzz.zz_sqrtrem
@@ -114,6 +119,23 @@ def test_zz_rem_u64():
     assert zz_from_i64(-111, u) == zz_err.ZZ_OK
     assert zz_rem_u64(u, 12, byref(p)) == zz_err.ZZ_OK
     assert p.value == 9
+
+
+def test_zz_quo_2exp():
+    assert zz_from_i64(c_int64(0x7fffffffffffffff), u) == zz_err.ZZ_OK
+    assert zz_mul_2exp(u, 1, u) == zz_err.ZZ_OK
+    assert zz_add_i32(u, 1, u) == zz_err.ZZ_OK
+    assert zz_mul_2exp(u, 64, u) == zz_err.ZZ_OK
+    assert zz_quo_2exp(u, 64, u) == zz_err.ZZ_OK
+    a = cast(u, POINTER(zz_t_struct)).contents
+    assert a.negative is False
+    assert a.alloc >= 1
+    assert a.size == 1
+    assert a.digits[0] == 0xffffffffffffffff
+    assert zz_from_i64(c_int64(0x7fffffffffffffff), v) == zz_err.ZZ_OK
+    assert zz_mul_2exp(v, 1, v) == zz_err.ZZ_OK
+    assert zz_add_i32(v, 1, v) == zz_err.ZZ_OK
+    assert zz_cmp(u, v) == zz_ord.ZZ_EQ
 
 
 def test_zz_pow():

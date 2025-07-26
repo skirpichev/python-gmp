@@ -16,10 +16,10 @@ from gmp import (
 )
 from hypothesis import example, given
 from hypothesis.strategies import booleans, integers, lists, sampled_from
-from test_utils import python_gcdext
+from test_utils import bigints, python_gcdext
 
 
-@given(integers(min_value=0))
+@given(bigints(min_value=0))
 def test_isqrt_root(x):
     mx = mpz(x)
     r = math.isqrt(x)
@@ -27,7 +27,7 @@ def test_isqrt_root(x):
     assert isqrt(x) == r
 
 
-@given(integers(min_value=0))
+@given(bigints(min_value=0))
 def test_isqrt_rem(x):
     mpmath = pytest.importorskip("mpmath")
     mx = mpz(x)
@@ -62,8 +62,11 @@ def test_fac(x):
     assert factorial(x) == r
 
 
-@given(integers(), integers(), integers())
+@given(bigints(), bigints(), bigints())
 @example(1<<(67*2), 1<<65, 1)
+@example(6277101735386680763835789423207666416102355444464034512895,
+         6277101735386680763835789423207666416102355444464034512895,
+         340282366920938463463374607431768211456)
 def test_gcd_binary(x, y, c):
     x *= c
     y *= c
@@ -75,9 +78,11 @@ def test_gcd_binary(x, y, c):
     assert gcd(mx, y) == r
 
 
-@given(lists(integers(), max_size=6), integers())
+@given(lists(bigints(), max_size=6), bigints())
 @example([], 1)
 @example([2, 3, 4], 1)
+@example([18446744073709551616, 18446744073709551616,
+          -340282366920938463446414324134825139571], -18446744073709551615)
 def test_gcd_nary(xs, c):
     xs = [_*c for _ in xs]
     mxs = list(map(mpz, xs))
@@ -85,7 +90,7 @@ def test_gcd_nary(xs, c):
     assert gcd(*mxs) == r
 
 
-@given(integers(), integers(), integers())
+@given(bigints(), bigints(), bigints())
 @example(1<<(67*2), 1<<65, 1)
 @example(123, 1<<70, 1)
 def test_gcdext(x, y, c):
@@ -100,7 +105,7 @@ def test_gcdext(x, y, c):
     assert gcdext(mx, y) == r
 
 
-@given(booleans(), integers(min_value=0), integers(),
+@given(booleans(), bigints(min_value=0), bigints(),
        integers(min_value=1, max_value=1<<30),
        sampled_from(["n", "f", "c", "u", "d"]))
 @example(0, 232, -4, 4, "n")
@@ -111,18 +116,22 @@ def test_gcdext(x, y, c):
 @example(1, 9727076909039105, -48, 53, "c")
 @example(1, 9727076909039105, -48, 53, "d")
 @example(1, 9727076909039105, -48, 53, "u")
+@example(1, 6277101735386680763495507056286727952638980837032266301441,
+         0, 64, "f")
 def test__mpmath_normalize(sign, man, exp, prec, rnd):
     mpmath = pytest.importorskip("mpmath")
     mman = mpz(man)
     sign = int(sign)
     bc = mman.bit_length()
-    res = mpmath.libmp.libmpf._normalize(sign, mman, exp, bc, prec, rnd)
+    res = mpmath.libmp.libmpf._normalize(sign, man, exp, bc, prec, rnd)
     assert _mpmath_normalize(sign, mman, exp, bc, prec, rnd) == res
 
 
-@given(integers(), integers(),
+@given(bigints(), bigints(),
        integers(min_value=0, max_value=1<<30),
        sampled_from(["n", "f", "c", "u", "d"]))
+@example(-6277101735386680763495507056286727952638980837032266301441,
+         0, 64, "f")
 def test__mpmath_create(man, exp, prec, rnd):
     mpmath = pytest.importorskip("mpmath")
     mman = mpz(man)

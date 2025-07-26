@@ -1164,9 +1164,6 @@ zz_quo_2exp(const zz_t *u, uint64_t shift, zz_t *v)
         return ZZ_MEM; /* LCOV_EXCL_LINE */
     }
     v->negative = u->negative;
-    if (extra) {
-        v->digits[size] = 0;
-    }
     if (shift) {
         if (mpn_rshift(v->digits, u->digits + whole, size, shift)) {
             carry = u->negative;
@@ -1175,8 +1172,13 @@ zz_quo_2exp(const zz_t *u, uint64_t shift, zz_t *v)
     else {
         mpn_copyi(v->digits, u->digits + whole, size);
     }
+    if (extra) {
+        v->digits[size] = 0;
+    }
     if (carry) {
-        mpn_add_1(v->digits, v->digits, size, 1);
+        if (mpn_add_1(v->digits, v->digits, size, 1)) {
+            v->digits[size] = 1;
+        }
     }
     zz_normalize(v);
     return ZZ_OK;
@@ -1751,6 +1753,7 @@ zz_gcd(const zz_t *u, const zz_t *v, zz_t *w)
     if (zz_resize(v->size, w) == ZZ_MEM || TMP_OVERFLOW) {
         goto clear; /* LCOV_EXCL_LINE */
     }
+    assert(v->size);
     w->size = mpn_gcd(w->digits, u->digits, u->size, v->digits, v->size);
     w->negative = false;
     zz_clear(o1);
