@@ -1844,9 +1844,7 @@ gmp_gcd(PyObject *Py_UNUSED(module), PyObject *const *args, Py_ssize_t nargs)
             continue;
         }
 
-        MPZ_Object *tmp = MPZ_new(0);
-
-        if (!tmp || zz_gcd(&res->z, &arg->z, &tmp->z)) {
+        if (zz_gcd(&res->z, &arg->z, &res->z)) {
             /* LCOV_EXCL_START */
             Py_DECREF(res);
             Py_DECREF(arg);
@@ -1854,7 +1852,6 @@ gmp_gcd(PyObject *Py_UNUSED(module), PyObject *const *args, Py_ssize_t nargs)
             /* LCOV_EXCL_STOP */
         }
         Py_DECREF(arg);
-        Py_SETREF(res, tmp);
     }
     return (PyObject *)res;
 }
