@@ -40,7 +40,7 @@ unknown_presentation_type(Py_UCS4 presentation_type,
 }
 
 static void
-invalid_thousands_separator_type(char specifier, Py_UCS4 presentation_type)
+invalid_thousands_separator_type(int specifier, Py_UCS4 presentation_type)
 {
     assert(specifier == ',' || specifier == '_');
     if (presentation_type > 32 && presentation_type < 128) {
