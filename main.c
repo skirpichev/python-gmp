@@ -881,7 +881,7 @@ hash(PyObject *self)
     if (r == -1) {
         r = -2;
     }
-    return r;
+    return u->hash_cache = r;
 }
 
 #define UNOP(suff, func)                           \

@@ -297,9 +297,15 @@ def test_richcompare_errors():
 @example(0)
 @example(-1)
 @example(-2)
-def test_hash(x):
+def test_hash_bulk(x):
     mx = mpz(x)
     assert hash(mx) == hash(x)
+
+
+def test_hash_caching():
+    mx = mpz(123)
+    assert hash(mx) == 123
+    assert hash(mx) == 123  # in cache
 
 
 @given(bigints())
