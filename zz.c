@@ -1739,7 +1739,7 @@ zz_gcd(const zz_t *u, const zz_t *v, zz_t *w)
     if (zz_init(o1) || zz_init(o2)) {
         goto clear; /* LCOV_EXCL_LINE */
     }
-    if (zz_copy(u, o1) || zz_copy(v, o2)) {
+    if (zz_abs(u, o1) || zz_abs(v, o2)) {
         goto clear; /* LCOV_EXCL_LINE */
     }
     if (shift && (zz_quo_2exp(o1, shift, o1) || zz_quo_2exp(o2, shift, o2))) {

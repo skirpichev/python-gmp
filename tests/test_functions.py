@@ -55,7 +55,7 @@ def test_fib(x):
 
 
 @given(integers(min_value=0, max_value=12345))
-def test_fac(x):
+def test_fac_bulk(x):
     mx = mpz(x)
     r = math.factorial(x)
     assert factorial(mx) == r

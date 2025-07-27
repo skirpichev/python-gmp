@@ -889,7 +889,7 @@ hash(PyObject *self)
     func(PyObject *self)                           \
     {                                              \
         MPZ_Object *u = (MPZ_Object *)self;        \
-        MPZ_Object *res = MPZ_new(0);           \
+        MPZ_Object *res = MPZ_new(0);              \
                                                    \
         if (res && zz_##suff(&u->z, &res->z)) {    \
             PyErr_NoMemory(); /* LCOV_EXCL_LINE */ \
@@ -923,7 +923,7 @@ to_bool(PyObject *self)
         CHECK_OP(u, self);                                      \
         CHECK_OP(v, other);                                     \
                                                                 \
-        res = MPZ_new(0);                                    \
+        res = MPZ_new(0);                                       \
         zz_err ret = ZZ_OK;                                     \
                                                                 \
         if (!res || (ret = zz_##suff(&u->z, &v->z, &res->z))) { \
@@ -963,7 +963,7 @@ to_bool(PyObject *self)
         CHECK_OP(u, self);                               \
         CHECK_OP(v, other);                              \
                                                          \
-        res = (PyObject *)MPZ_new(0);                 \
+        res = (PyObject *)MPZ_new(0);                    \
         if (!res) {                                      \
             goto end;                                    \
         }                                                \
@@ -1844,9 +1844,7 @@ gmp_gcd(PyObject *Py_UNUSED(module), PyObject *const *args, Py_ssize_t nargs)
             continue;
         }
 
-        MPZ_Object *tmp = MPZ_new(0);
-
-        if (!tmp || zz_gcd(&res->z, &arg->z, &tmp->z)) {
+        if (zz_gcd(&res->z, &arg->z, &res->z)) {
             /* LCOV_EXCL_START */
             Py_DECREF(res);
             Py_DECREF(arg);
@@ -1854,7 +1852,6 @@ gmp_gcd(PyObject *Py_UNUSED(module), PyObject *const *args, Py_ssize_t nargs)
             /* LCOV_EXCL_STOP */
         }
         Py_DECREF(arg);
-        Py_SETREF(res, tmp);
     }
     return (PyObject *)res;
 }
@@ -2023,7 +2020,7 @@ err:
     static PyObject *                                                    \
     gmp_##name(PyObject *Py_UNUSED(module), PyObject *arg)               \
     {                                                                    \
-        MPZ_Object *x, *res = MPZ_new(0);                             \
+        MPZ_Object *x, *res = MPZ_new(0);                                \
                                                                          \
         if (!res) {                                                      \
             return NULL; /* LCOV_EXCL_LINE */                            \
@@ -2043,7 +2040,7 @@ err:
                             #name "() argument must be an integer");     \
             goto err;                                                    \
         }                                                                \
-        if (zz_isneg(&x->z)) {                                                  \
+        if (zz_isneg(&x->z)) {                                           \
             PyErr_SetString(PyExc_ValueError,                            \
                             #name "() not defined for negative values"); \
             goto err;                                                    \
