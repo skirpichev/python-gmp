@@ -2492,17 +2492,10 @@ gmp_exec(PyObject *m)
     return 0;
 }
 
-static int
-gmp_clear(PyObject *Py_UNUSED(module))
-{
-    zz_finish();
-    return 0;
-}
-
 static void
 gmp_free(void *module)
 {
-    (void)gmp_clear((PyObject *)module);
+    zz_finish();
 }
 
 #ifdef __GNUC__
@@ -2530,7 +2523,6 @@ static struct PyModuleDef gmp_module = {
     .m_methods = gmp_functions,
     .m_slots = gmp_slots,
     .m_free = gmp_free,
-    .m_clear = gmp_clear,
 };
 
 PyMODINIT_FUNC
