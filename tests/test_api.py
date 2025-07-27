@@ -50,6 +50,8 @@ class zz_rnd(IntEnum):
     ZZ_RNDN = 1
 
 libzz = CDLL("libzz.so")
+zz_setup = libzz.zz_setup
+zz_finish = libzz.zz_finish
 zz_resize = libzz.zz_resize
 zz_from_i64 = libzz.zz_from_i64
 zz_cmp_i32 = libzz.zz_cmp_i32
@@ -68,6 +70,13 @@ zz_sqrtrem = libzz.zz_sqrtrem
 
 u, v, w = map(byref, map(zz_t_struct, [[]]*3))
 int_layout = zz_layout(30, 4, -1, -1)
+
+
+@pytest.fixture(autouse=True, scope="module")
+def libzz_setup_teardown():
+    assert zz_setup(None) == zz_err.ZZ_OK
+    yield
+    zz_finish()
 
 
 @pytest.mark.skipif(sizeof(c_size_t) < 8, reason="Can't overflow zz_size_t")
