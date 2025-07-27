@@ -1,5 +1,5 @@
 name: Build Wheels
-on: [workflow_dispatch, workflow_call, push, pull_request]
+on: [workflow_dispatch, workflow_call]
 jobs:
   build_wheels:
     name: Build wheel on ${{ matrix.os }}
