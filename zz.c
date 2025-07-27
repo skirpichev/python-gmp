@@ -108,7 +108,7 @@ static struct {
 } zz_state;
 
 zz_err
-zz_setup(uint8_t *limb_bits, char **version)
+zz_setup(zz_info *info)
 {
     mp_set_memory_functions(_zz_allocate_function,
                             _zz_reallocate_function,
@@ -116,8 +116,13 @@ zz_setup(uint8_t *limb_bits, char **version)
     mp_get_memory_functions(&zz_state.default_allocate_func,
                             &zz_state.default_reallocate_func,
                             &zz_state.default_free_func);
-    *limb_bits = GMP_LIMB_BITS;
-    *version = (char *)gmp_version;
+    if (info) {
+        info->version[0] = __GNU_MP_VERSION;
+        info->version[1] = __GNU_MP_VERSION_MINOR;
+        info->version[2] = __GNU_MP_VERSION_PATCHLEVEL;
+        info->bits_per_limb = GMP_LIMB_BITS;
+        info->limb_bytes = sizeof(mp_limb_t);
+    }
     return ZZ_OK;
 }
 

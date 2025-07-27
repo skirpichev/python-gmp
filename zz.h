@@ -20,7 +20,13 @@ typedef enum {
     ZZ_BUF = -3,
 } zz_err;
 
-zz_err zz_setup(uint8_t *limb_bits, char **version);
+typedef struct {
+    uint8_t version[3];
+    uint8_t bits_per_limb;
+    uint8_t limb_bytes;
+} zz_info;
+
+zz_err zz_setup(zz_info *info);
 void zz_finish(void);
 
 typedef struct {

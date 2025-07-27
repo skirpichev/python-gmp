@@ -2425,10 +2425,9 @@ static PyStructSequence_Desc gmp_info_desc = {
 static int
 gmp_exec(PyObject *m)
 {
-    uint8_t gmp_limb_bits;
-    char *gmp_version;
+    static zz_info info;
 
-    if (zz_setup(&gmp_limb_bits, &gmp_version)) {
+    if (zz_setup(&info)) {
         return -1; /* LCOV_EXCL_LINE */
     }
     if (PyModule_AddType(m, &MPZ_Type) < 0) {
@@ -2447,10 +2446,15 @@ gmp_exec(PyObject *m)
     if (gmp_info == NULL) {
         return -1; /* LCOV_EXCL_LINE */
     }
-    PyStructSequence_SET_ITEM(gmp_info, 0, PyLong_FromLong(gmp_limb_bits));
+    PyStructSequence_SET_ITEM(gmp_info, 0,
+                              PyLong_FromLong(info.bits_per_limb));
     PyStructSequence_SET_ITEM(gmp_info, 1,
-                              PyLong_FromLong((gmp_limb_bits + 7)/8));
-    PyStructSequence_SET_ITEM(gmp_info, 2, PyUnicode_FromString(gmp_version));
+                              PyLong_FromLong(info.limb_bytes));
+    PyStructSequence_SET_ITEM(gmp_info, 2,
+                              PyUnicode_FromFormat("%d.%d.%d",
+                                                   info.version[0],
+                                                   info.version[1],
+                                                   info.version[2]));
     if (PyErr_Occurred()) {
         /* LCOV_EXCL_START */
         Py_DECREF(gmp_info);
