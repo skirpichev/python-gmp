@@ -96,6 +96,9 @@ zz_err zz_mul(const zz_t *u, const zz_t *v, zz_t *w);
 typedef enum {
     ZZ_RNDD = 0,
     ZZ_RNDN = 1,
+    ZZ_RNDU = 2,
+    ZZ_RNDZ = 3,
+    ZZ_RNDA = 4,
 } zz_rnd;
 
 zz_err zz_div(const zz_t *u, const zz_t *v, zz_rnd rnd, zz_t *q, zz_t *r);
@@ -125,5 +128,8 @@ zz_err zz_sqrtrem(const zz_t *u, zz_t *v, zz_t *w);
 zz_err zz_fac(uint64_t u, zz_t *v);
 zz_err zz_fac2(uint64_t u, zz_t *v);
 zz_err zz_fib(uint64_t u, zz_t *v);
+
+zz_err _zz_mpmath_normalize(zz_bitcnt_t prec, zz_rnd rnd, bool *negative,
+                            zz_t *man, zz_t *exp_shift, zz_bitcnt_t *bc);
 
 #endif /* ZZ_H */

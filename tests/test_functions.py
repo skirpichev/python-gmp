@@ -177,8 +177,14 @@ def test_interfaces():
     with pytest.raises(ValueError):
         _mpmath_create(mpz(123), 10, 3, 1j)
     with pytest.raises(TypeError):
+        _mpmath_create(mpz(123), 1j, 3, "c")
+    with pytest.raises(TypeError):
         _mpmath_normalize(123)
     with pytest.raises(TypeError):
         _mpmath_normalize(1, 111, 11, 12, 13, "c")
+    with pytest.raises(ValueError):
+        _mpmath_normalize(1, mpz(111), 11, 12, 13, "q")
+    with pytest.raises(TypeError):
+        _mpmath_normalize(1, mpz(111), 1j, 12, 13, "c")
     with pytest.raises(ValueError):
         _mpmath_normalize(1, mpz(111), 11, 12, 13, 1j)
