@@ -18,13 +18,11 @@
 #include <setjmp.h>
 #include <stdbool.h>
 
-#if !defined(_MSC_VER)
-#  define _Py_thread_local _Thread_local
-#else
-#  define _Py_thread_local __declspec(thread)
+#if defined(_MSC_VER)
+#  define _Thread_local __declspec(thread)
 #endif
 
-#if !defined(PYPY_VERSION) && !defined(Py_GIL_DISABLED)
+#if !defined(PYPY_VERSION)
 #  define CACHE_SIZE (99)
 #else
 #  define CACHE_SIZE (0)
@@ -36,7 +34,7 @@ typedef struct {
     size_t gmp_cache_size;
 } gmp_global;
 
-_Py_thread_local gmp_global global = {
+_Thread_local gmp_global global = {
     .gmp_cache_size = 0,
 };
 
