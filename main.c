@@ -355,20 +355,6 @@ MPZ_to_int(MPZ_Object *u)
 #endif
 }
 
-static MPZ_Object *
-MPZ_rshift1(const MPZ_Object *u, zz_limb_t rshift)
-{
-    MPZ_Object *res = MPZ_new(0);
-
-    if (!res || zz_quo_2exp(&u->z, rshift, &res->z)) {
-        /* LCOV_EXCL_START */
-        Py_XDECREF(res);
-        return (MPZ_Object *)PyErr_NoMemory();
-        /* LCOV_EXCL_STOP */
-    }
-    return res;
-}
-
 static void
 revstr(unsigned char *s, size_t l, size_t r)
 {
@@ -2078,167 +2064,38 @@ MAKE_MPZ_UI_FUN(fac)
 MAKE_MPZ_UI_FUN(fac2)
 MAKE_MPZ_UI_FUN(fib)
 
-static PyObject *
-build_mpf(long sign, MPZ_Object *man, PyObject *exp, zz_bitcnt_t bc)
+static zz_rnd
+get_round_mode(PyObject *rndstr)
 {
-    PyObject *tup, *tsign, *tbc;
-
-    if (!(tup = PyTuple_New(4))) {
-        /* LCOV_EXCL_START */
-        Py_DECREF((PyObject *)man);
-        Py_DECREF(exp);
-        return NULL;
-        /* LCOV_EXCL_STOP */
+    if (!PyUnicode_Check(rndstr)) {
+invalid:
+        PyErr_SetString(PyExc_ValueError, "invalid rounding mode specified");
+        return -1;
     }
 
-    if (!(tsign = PyLong_FromLong(sign))) {
-        /* LCOV_EXCL_START */
-        Py_DECREF((PyObject *)man);
-        Py_DECREF(exp);
-        Py_DECREF(tup);
-        return NULL;
-        /* LCOV_EXCL_STOP */
-    }
+    Py_UCS4 rndchr = PyUnicode_READ_CHAR(rndstr, 0);
+    zz_rnd rnd = ZZ_RNDN;
 
-    if (!(tbc = PyLong_FromUnsignedLongLong(bc))) {
-        /* LCOV_EXCL_START */
-        Py_DECREF((PyObject *)man);
-        Py_DECREF(exp);
-        Py_DECREF(tup);
-        Py_DECREF(tsign);
-        return NULL;
-        /* LCOV_EXCL_STOP */
+    switch (rndchr) {
+        case (Py_UCS4)'f':
+            rnd = ZZ_RNDD;
+            break;
+        case (Py_UCS4)'c':
+            rnd = ZZ_RNDU;
+            break;
+        case (Py_UCS4)'d':
+            rnd = ZZ_RNDZ;
+            break;
+        case (Py_UCS4)'u':
+            rnd = ZZ_RNDA;
+            break;
+        case (Py_UCS4)'n':
+            rnd = ZZ_RNDN;
+            break;
+        default:
+            goto invalid;
     }
-
-    PyTuple_SET_ITEM(tup, 0, tsign);
-    PyTuple_SET_ITEM(tup, 1, (PyObject *)man);
-    PyTuple_SET_ITEM(tup, 2, exp ? exp : PyLong_FromLong(0));
-    PyTuple_SET_ITEM(tup, 3, tbc);
-    return tup;
-}
-
-static PyObject *
-normalize_mpf(long sign, MPZ_Object *man, PyObject *exp, zz_bitcnt_t bc,
-              zz_bitcnt_t prec, Py_UCS4 rnd)
-{
-    zz_bitcnt_t zbits = 0;
-    PyObject *newexp = NULL, *tmp = NULL;
-    MPZ_Object *res = NULL;
-
-    /* If the mantissa is 0, return the normalized representation. */
-    if (zz_iszero(&man->z)) {
-        Py_INCREF((PyObject *)man);
-        return build_mpf(0, man, 0, 0);
-    }
-    /* if bc <= prec and the number is odd return it */
-    if (bc <= prec && zz_isodd(&man->z)) {
-        Py_INCREF((PyObject *)man);
-        Py_INCREF((PyObject *)exp);
-        return build_mpf(sign, man, exp, bc);
-    }
-    Py_INCREF(exp);
-    if (bc > prec) {
-        zz_bitcnt_t shift = bc - prec;
-
-        switch (rnd) {
-            case (Py_UCS4)'f':
-                rnd = (Py_UCS4)(sign ? 'u' : 'd');
-                break;
-            case (Py_UCS4)'c':
-                rnd = (Py_UCS4)(sign ? 'd' : 'u');
-                break;
-        }
-        switch (rnd) {
-            case (Py_UCS4)'d':
-                res = MPZ_rshift1(man, shift);
-                break;
-            case (Py_UCS4)'u':
-                if (!(tmp = PyNumber_Negative((PyObject *)man))) {
-                    /* LCOV_EXCL_START */
-                    Py_DECREF(exp);
-                    return NULL;
-                    /* LCOV_EXCL_STOP */
-                }
-                res = MPZ_rshift1((MPZ_Object *)tmp, shift);
-                Py_DECREF(tmp);
-                (void)zz_abs(&res->z, &res->z);
-                break;
-            case (Py_UCS4)'n':
-            default:
-                res = MPZ_rshift1(man, shift - 1);
-
-                int t = (zz_isodd(&res->z)
-                         && ((&res->z)->digits[0]&2
-                             || zz_lsbpos(&man->z) + 2 <= shift));
-
-                zz_quo_2exp(&res->z, 1, &res->z);
-                if (t && zz_add_i32(&res->z, 1, &res->z)) {
-                    /* LCOV_EXCL_START */
-                    Py_DECREF((PyObject *)res);
-                    Py_DECREF(exp);
-                    return NULL;
-                    /* LCOV_EXCL_STOP */
-                }
-        }
-        if (!(tmp = PyLong_FromUnsignedLongLong(shift))) {
-            /* LCOV_EXCL_START */
-            Py_DECREF((PyObject *)res);
-            Py_DECREF(exp);
-            return NULL;
-            /* LCOV_EXCL_STOP */
-        }
-        if (!(newexp = PyNumber_Add(exp, tmp))) {
-            /* LCOV_EXCL_START */
-            Py_DECREF((PyObject *)res);
-            Py_DECREF(exp);
-            Py_DECREF(tmp);
-            return NULL;
-            /* LCOV_EXCL_STOP */
-        }
-        Py_SETREF(exp, newexp);
-        Py_DECREF(tmp);
-        bc = prec;
-    }
-    else {
-        res = (MPZ_Object *)plus((PyObject *)man);
-    }
-    /* Strip trailing 0 bits. */
-    if (!zz_iszero(&res->z) && (zbits = zz_lsbpos(&res->z))) {
-        tmp = (PyObject *)MPZ_rshift1(res, zbits);
-        if (!tmp) {
-            /* LCOV_EXCL_START */
-            Py_DECREF((PyObject *)res);
-            Py_DECREF(exp);
-            return NULL;
-            /* LCOV_EXCL_STOP */
-        }
-        Py_DECREF((PyObject *)res);
-        res = (MPZ_Object *)tmp;
-    }
-    if (!(tmp = PyLong_FromUnsignedLongLong(zbits))) {
-        /* LCOV_EXCL_START */
-        Py_DECREF((PyObject *)res);
-        Py_DECREF(exp);
-        return NULL;
-        /* LCOV_EXCL_STOP */
-    }
-    if (!(newexp = PyNumber_Add(exp, tmp))) {
-        /* LCOV_EXCL_START */
-        Py_DECREF((PyObject *)res);
-        Py_DECREF(tmp);
-        Py_DECREF(exp);
-        return NULL;
-        /* LCOV_EXCL_STOP */
-    }
-    Py_SETREF(exp, newexp);
-    Py_DECREF(tmp);
-
-    bc -= zbits;
-    /* Check if one less than a power of 2 was rounded up. */
-    if (zz_cmp_i32(&res->z, 1) == ZZ_EQ) {
-        bc = 1;
-    }
-    return build_mpf(sign, res, exp, bc);
+    return rnd;
 }
 
 static PyObject *
@@ -2250,28 +2107,47 @@ gmp__mpmath_normalize(PyObject *self, PyObject *const *args, Py_ssize_t nargs)
     }
 
     long sign = PyLong_AsLong(args[0]);
-    MPZ_Object *man = (MPZ_Object *)args[1];
-    PyObject *exp = args[2];
+    bool negative = (bool)sign;
     zz_bitcnt_t bc = PyLong_AsUnsignedLongLong(args[3]);
     zz_bitcnt_t prec = PyLong_AsUnsignedLongLong(args[4]);
     PyObject *rndstr = args[5];
+    zz_rnd rnd = get_round_mode(rndstr);
 
     if (sign == -1 || bc == (zz_bitcnt_t)(-1) || prec == (zz_bitcnt_t)(-1)
-        || !MPZ_Check(man))
+        || !MPZ_Check(args[1]) || !PyLong_Check(args[2]))
     {
         PyErr_SetString(PyExc_TypeError,
                         ("arguments long, MPZ_Object*, PyObject*, "
                          "long, long, char needed"));
         return NULL;
     }
-    if (!PyUnicode_Check(rndstr)) {
-        PyErr_SetString(PyExc_ValueError, "invalid rounding mode specified");
+    if (rnd == -1) {
         return NULL;
     }
 
-    Py_UCS4 rnd = PyUnicode_READ_CHAR(rndstr, 0);
+    MPZ_Object *man = (MPZ_Object *)plus(args[1]);
+    MPZ_Object *exp = MPZ_from_int(args[2]);
 
-    return normalize_mpf(sign, man, exp, bc, prec, rnd);
+    if (!exp || !man || _zz_mpmath_normalize(prec, rnd, &negative,
+                                             &man->z, &exp->z, &bc))
+    {
+        /* LCOV_EXCL_START */
+        Py_XDECREF(man);
+        Py_XDECREF(exp);
+        return PyErr_NoMemory();
+        /* LCOV_EXCL_STOP */
+    }
+
+    PyObject *iexp = MPZ_to_int(exp);
+
+    Py_DECREF(exp);
+    if (!iexp) {
+        /* LCOV_EXCL_START */
+        Py_DECREF(man);
+        return NULL;
+        /* LCOV_EXCL_STOP */
+    }
+    return Py_BuildValue("(bNNK)", negative, man, iexp, bc);
 }
 
 static PyObject *
@@ -2298,84 +2174,63 @@ gmp__mpmath_create(PyObject *self, PyObject *const *args, Py_ssize_t nargs)
         PyErr_Format(PyExc_TypeError, "_mpmath_create() expects an integer");
         return NULL;
     }
-
-    PyObject *exp = args[1];
-    long sign = zz_isneg(&man->z);
-
-    if (sign) {
-        (void)zz_abs(&man->z, &man->z);
+    if (!PyLong_Check(args[1])) {
+        Py_DECREF(man);
+        PyErr_Format(PyExc_TypeError,
+                     "_mpmath_create() expects an integer exp");
+        return NULL;
     }
 
+    bool negative = zz_isneg(&man->z);
     zz_bitcnt_t bc = zz_bitlen(&man->z);
     zz_bitcnt_t prec = 0;
-    Py_UCS4 rnd = 'd';
+    zz_rnd rnd = ZZ_RNDZ;
 
+    if (negative) {
+        (void)zz_abs(&man->z, &man->z);
+    }
     if (nargs > 2) {
         prec = PyLong_AsUnsignedLongLong(args[2]);
         if (prec == (zz_bitcnt_t)(-1) && PyErr_Occurred()) {
+            Py_DECREF(man);
             PyErr_SetString(PyExc_TypeError, "bad prec argument");
             return NULL;
         }
     }
     if (nargs > 3) {
-        PyObject *rndstr = args[3];
+        rnd = get_round_mode(args[3]);
 
-        if (!PyUnicode_Check(rndstr)) {
-            PyErr_SetString(PyExc_ValueError,
-                            "invalid rounding mode specified");
+        if (rnd == -1) {
+            Py_DECREF(man);
             return NULL;
         }
-        rnd = PyUnicode_READ_CHAR(rndstr, 0);
     }
-
     if (!prec) {
-        if (zz_iszero(&man->z)) {
-            return build_mpf(0, man, 0, 0);
-        }
-
-        zz_bitcnt_t zbits = 0;
-        PyObject *tmp, *newexp;
-
-        /* Strip trailing 0 bits. */
-        if (!zz_iszero(&man->z) && (zbits = zz_lsbpos(&man->z))) {
-            tmp = (PyObject *)MPZ_rshift1(man, zbits);
-            if (!tmp) {
-                /* LCOV_EXCL_START */
-                Py_DECREF((PyObject *)man);
-                Py_DECREF(exp);
-                return NULL;
-                /* LCOV_EXCL_STOP */
-            }
-            Py_DECREF((PyObject *)man);
-            man = (MPZ_Object *)tmp;
-        }
-        if (!(tmp = PyLong_FromUnsignedLongLong(zbits))) {
-            /* LCOV_EXCL_START */
-            Py_DECREF((PyObject *)man);
-            Py_DECREF(exp);
-            return NULL;
-            /* LCOV_EXCL_STOP */
-        }
-        Py_INCREF(exp);
-        if (!(newexp = PyNumber_Add(exp, tmp))) {
-            /* LCOV_EXCL_START */
-            Py_DECREF((PyObject *)man);
-            Py_DECREF(tmp);
-            Py_DECREF(exp);
-            return NULL;
-            /* LCOV_EXCL_STOP */
-        }
-        Py_SETREF(exp, newexp);
-        Py_DECREF(tmp);
-        bc -= zbits;
-        PyObject *res = build_mpf(sign, man, exp, bc);
-        return res;
+        prec = bc;
     }
 
-    PyObject *res = normalize_mpf(sign, man, exp, bc, prec, rnd);
+    MPZ_Object *exp = MPZ_from_int(args[1]);
 
-    Py_DECREF(man);
-    return res;
+    if (!exp || _zz_mpmath_normalize(prec, rnd, &negative,
+                                           &man->z, &exp->z, &bc))
+    {
+        /* LCOV_EXCL_START */
+        Py_DECREF(man);
+        Py_XDECREF(exp);
+        return PyErr_NoMemory();
+        /* LCOV_EXCL_STOP */
+    }
+
+    PyObject *iexp = MPZ_to_int(exp);
+
+    Py_DECREF(exp);
+    if (!iexp) {
+        /* LCOV_EXCL_START */
+        Py_DECREF(man);
+        return NULL;
+        /* LCOV_EXCL_STOP */
+    }
+    return Py_BuildValue("(bNNK)", negative, man, iexp, bc);
 }
 
 static PyMethodDef gmp_functions[] = {
