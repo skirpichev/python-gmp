@@ -19,6 +19,13 @@
 #endif
 
 jmp_buf zz_env;
+/* Function should include if(TMP_OVERFLOW){...} workaround in
+   case it calls any mpn_*() API, which does memory allocation for
+   temporary storage.  Not all functions do this, sometimes it's
+   obvious (e.g. mpn_cmp() or mpn_add/sub()), sometimes - not (e.g.
+   mpn_get/set_str() for power of 2 bases).  Though, these details
+   aren't documented and if you feel that in the given case things
+   might be changed - please add a workaround. */
 #define TMP_OVERFLOW (setjmp(zz_env) == 1)
 
 #if defined(_MSC_VER)
@@ -819,7 +826,7 @@ _zz_addsub(const zz_t *u, const zz_t *v, bool subtract, zz_t *w)
         SWAP(zz_size_t, u_size, v_size);
     }
 
-    if (zz_resize(u_size + same_sign, w) || TMP_OVERFLOW) {
+    if (zz_resize(u_size + same_sign, w)) {
         return ZZ_MEM; /* LCOV_EXCL_LINE */
     }
     w->negative = negu;
@@ -867,7 +874,7 @@ _zz_addsub_i32(const zz_t *u, int32_t v, bool subtract, zz_t *w)
         return ZZ_OK;
     }
 
-    if (zz_resize(u_size + same_sign, w) || TMP_OVERFLOW) {
+    if (zz_resize(u_size + same_sign, w)) {
         return ZZ_MEM; /* LCOV_EXCL_LINE */
     }
     w->negative = negu;
