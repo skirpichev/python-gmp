@@ -19,6 +19,13 @@
 #endif
 
 jmp_buf zz_env;
+/* Function should include if(TMP_OVERFLOW){...} workaround in
+   case it calls any mpn_*() API, which does memory allocation for
+   temporary storage.  Not all functions do this, sometimes it's
+   obvious (e.g. mpn_cmp() or mpn_add/sub()), sometimes - not (e.g.
+   mpn_get/set_str() for power of 2 bases).  Though, these details
+   aren't documented and if you feel that in the given case things
+   might be changed - please add a workaround. */
 #define TMP_OVERFLOW (setjmp(zz_env) == 1)
 
 #if defined(_MSC_VER)
@@ -149,6 +156,9 @@ zz_resize(size_t size, zz_t *u)
 {
     if (u->alloc >= size) {
         u->size = (zz_size_t)size;
+        if (!u->size) {
+            u->negative = false;
+        }
         return ZZ_OK;
     }
     if (size > INT32_MAX) {
@@ -442,6 +452,7 @@ zz_to_str(const zz_t *u, int8_t base, int8_t *str, size_t *len)
     if (u->negative) {
         *(p++) = '-';
     }
+    /* We use undocumented feature of mpn_get_str(): u->size >= 0 */
     if ((base & (base - 1)) == 0) {
         *len = mpn_get_str(p, base, u->digits, u->size);
     }
@@ -689,9 +700,8 @@ overflow:
 
     size_t gap = length - (nbits + GMP_NUMB_BITS/8 - 1)/(GMP_NUMB_BITS/8);
 
-    if (u->size) {
-        mpn_get_str(*buffer + gap, 256, u->digits, u->size);
-    }
+    /* We use undocumented feature of mpn_get_str(): u->size >= 0 */
+    mpn_get_str(*buffer + gap, 256, u->digits, u->size);
     memset(*buffer, is_negative ? 0xFF : 0, gap);
     zz_clear(&tmp);
     return ZZ_OK;
@@ -816,10 +826,11 @@ _zz_addsub(const zz_t *u, const zz_t *v, bool subtract, zz_t *w)
         SWAP(zz_size_t, u_size, v_size);
     }
 
-    if (zz_resize(u_size + same_sign, w) || TMP_OVERFLOW) {
+    if (zz_resize(u_size + same_sign, w)) {
         return ZZ_MEM; /* LCOV_EXCL_LINE */
     }
     w->negative = negu;
+    /* We use undocumented feature of mpn_add/sub(): v_size can be 0 */
     if (same_sign) {
         w->digits[w->size - 1] = mpn_add(w->digits, u->digits, u_size,
                                          v->digits, v_size);
@@ -831,7 +842,7 @@ _zz_addsub(const zz_t *u, const zz_t *v, bool subtract, zz_t *w)
         int cmp = mpn_cmp(u->digits, v->digits, u_size);
 
         if (cmp < 0) {
-            mpn_sub_n(w->digits, v->digits, u->digits, u->size);
+            mpn_sub_n(w->digits, v->digits, u->digits, u_size);
             w->negative = negv;
         }
         else if (cmp > 0) {
@@ -854,6 +865,7 @@ _zz_addsub_i32(const zz_t *u, int32_t v, bool subtract, zz_t *w)
     zz_limb_t digit = ABS(v);
 
     if (u_size < v_size) {
+        assert(v_size == 1);
         if (zz_resize(v_size, w)) {
             return ZZ_MEM; /* LCOV_EXCL_LINE */
         }
@@ -862,7 +874,7 @@ _zz_addsub_i32(const zz_t *u, int32_t v, bool subtract, zz_t *w)
         return ZZ_OK;
     }
 
-    if (zz_resize(u_size + same_sign, w) || TMP_OVERFLOW) {
+    if (zz_resize(u_size + same_sign, w)) {
         return ZZ_MEM; /* LCOV_EXCL_LINE */
     }
     w->negative = negu;
@@ -953,6 +965,7 @@ zz_mul(const zz_t *u, const zz_t *v, zz_t *w)
         mpn_mul(w->digits, u->digits, u->size, v->digits, v->size);
     }
     w->size -= w->digits[w->size - 1] == 0;
+    assert(w->size >= 1);
     return ZZ_OK;
 }
 
@@ -1418,6 +1431,7 @@ err:
             return ZZ_OK;
         }
         else if (u->negative) {
+            assert(v_size > 0);
             if (zz_resize(v_size, w)) {
                 goto err; /* LCOV_EXCL_LINE */
             }
@@ -1429,6 +1443,7 @@ err:
             return ZZ_OK;
         }
         else {
+            assert(u_size > 0);
             if (zz_resize(u_size, w)) {
                 goto err; /* LCOV_EXCL_LINE */
             }
@@ -1517,6 +1532,7 @@ err:
             return ZZ_OK;
         }
         else if (u->negative) {
+            assert(v_size > 0);
             if (zz_resize(u_size + 1, w)) {
                 goto err; /* LCOV_EXCL_LINE */
             }
@@ -1530,6 +1546,7 @@ err:
             return ZZ_OK;
         }
         else {
+            assert(u_size > 0);
             if (zz_resize(v_size + 1, w)) {
                 goto err; /* LCOV_EXCL_LINE */
             }
@@ -1625,6 +1642,7 @@ err:
             return ZZ_OK;
         }
         else if (u->negative) {
+            assert(v_size > 0);
             if (zz_resize(u_size + 1, w)) {
                 goto err; /* LCOV_EXCL_LINE */
             }
@@ -1638,6 +1656,7 @@ err:
             return ZZ_OK;
         }
         else {
+            assert(u_size > 0);
             if (zz_resize(u_size + 1, w)) {
                 goto err; /* LCOV_EXCL_LINE */
             }

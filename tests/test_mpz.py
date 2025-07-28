@@ -10,7 +10,7 @@ from concurrent.futures import ThreadPoolExecutor
 
 import pytest
 from gmp import mpz
-from hypothesis import assume, example, given, settings
+from hypothesis import assume, example, given
 from hypothesis.strategies import (
     booleans,
     characters,
@@ -1026,7 +1026,6 @@ def test_pickle(protocol, x):
     assert mx == pickle.loads(pickle.dumps(mx, protocol))
 
 
-@settings(settings.load_profile("default"), max_examples=100)
 @given(lists(integers(min_value=2), min_size=3, max_size=20))
 def test_mpz_collatz(xs):
     # https://en.wikipedia.org/wiki/Collatz_conjecture

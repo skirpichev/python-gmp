@@ -2231,6 +2231,21 @@ gmp__mpmath_create(PyObject *self, PyObject *const *args, Py_ssize_t nargs)
     return Py_BuildValue("(bNNK)", negative, man, iexp, bc);
 }
 
+static PyObject *
+gmp__free_cache(PyObject *Py_UNUSED(module), PyObject *Py_UNUSED(args))
+{
+    for (size_t i = 0; i < global.gmp_cache_size; i++) {
+        MPZ_Object *u = global.gmp_cache[i];
+        PyObject *self = (PyObject *)u;
+        PyTypeObject *type = Py_TYPE(self);
+
+        zz_clear(&u->z);
+        type->tp_free(self);
+    }
+    global.gmp_cache_size = 0;
+    Py_RETURN_NONE;
+}
+
 static PyMethodDef gmp_functions[] = {
     {"gcd", (PyCFunction)gmp_gcd, METH_FASTCALL,
      ("gcd($module, /, *integers)\n--\n\n"
@@ -2256,6 +2271,7 @@ static PyMethodDef gmp_functions[] = {
     {"_mpmath_normalize", (PyCFunction)gmp__mpmath_normalize, METH_FASTCALL,
      NULL},
     {"_mpmath_create", (PyCFunction)gmp__mpmath_create, METH_FASTCALL, NULL},
+    {"_free_cache", gmp__free_cache, METH_NOARGS, "Free mpz's cache."},
     {NULL} /* sentinel */
 };
 
@@ -2349,12 +2365,6 @@ gmp_exec(PyObject *m)
     return 0;
 }
 
-static void
-gmp_free(void *module)
-{
-    zz_finish();
-}
-
 #ifdef __GNUC__
 #  pragma GCC diagnostic push
 #  pragma GCC diagnostic ignored "-Wpedantic"
@@ -2362,7 +2372,7 @@ gmp_free(void *module)
 static PyModuleDef_Slot gmp_slots[] = {
     {Py_mod_exec, gmp_exec},
 #if PY_VERSION_HEX >= 0x030C0000
-    {Py_mod_multiple_interpreters, Py_MOD_MULTIPLE_INTERPRETERS_NOT_SUPPORTED},
+    {Py_mod_multiple_interpreters, Py_MOD_PER_INTERPRETER_GIL_SUPPORTED},
 #endif
 #if PY_VERSION_HEX >= 0x030D0000
     {Py_mod_gil, Py_MOD_GIL_NOT_USED},
@@ -2379,7 +2389,6 @@ static struct PyModuleDef gmp_module = {
     .m_size = 0,
     .m_methods = gmp_functions,
     .m_slots = gmp_slots,
-    .m_free = gmp_free,
 };
 
 PyMODINIT_FUNC
