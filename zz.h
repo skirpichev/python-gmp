@@ -130,6 +130,6 @@ zz_err zz_fac2(uint64_t u, zz_t *v);
 zz_err zz_fib(uint64_t u, zz_t *v);
 
 zz_err _zz_mpmath_normalize(zz_bitcnt_t prec, zz_rnd rnd, bool *negative,
-                            zz_t *man, zz_t *exp_shift, zz_bitcnt_t *bc);
+                            zz_t *man, zz_t *exp, zz_bitcnt_t *bc);
 
 #endif /* ZZ_H */
