@@ -2231,6 +2231,21 @@ gmp__mpmath_create(PyObject *self, PyObject *const *args, Py_ssize_t nargs)
     return Py_BuildValue("(bNNK)", negative, man, iexp, bc);
 }
 
+static PyObject *
+gmp__free_cache(PyObject *Py_UNUSED(module), PyObject *Py_UNUSED(args))
+{
+    for (size_t i = 0; i < global.gmp_cache_size; i++) {
+        MPZ_Object *u = global.gmp_cache[i];
+        PyObject *self = (PyObject *)u;
+        PyTypeObject *type = Py_TYPE(self);
+
+        zz_clear(&u->z);
+        type->tp_free(self);
+    }
+    global.gmp_cache_size = 0;
+    Py_RETURN_NONE;
+}
+
 static PyMethodDef gmp_functions[] = {
     {"gcd", (PyCFunction)gmp_gcd, METH_FASTCALL,
      ("gcd($module, /, *integers)\n--\n\n"
@@ -2256,6 +2271,7 @@ static PyMethodDef gmp_functions[] = {
     {"_mpmath_normalize", (PyCFunction)gmp__mpmath_normalize, METH_FASTCALL,
      NULL},
     {"_mpmath_create", (PyCFunction)gmp__mpmath_create, METH_FASTCALL, NULL},
+    {"_free_cache", gmp__free_cache, METH_NOARGS, "Free mpz's cache."},
     {NULL} /* sentinel */
 };
 
