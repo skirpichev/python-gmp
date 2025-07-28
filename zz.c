@@ -835,7 +835,7 @@ _zz_addsub(const zz_t *u, const zz_t *v, bool subtract, zz_t *w)
         int cmp = mpn_cmp(u->digits, v->digits, u_size);
 
         if (cmp < 0) {
-            mpn_sub_n(w->digits, v->digits, u->digits, u->size);
+            mpn_sub_n(w->digits, v->digits, u->digits, u_size);
             w->negative = negv;
         }
         else if (cmp > 0) {
