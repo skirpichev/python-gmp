@@ -2,12 +2,19 @@
 #  pragma GCC diagnostic push
 #  pragma GCC diagnostic ignored "-Wnewline-eof"
 #endif
+#if defined(__GNUC__) || defined(__clang__)
+#  pragma GCC diagnostic push
+#  pragma GCC diagnostic ignored "-Wsign-conversion"
+#endif
 
 #include "pythoncapi_compat.h"
 
 #define PY_SSIZE_T_CLEAN
 #include <Python.h>
 
+#if defined(__GNUC__) || defined(__clang__)
+#  pragma GCC diagnostic pop
+#endif
 #if defined(__clang__)
 #  pragma GCC diagnostic pop
 #endif
@@ -39,7 +46,7 @@ _Thread_local gmp_global global = {
 };
 
 static MPZ_Object *
-MPZ_new(zz_size_t size)
+MPZ_new(int64_t size)
 {
     MPZ_Object *res;
 
@@ -233,7 +240,7 @@ skip_negation:
         len--;
     }
 
-    zz_err ret = zz_from_str(str, len, (int8_t)base, &res->z);
+    zz_err ret = zz_from_str(str, (size_t)len, (int8_t)base, &res->z);
 
     if (ret == ZZ_MEM) {
         /* LCOV_EXCL_START */
@@ -275,7 +282,7 @@ MPZ_from_int(PyObject *obj)
     }
     if (long_export.digits) {
         res = MPZ_new(0);
-        if (!res || zz_import(long_export.ndigits,
+        if (!res || zz_import((size_t)long_export.ndigits,
                               long_export.digits, *int_layout, &res->z))
         {
             return (MPZ_Object *)PyErr_NoMemory(); /* LCOV_EXCL_LINE */
@@ -332,7 +339,8 @@ MPZ_to_int(MPZ_Object *u)
     size_t size = (zz_bitlen(&u->z) + int_layout->bits_per_digit
                    - 1)/int_layout->bits_per_digit;
     void *digits;
-    PyLongWriter *writer = PyLongWriter_Create(zz_isneg(&u->z), size, &digits);
+    PyLongWriter *writer = PyLongWriter_Create(zz_isneg(&u->z),
+                                               (Py_ssize_t)size, &digits);
 
     if (!writer) {
         return NULL; /* LCOV_EXCL_LINE */
@@ -354,7 +362,7 @@ MPZ_to_int(MPZ_Object *u)
 }
 
 static void
-revstr(unsigned char *s, size_t l, size_t r)
+revstr(unsigned char *s, Py_ssize_t l, Py_ssize_t r)
 {
     while (l < r) {
         unsigned char tmp = s[l];
@@ -376,7 +384,7 @@ MPZ_to_bytes(MPZ_Object *u, Py_ssize_t length, int is_little, int is_signed)
     }
 
     uint8_t *buffer = (uint8_t *)PyBytes_AS_STRING(bytes);
-    zz_err ret = zz_to_bytes(&u->z, length, is_signed, &buffer);
+    zz_err ret = zz_to_bytes(&u->z, (size_t)length, is_signed, &buffer);
 
     if (ret == ZZ_OK) {
         if (is_little && length) {
@@ -415,7 +423,7 @@ MPZ_from_bytes(PyObject *obj, int is_little, int is_signed)
         is_little = 0;
     }
     if (is_little) {
-        uint8_t *tmp = malloc(length);
+        uint8_t *tmp = malloc((size_t)length);
 
         if (!tmp) {
             /* LCOV_EXCL_START */
@@ -423,14 +431,14 @@ MPZ_from_bytes(PyObject *obj, int is_little, int is_signed)
             return (MPZ_Object *)PyErr_NoMemory();
             /* LCOV_EXCL_STOP */
         }
-        memcpy(tmp, buffer, length);
+        memcpy(tmp, buffer, (size_t)length);
         revstr(tmp, 0, length - 1);
         buffer = tmp;
     }
 
     MPZ_Object *res = MPZ_new(0);
 
-    if (!res || zz_from_bytes(buffer, length, is_signed, &res->z)) {
+    if (!res || zz_from_bytes(buffer, (size_t)length, is_signed, &res->z)) {
         /* LCOV_EXCL_START */
         Py_DECREF(bytes);
         if (is_little) {
@@ -464,7 +472,14 @@ PyUnicode_TransformDecimalAndSpaceToASCII(PyObject *unicode)
     }
 
     Py_UCS1 *out = PyUnicode_1BYTE_DATA(result);
+#if defined(__GNUC__) || defined(__clang__)
+#  pragma GCC diagnostic push
+#  pragma GCC diagnostic ignored "-Wsign-conversion"
+#endif
     int kind = PyUnicode_KIND(unicode);
+#if defined(__GNUC__) || defined(__clang__)
+#  pragma GCC diagnostic pop
+#endif
     const void *data = PyUnicode_DATA(unicode);
 
     for (Py_ssize_t i = 0; i < len; ++i) {
@@ -864,7 +879,7 @@ hash(PyObject *self)
     Py_hash_t r;
 
     assert(-(uint64_t)INT64_MIN > PyHASH_MODULUS);
-    (void)zz_rem_u64(&u->z, PyHASH_MODULUS, (uint64_t *)&r);
+    (void)zz_rem_u64(&u->z, (uint64_t)PyHASH_MODULUS, (uint64_t *)&r);
     if (negative) {
         (void)zz_neg(&u->z, &u->z);
         r = -r;
@@ -1223,7 +1238,9 @@ power(PyObject *self, PyObject *other, PyObject *module)
 
         int64_t exp;
 
-        if (!res || zz_to_i64(&v->z, &exp) || zz_pow(&u->z, exp, &res->z)) {
+        if (!res || zz_to_i64(&v->z, &exp)
+            || zz_pow(&u->z, (uint64_t)exp, &res->z))
+        {
             /* LCOV_EXCL_START */
             Py_CLEAR(res);
             PyErr_SetNone(PyExc_MemoryError);
@@ -1624,11 +1641,11 @@ static PyObject *
 __reduce_ex__(PyObject *self, PyObject *Py_UNUSED(args))
 {
     MPZ_Object *u = (MPZ_Object *)self;
-    Py_ssize_t len = zz_bitlen(&u->z);
+    zz_bitcnt_t len = zz_bitlen(&u->z);
 
     return Py_BuildValue("N(N)",
                          PyObject_GetAttrString(self, "_from_bytes"),
-                         MPZ_to_bytes(u, (len + 7)/8 + 1, 0, 1));
+                         MPZ_to_bytes(u, (Py_ssize_t)(len + 7)/8 + 1, 0, 1));
 }
 
 static PyObject *
@@ -1637,7 +1654,7 @@ __sizeof__(PyObject *self, PyObject *Py_UNUSED(ignored))
     MPZ_Object *u = (MPZ_Object *)self;
 
     return PyLong_FromSize_t(sizeof(MPZ_Object)
-                             + (u->z).alloc*sizeof(zz_limb_t));
+                             + (unsigned int)(u->z).alloc*sizeof(zz_limb_t));
 }
 
 static PyObject *
@@ -2046,7 +2063,7 @@ err:
             goto err;                                                    \
         }                                                                \
         Py_XDECREF(x);                                                   \
-        if (zz_##name(n, &res->z)) {                                     \
+        if (zz_##name((uint64_t)n, &res->z)) {                           \
             /* LCOV_EXCL_START */                                        \
             PyErr_NoMemory();                                            \
             goto err;                                                    \
@@ -2068,7 +2085,7 @@ get_round_mode(PyObject *rndstr)
     if (!PyUnicode_Check(rndstr)) {
 invalid:
         PyErr_SetString(PyExc_ValueError, "invalid rounding mode specified");
-        return -1;
+        return (zz_rnd)-1;
     }
 
     Py_UCS4 rndchr = PyUnicode_READ_CHAR(rndstr, 0);

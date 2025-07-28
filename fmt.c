@@ -2,12 +2,19 @@
 #  pragma GCC diagnostic push
 #  pragma GCC diagnostic ignored "-Wnewline-eof"
 #endif
+#if defined(__GNUC__) || defined(__clang__)
+#  pragma GCC diagnostic push
+#  pragma GCC diagnostic ignored "-Wsign-conversion"
+#endif
 
 #include "pythoncapi_compat.h"
 
 #define PY_SSIZE_T_CLEAN
 #include <Python.h>
 
+#if defined(__GNUC__) || defined(__clang__)
+#  pragma GCC diagnostic pop
+#endif
 #if defined(__clang__)
 #  pragma GCC diagnostic pop
 #endif
@@ -162,8 +169,8 @@ parse_internal_render_format_spec(PyObject *obj,
                                   PyObject *format_spec,
                                   Py_ssize_t start, Py_ssize_t end,
                                   InternalFormatSpec *format,
-                                  char default_type,
-                                  char default_align)
+                                  Py_UCS4 default_type,
+                                  Py_UCS4 default_align)
 {
     Py_ssize_t pos = start;
     int kind = PyUnicode_KIND(format_spec);
@@ -353,7 +360,8 @@ parse_internal_render_format_spec(PyObject *obj,
                 break;
             }
         default:
-            invalid_thousands_separator_type(format->thousands_separators, format->type);
+            invalid_thousands_separator_type((int)format->thousands_separators,
+                                             format->type);
             return 0;
         }
     }
@@ -361,7 +369,7 @@ parse_internal_render_format_spec(PyObject *obj,
     if (format->type == 'n'
         && format->frac_thousands_separator != LT_NO_LOCALE)
     {
-        invalid_thousands_separator_type(format->frac_thousands_separator,
+        invalid_thousands_separator_type((int)format->frac_thousands_separator,
                                          format->type);
         return 0;
     }
@@ -733,7 +741,7 @@ fill_number(PyUnicodeWriter *writer, const NumberFieldWidths *spec,
         }
     }
     if (spec->n_sign == 1) {
-        PyUnicodeWriter_WriteChar(writer, spec->sign);
+        PyUnicodeWriter_WriteChar(writer, (Py_UCS4)spec->sign);
     }
     if (spec->n_prefix) {
         PyUnicodeWriter_WriteSubstring(writer, prefix, p_start, spec->n_prefix + p_start);
