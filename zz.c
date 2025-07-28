@@ -149,6 +149,9 @@ zz_resize(size_t size, zz_t *u)
 {
     if (u->alloc >= size) {
         u->size = (zz_size_t)size;
+        if (!u->size) {
+            u->negative = false;
+        }
         return ZZ_OK;
     }
     if (size > INT32_MAX) {
@@ -854,6 +857,7 @@ _zz_addsub_i32(const zz_t *u, int32_t v, bool subtract, zz_t *w)
     zz_limb_t digit = ABS(v);
 
     if (u_size < v_size) {
+        assert(v_size == 1);
         if (zz_resize(v_size, w)) {
             return ZZ_MEM; /* LCOV_EXCL_LINE */
         }
@@ -953,6 +957,7 @@ zz_mul(const zz_t *u, const zz_t *v, zz_t *w)
         mpn_mul(w->digits, u->digits, u->size, v->digits, v->size);
     }
     w->size -= w->digits[w->size - 1] == 0;
+    assert(w->size >= 1);
     return ZZ_OK;
 }
 
@@ -1418,6 +1423,7 @@ err:
             return ZZ_OK;
         }
         else if (u->negative) {
+            assert(v_size > 0);
             if (zz_resize(v_size, w)) {
                 goto err; /* LCOV_EXCL_LINE */
             }
@@ -1429,6 +1435,7 @@ err:
             return ZZ_OK;
         }
         else {
+            assert(u_size > 0);
             if (zz_resize(u_size, w)) {
                 goto err; /* LCOV_EXCL_LINE */
             }
@@ -1517,6 +1524,7 @@ err:
             return ZZ_OK;
         }
         else if (u->negative) {
+            assert(v_size > 0);
             if (zz_resize(u_size + 1, w)) {
                 goto err; /* LCOV_EXCL_LINE */
             }
@@ -1530,6 +1538,7 @@ err:
             return ZZ_OK;
         }
         else {
+            assert(u_size > 0);
             if (zz_resize(v_size + 1, w)) {
                 goto err; /* LCOV_EXCL_LINE */
             }
@@ -1625,6 +1634,7 @@ err:
             return ZZ_OK;
         }
         else if (u->negative) {
+            assert(v_size > 0);
             if (zz_resize(u_size + 1, w)) {
                 goto err; /* LCOV_EXCL_LINE */
             }
@@ -1638,6 +1648,7 @@ err:
             return ZZ_OK;
         }
         else {
+            assert(u_size > 0);
             if (zz_resize(u_size + 1, w)) {
                 goto err; /* LCOV_EXCL_LINE */
             }
