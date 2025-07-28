@@ -6,16 +6,18 @@ import pickle
 import platform
 import sys
 import warnings
+from concurrent.futures import ThreadPoolExecutor
 
 import pytest
 from gmp import mpz
-from hypothesis import assume, example, given
+from hypothesis import assume, example, given, settings
 from hypothesis.strategies import (
     booleans,
     characters,
     complex_numbers,
     floats,
     integers,
+    lists,
     sampled_from,
     text,
 )
@@ -1022,3 +1024,16 @@ def test_frombase_auto(x):
 def test_pickle(protocol, x):
     mx = mpz(x)
     assert mx == pickle.loads(pickle.dumps(mx, protocol))
+
+
+@settings(settings.load_profile("default"), max_examples=100)
+@given(lists(integers(min_value=2), min_size=3, max_size=20))
+def test_mpz_collatz(xs):
+    # https://en.wikipedia.org/wiki/Collatz_conjecture
+    def f(n):
+        while n > 1:
+            n = 3*n + 1 if n & 1 else n//2
+        return n
+    with ThreadPoolExecutor(max_workers=7) as tpe:
+        futures = [tpe.submit(f, mpz(x)) for x in xs]
+        assert all(f.result() == 1 for f in futures)
