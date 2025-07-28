@@ -823,6 +823,7 @@ _zz_addsub(const zz_t *u, const zz_t *v, bool subtract, zz_t *w)
         return ZZ_MEM; /* LCOV_EXCL_LINE */
     }
     w->negative = negu;
+    /* We use undocumented feature of mpn_add/sub(): v_size can be 0 */
     if (same_sign) {
         w->digits[w->size - 1] = mpn_add(w->digits, u->digits, u_size,
                                          v->digits, v_size);
