@@ -445,6 +445,7 @@ zz_to_str(const zz_t *u, int8_t base, int8_t *str, size_t *len)
     if (u->negative) {
         *(p++) = '-';
     }
+    /* We use undocumented feature of mpn_get_str(): u->size >= 0 */
     if ((base & (base - 1)) == 0) {
         *len = mpn_get_str(p, base, u->digits, u->size);
     }
@@ -692,9 +693,8 @@ overflow:
 
     size_t gap = length - (nbits + GMP_NUMB_BITS/8 - 1)/(GMP_NUMB_BITS/8);
 
-    if (u->size) {
-        mpn_get_str(*buffer + gap, 256, u->digits, u->size);
-    }
+    /* We use undocumented feature of mpn_get_str(): u->size >= 0 */
+    mpn_get_str(*buffer + gap, 256, u->digits, u->size);
     memset(*buffer, is_negative ? 0xFF : 0, gap);
     zz_clear(&tmp);
     return ZZ_OK;
