@@ -2349,12 +2349,6 @@ gmp_exec(PyObject *m)
     return 0;
 }
 
-static void
-gmp_free(void *module)
-{
-    zz_finish();
-}
-
 #ifdef __GNUC__
 #  pragma GCC diagnostic push
 #  pragma GCC diagnostic ignored "-Wpedantic"
@@ -2379,7 +2373,6 @@ static struct PyModuleDef gmp_module = {
     .m_size = 0,
     .m_methods = gmp_functions,
     .m_slots = gmp_slots,
-    .m_free = gmp_free,
 };
 
 PyMODINIT_FUNC
