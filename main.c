@@ -811,15 +811,14 @@ to_float(PyObject *self)
 static PyObject *
 richcompare(PyObject *self, PyObject *other, int op)
 {
-    MPZ_Object *u = NULL, *v = NULL;
+    MPZ_Object *u = (MPZ_Object *)self, *v = NULL;
 
-    CHECK_OP(u, self);
+    assert(MPZ_Check(self));
     CHECK_OP(v, other);
 
     zz_ord r = zz_cmp(&u->z, &v->z);
 
-    Py_XDECREF(u);
-    Py_XDECREF(v);
+    Py_DECREF(v);
     switch (op) {
         case Py_LT:
             return PyBool_FromLong(r == ZZ_LT);
@@ -835,29 +834,20 @@ richcompare(PyObject *self, PyObject *other, int op)
             return PyBool_FromLong(r != ZZ_EQ);
     }
     /* LCOV_EXCL_START */
-    Py_RETURN_NOTIMPLEMENTED;
 end:
-    Py_XDECREF(u);
-    Py_XDECREF(v);
     return NULL;
     /* LCOV_EXCL_STOP */
 fallback:
-    Py_XDECREF(u);
-    Py_XDECREF(v);
     Py_RETURN_NOTIMPLEMENTED;
 numbers:
-    Py_XDECREF(u);
-    Py_XDECREF(v);
-
-    PyObject *uf = to_float(self), *vf = other;
-
-    if (!uf) {
+    self = to_float(self);
+    if (!self) {
         return NULL; /* LCOV_EXCL_LINE */
     }
 
-    PyObject *res = PyObject_RichCompare(uf, vf, op);
+    PyObject *res = PyObject_RichCompare(self, other, op);
 
-    Py_DECREF(uf);
+    Py_DECREF(self);
     return res;
 }
 
