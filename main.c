@@ -789,17 +789,65 @@ to_float(PyObject *self)
     return PyFloat_FromDouble(d);
 }
 
+static zz_err
+zz_from_int(PyObject *obj, zz_t *res)
+{
+    PyLongExport long_export = {0, 0, 0, 0, 0};
+    const zz_layout *int_layout = (zz_layout *)PyLong_GetNativeLayout();
+
+    if (PyLong_Export(obj, &long_export) < 0) {
+        return ZZ_MEM; /* LCOV_EXCL_LINE */
+    }
+    if (long_export.digits) {
+        if (zz_import((size_t)long_export.ndigits,
+                      long_export.digits, *int_layout, res))
+        {
+            return ZZ_MEM; /* LCOV_EXCL_LINE */
+        }
+        (void)zz_abs(res, res);
+        if (long_export.negative) {
+            (void)zz_neg(res, res);
+        }
+        PyLong_FreeExport(&long_export);
+    }
+    else {
+        if (zz_from_i64(long_export.value, res)) {
+            return ZZ_MEM; /* LCOV_EXCL_LINE */
+        }
+    }
+    return ZZ_OK;
+}
+
 static PyObject *
 richcompare(PyObject *self, PyObject *other, int op)
 {
-    MPZ_Object *u = (MPZ_Object *)self, *v = NULL;
+    zz_t *u = &((MPZ_Object *)self)->z, *v = NULL;
+    bool clear_v = false;
 
     assert(MPZ_Check(self));
-    CHECK_OP(v, other);
+    if (MPZ_Check(other)) {
+        v = &((MPZ_Object *)other)->z;
+    }
+    else if (PyLong_Check(other)) {
+        v = malloc(sizeof(zz_t));
+        if (!v || zz_init(v) || zz_from_int(other, v)) {
+            goto end;
+        }
+        clear_v = true;
+    }
+    else if (Number_Check(other)) {
+        goto numbers;
+    }
+    else {
+        goto fallback;
+    }
 
-    zz_ord r = zz_cmp(&u->z, &v->z);
+    zz_ord r = zz_cmp(u, v);
 
-    Py_DECREF(v);
+    if (clear_v) {
+        zz_clear(v);
+        free(v);
+    }
     switch (op) {
         case Py_LT:
             return PyBool_FromLong(r == ZZ_LT);
@@ -816,6 +864,10 @@ richcompare(PyObject *self, PyObject *other, int op)
     }
     /* LCOV_EXCL_START */
 end:
+    if (v) {
+        zz_clear(v);
+        free(v);
+    }
     return NULL;
     /* LCOV_EXCL_STOP */
 fallback:
