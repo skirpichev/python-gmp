@@ -126,12 +126,12 @@ static struct {
 zz_err
 zz_setup(zz_info *info)
 {
-    mp_set_memory_functions(_zz_allocate_function,
-                            _zz_reallocate_function,
-                            _zz_free_function);
     mp_get_memory_functions(&zz_state.default_allocate_func,
                             &zz_state.default_reallocate_func,
                             &zz_state.default_free_func);
+    mp_set_memory_functions(_zz_allocate_function,
+                            _zz_reallocate_function,
+                            _zz_free_function);
     if (info) {
         info->version[0] = __GNU_MP_VERSION;
         info->version[1] = __GNU_MP_VERSION_MINOR;
