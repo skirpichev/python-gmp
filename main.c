@@ -134,10 +134,10 @@ MPZ_to_str(MPZ_Object *u, int base, int options)
 
     zz_err ret = zz_to_str(&u->z, (int8_t)base, p, &len);
 
+    if (cast_abs) {
+        (void)zz_neg(&u->z, &u->z);
+    }
     if (ret) {
-        if (cast_abs) {
-            (void)zz_neg(&u->z, &u->z);
-        }
         free(buf);
         if (ret == ZZ_VAL) {
 bad_base:
@@ -146,9 +146,6 @@ bad_base:
             return NULL;
         }
         return PyErr_NoMemory(); /* LCOV_EXCL_LINE */
-    }
-    if (cast_abs) {
-        (void)zz_neg(&u->z, &u->z);
     }
     p += len;
     if (options & OPT_TAG) {

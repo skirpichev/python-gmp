@@ -978,6 +978,8 @@ def test_digits_interface():
         x.digits(a=1, b=2, c=3)
     with pytest.raises(OverflowError):
         x.digits(base=10**100)
+    with pytest.raises(ValueError):
+        x.digits(37)
     assert x.digits(10) == x.digits(base=10) == x.digits()
     assert x.digits(16, prefix=True) == x.digits(16, True)
     assert x.digits(16, prefix=False) == x.digits(16, False) == x.digits(16)
