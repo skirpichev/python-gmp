@@ -792,14 +792,37 @@ to_float(PyObject *self)
 static PyObject *
 richcompare(PyObject *self, PyObject *other, int op)
 {
-    MPZ_Object *u = (MPZ_Object *)self, *v = NULL;
+    zz_t *u = &((MPZ_Object *)self)->z;
+    zz_ord r;
 
     assert(MPZ_Check(self));
-    CHECK_OP(v, other);
+    if (MPZ_Check(other)) {
+        r = zz_cmp(u, &((MPZ_Object *)other)->z);
+    }
+    else if (PyLong_Check(other)) {
+        int32_t x;
 
-    zz_ord r = zz_cmp(&u->z, &v->z);
+        if (PyLong_AsInt32(other, &x) == 0) {
+            r = zz_cmp_i32(u, x);
+        }
+        else {
+            PyErr_Clear();
 
-    Py_DECREF(v);
+            MPZ_Object *v = MPZ_from_int(other);
+
+            if (!v) {
+                return NULL; /* LCOV_EXCL_LINE */
+            }
+            r = zz_cmp(u, &v->z);
+            Py_DECREF(v);
+        }
+    }
+    else if (Number_Check(other)) {
+        goto numbers;
+    }
+    else {
+        goto fallback;
+    }
     switch (op) {
         case Py_LT:
             return PyBool_FromLong(r == ZZ_LT);
@@ -814,10 +837,6 @@ richcompare(PyObject *self, PyObject *other, int op)
         case Py_NE:
             return PyBool_FromLong(r != ZZ_EQ);
     }
-    /* LCOV_EXCL_START */
-end:
-    return NULL;
-    /* LCOV_EXCL_STOP */
 fallback:
     Py_RETURN_NOTIMPLEMENTED;
 numbers:
