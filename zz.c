@@ -847,6 +847,12 @@ _zz_addsub(const zz_t *u, const zz_t *v, bool subtract, zz_t *w)
         return ZZ_MEM; /* LCOV_EXCL_LINE */
     }
     w->negative = negu;
+    if (v->size == 1 && !negu && !negv) {
+        w->digits[w->size - 1] = mpn_add_1(w->digits, u->digits, u_size,
+                                 v->digits[0]);
+        zz_normalize(w);
+        return ZZ_OK;
+    }
     /* We use undocumented feature of mpn_add/sub(): v_size can be 0 */
     if (same_sign) {
         w->digits[w->size - 1] = mpn_add(w->digits, u->digits, u_size,
@@ -993,6 +999,12 @@ zz_div(const zz_t *u, const zz_t *v, zz_rnd rnd, zz_t *q, zz_t *r)
         return ZZ_VAL;
     }
     if (!q || !r) {
+        if (v->size == 1 && v->digits[0] == 2 && r == NULL && rnd == ZZ_RNDD) {
+            if (zz_quo_2exp(u, 1, q)) {
+                return ZZ_MEM; /* LCOV_EXCL_LINE */
+            }
+            return ZZ_OK;
+        }
         if (!q) {
             zz_t tmp;
 
