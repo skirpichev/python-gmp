@@ -47,27 +47,26 @@ than any other bignum library for all operand sizes.
 But such extension modules usually rely on default GMP's memory allocation
 functions and can't recover from errors such as out of memory.  So, it's easy
 to crash the Python interpreter during the interactive session.  Following
-example with the gmpy2 should work on most Unix systems:
+example with the gmpy2 will work if you set address space limit for the Python
+interpreter (e.g. by ``prlimit`` command on Linux):
 
 .. code:: pycon
 
-   >>> import gmpy2, resource
+   >>> import gmpy2
    >>> gmpy2.__version__
    '2.2.1'
-   >>> resource.setrlimit(resource.RLIMIT_AS, (1024*32*1024, -1))
    >>> z = gmpy2.mpz(29925959575501)
    >>> while True:  # this loop will crash interpter
    ...     z = z*z
    ...
-   GNU MP: Cannot allocate memory (size=2949160)
+   GNU MP: Cannot allocate memory (size=46956584)
    Aborted
 
 The gmp module handles such errors correctly:
 
 .. code:: pycon
 
-   >>> import gmp, resource
-   >>> resource.setrlimit(resource.RLIMIT_AS, (1024*32*1024, -1))
+   >>> import gmp
    >>> z = gmp.mpz(29925959575501)
    >>> while True:
    ...     z = z*z
@@ -80,4 +79,4 @@ The gmp module handles such errors correctly:
    >>> # interpreter still works, all variables in
    >>> # the current scope are available,
    >>> z.bit_length()  # including pre-failure value of z
-   mpz(5867630)
+   93882077
