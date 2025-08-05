@@ -134,10 +134,10 @@ MPZ_to_str(MPZ_Object *u, int base, int options)
 
     zz_err ret = zz_to_str(&u->z, (int8_t)base, p, &len);
 
+    if (cast_abs) {
+        (void)zz_neg(&u->z, &u->z);
+    }
     if (ret) {
-        if (cast_abs) {
-            (void)zz_neg(&u->z, &u->z);
-        }
         free(buf);
         if (ret == ZZ_VAL) {
 bad_base:
@@ -146,9 +146,6 @@ bad_base:
             return NULL;
         }
         return PyErr_NoMemory(); /* LCOV_EXCL_LINE */
-    }
-    if (cast_abs) {
-        (void)zz_neg(&u->z, &u->z);
     }
     p += len;
     if (options & OPT_TAG) {
@@ -811,15 +808,14 @@ to_float(PyObject *self)
 static PyObject *
 richcompare(PyObject *self, PyObject *other, int op)
 {
-    MPZ_Object *u = NULL, *v = NULL;
+    MPZ_Object *u = (MPZ_Object *)self, *v = NULL;
 
-    CHECK_OP(u, self);
+    assert(MPZ_Check(self));
     CHECK_OP(v, other);
 
     zz_ord r = zz_cmp(&u->z, &v->z);
 
-    Py_XDECREF(u);
-    Py_XDECREF(v);
+    Py_DECREF(v);
     switch (op) {
         case Py_LT:
             return PyBool_FromLong(r == ZZ_LT);
@@ -835,29 +831,20 @@ richcompare(PyObject *self, PyObject *other, int op)
             return PyBool_FromLong(r != ZZ_EQ);
     }
     /* LCOV_EXCL_START */
-    Py_RETURN_NOTIMPLEMENTED;
 end:
-    Py_XDECREF(u);
-    Py_XDECREF(v);
     return NULL;
     /* LCOV_EXCL_STOP */
 fallback:
-    Py_XDECREF(u);
-    Py_XDECREF(v);
     Py_RETURN_NOTIMPLEMENTED;
 numbers:
-    Py_XDECREF(u);
-    Py_XDECREF(v);
-
-    PyObject *uf = to_float(self), *vf = other;
-
-    if (!uf) {
+    self = to_float(self);
+    if (!self) {
         return NULL; /* LCOV_EXCL_LINE */
     }
 
-    PyObject *res = PyObject_RichCompare(uf, vf, op);
+    PyObject *res = PyObject_RichCompare(self, other, op);
 
-    Py_DECREF(uf);
+    Py_DECREF(self);
     return res;
 }
 
