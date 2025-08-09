@@ -63,7 +63,6 @@ line-length = 79
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "PT", "W", "Q000"]
-ignore = ["PT011"]
 
 [tool.cibuildwheel]
 build-frontend = {name="build", args=["--verbose"]}

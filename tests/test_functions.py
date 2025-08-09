@@ -160,13 +160,13 @@ def test_interfaces():
         isqrt(1j)
     with pytest.raises(TypeError):
         isqrt_rem(1j)
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match="argument must be nonnegative"):
         isqrt(-1)
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match="argument must be nonnegative"):
         isqrt_rem(-1)
     with pytest.raises(TypeError):
         fac(1j)
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match="not defined for negative values"):
         fac(-1)
     with pytest.raises(OverflowError):
         fac(2**1000)
@@ -178,7 +178,7 @@ def test_interfaces():
         _mpmath_create("!", 1)
     with pytest.raises(TypeError):
         _mpmath_create(mpz(123), 10, 1j)
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match="invalid rounding mode specified"):
         _mpmath_create(mpz(123), 10, 3, 1j)
     with pytest.raises(TypeError):
         _mpmath_create(mpz(123), 1j, 3, "c")
@@ -186,10 +186,10 @@ def test_interfaces():
         _mpmath_normalize(123)
     with pytest.raises(TypeError):
         _mpmath_normalize(1, 111, 11, 12, 13, "c")
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match="invalid rounding mode specified"):
         _mpmath_normalize(1, mpz(111), 11, 12, 13, "q")
     with pytest.raises(TypeError):
         _mpmath_normalize(1, mpz(111), 1j, 12, 13, "c")
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match="invalid rounding mode specified"):
         _mpmath_normalize(1, mpz(111), 11, 12, 13, 1j)
     gmp._free_cache()
