@@ -77,6 +77,7 @@ def test_gcd_binary(x, y, c):
     assert gcd(mx, my) == r
     assert gcd(x, my) == r
     assert gcd(mx, y) == r
+    assert gcd(x, y) == r
 
 
 @given(lists(bigints(), max_size=6), bigints())
@@ -89,6 +90,7 @@ def test_gcd_nary(xs, c):
     mxs = list(map(mpz, xs))
     r = math.gcd(*xs)
     assert gcd(*mxs) == r
+    assert gcd(*xs) == r
 
 
 @given(bigints(), bigints(), bigints())
@@ -104,6 +106,7 @@ def test_gcdext(x, y, c):
     assert gcdext(mx, my) == r
     assert gcdext(x, my) == r
     assert gcdext(mx, y) == r
+    assert gcdext(x, y) == r
 
 
 @given(booleans(), bigints(min_value=0), bigints(),
