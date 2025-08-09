@@ -62,7 +62,7 @@ xfail_strict = true
 line-length = 79
 
 [tool.ruff.lint]
-select = ["E", "F", "I", "PT", "W", "Q000"]
+select = ["E", "F", "I", "PT", "W", "Q"]
 
 [tool.cibuildwheel]
 build-frontend = {name="build", args=["--verbose"]}
