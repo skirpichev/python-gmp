@@ -327,7 +327,7 @@ def test_richcompare_errors():
     with pytest.raises(TypeError):
         mx > object()
     with pytest.raises(OverflowError):
-        1.1 > mpz(10**1000)
+        mpz(10**1000) < 1.1
     with pytest.raises(OverflowError):
         mpz(10**1000) > 1.1
 
