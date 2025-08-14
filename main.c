@@ -1751,7 +1751,7 @@ static PyMethodDef methods[] = {
     {"digits", (PyCFunction)digits, METH_FASTCALL | METH_KEYWORDS,
      ("digits($self, base=10, prefix=False)\n--\n\n"
       "Return Python string representing self in the given base.\n\n"
-      "Values for base can range between 2 to 62.")},
+      "Values for base can range between 2 to 36.")},
     {"_from_bytes", _from_bytes, METH_O | METH_CLASS, NULL},
     {NULL} /* sentinel */
 };
