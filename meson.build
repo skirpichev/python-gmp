@@ -2,7 +2,7 @@ project('gmp', 'c',
         version: run_command('python', '-m', 'setuptools_scm',
                              check: true).stdout().strip())
 py = import('python').find_installation(pure: false)
-libgmp = dependency('gmp', version: '>= 6.2.0')
+libgmp = dependency('gmp', version: '>= 6.3.0')
 if build_machine.system() != 'windows'
   libzz = shared_library('zz', 'zz.c', install: true,
                          dependencies: libgmp,

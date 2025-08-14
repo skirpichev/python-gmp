@@ -1,8 +1,8 @@
 Python-GMP
 ==========
 
-Python extension module, gmp, providing safe bindings to the GNU GMP.  This
-module shouldn't crash the interpreter.
+Python extension module, gmp, providing safe bindings to the GNU GMP (version
+6.3.0 or later required).  This module shouldn't crash the interpreter.
 
 The gmp can be used as a `gmpy2`_/`python-flint`_ replacement to provide
 integer type (`mpz`_), compatible with Python's `int`_.  It includes few
