@@ -138,6 +138,8 @@ zz_setup(zz_info *info)
         info->version[2] = __GNU_MP_VERSION_PATCHLEVEL;
         info->bits_per_limb = GMP_LIMB_BITS;
         info->limb_bytes = sizeof(mp_limb_t);
+        info->limbcnt_bytes = sizeof(mp_size_t);
+        info->bitcnt_bytes = sizeof(mp_bitcnt_t);
     }
     return ZZ_OK;
 }

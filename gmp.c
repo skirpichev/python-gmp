@@ -2101,11 +2101,15 @@ The attributes are read only.");
 static PyStructSequence_Field gmp_info_fields[] = {
     {"bits_per_limb", "size of a limb in bits"},
     {"sizeof_limb", "size in bytes of the C type, used to represent a limb"},
+    {"sizeof_limbcnt", ("size in bytes of the C type, used to"
+                        " represent a count of limbs")},
+    {"sizeof_bitcnt", ("size in bytes of the C type, used to"
+                       " represent a count of bits")},
     {"version", "the GNU GMP version"},
     {NULL}};
 
 static PyStructSequence_Desc gmp_info_desc = {
-    "gmp.gmplib_info", gmp_info__doc__, gmp_info_fields, 3};
+    "gmp.gmplib_info", gmp_info__doc__, gmp_info_fields, 5};
 
 static int
 gmp_exec(PyObject *m)
@@ -2136,6 +2140,10 @@ gmp_exec(PyObject *m)
     PyStructSequence_SET_ITEM(gmp_info, 1,
                               PyLong_FromLong(info.limb_bytes));
     PyStructSequence_SET_ITEM(gmp_info, 2,
+                              PyLong_FromLong(info.limbcnt_bytes));
+    PyStructSequence_SET_ITEM(gmp_info, 3,
+                              PyLong_FromLong(info.bitcnt_bytes));
+    PyStructSequence_SET_ITEM(gmp_info, 4,
                               PyUnicode_FromFormat("%d.%d.%d",
                                                    info.version[0],
                                                    info.version[1],
