@@ -60,3 +60,53 @@ gmp_parse_pyargs(const gmp_pyargs *fnargs, Py_ssize_t argidx[],
     }
     return 0;
 }
+
+/* copied from CPython internals */
+PyObject *
+gmp_PyUnicode_TransformDecimalAndSpaceToASCII(PyObject *unicode)
+{
+    if (PyUnicode_IS_ASCII(unicode)) {
+        return Py_NewRef(unicode);
+    }
+
+    Py_ssize_t len = PyUnicode_GET_LENGTH(unicode);
+    PyObject *result = PyUnicode_New(len, 127);
+
+    if (result == NULL) {
+        return NULL; /* LCOV_EXCL_LINE */
+    }
+
+    Py_UCS1 *out = PyUnicode_1BYTE_DATA(result);
+#if defined(__GNUC__) || defined(__clang__)
+#  pragma GCC diagnostic push
+#  pragma GCC diagnostic ignored "-Wsign-conversion"
+#endif
+    int kind = PyUnicode_KIND(unicode);
+#if defined(__GNUC__) || defined(__clang__)
+#  pragma GCC diagnostic pop
+#endif
+    const void *data = PyUnicode_DATA(unicode);
+
+    for (Py_ssize_t i = 0; i < len; ++i) {
+        Py_UCS4 ch = PyUnicode_READ(kind, data, i);
+
+        if (ch < 127) {
+            out[i] = (Py_UCS1)ch;
+        }
+        else if (Py_UNICODE_ISSPACE(ch)) {
+            out[i] = ' ';
+        }
+        else {
+            int decimal = Py_UNICODE_TODECIMAL(ch);
+
+            if (decimal < 0) {
+                out[i] = '?';
+                out[i + 1] = '\0';
+                break;
+            }
+            assert(decimal < 127);
+            out[i] = '0' + (Py_UCS1)decimal;
+        }
+    }
+    return result;
+}
