@@ -695,7 +695,7 @@ zz_to_bytes(const zz_t *u, size_t length, bool is_signed, uint8_t **buffer)
         u = &tmp;
     }
 
-    size_t nbits = u->size ? mpn_sizeinbase(u->digits, u->size, 2) : 0;
+    size_t nbits = zz_bitlen(u);
 
     if (nbits > 8*length
         || (is_signed && nbits
@@ -732,9 +732,7 @@ zz_from_bytes(const uint8_t *buffer, size_t length, bool is_signed, zz_t *u)
         /* LCOV_EXCL_STOP */
     }
     zz_normalize(u);
-    if (is_signed
-        && mpn_sizeinbase(u->digits, u->size, 2) == 8*(size_t)length)
-    {
+    if (is_signed && zz_bitlen(u) == 8*(size_t)length) {
         if (u->size > 1) {
             mpn_sub_1(u->digits, u->digits, u->size, 1);
             mpn_com(u->digits, u->digits, u->size - 1);
@@ -1263,8 +1261,8 @@ zz_truediv(const zz_t *u, const zz_t *v, double *res)
         return ZZ_OK;
     }
 
-    size_t su = mpn_sizeinbase(u->digits, u->size, 2);
-    size_t sv = mpn_sizeinbase(v->digits, v->size, 2);
+    size_t su = zz_bitlen(u);
+    size_t sv = zz_bitlen(v);
     size_t shift0 = sv > su ? sv - su : su - sv;
 
     if (shift0 > 10*DBL_MAX_EXP) {
