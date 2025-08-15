@@ -229,8 +229,6 @@ def test_mpz_interface():
         mpz(123).digits(-1)
     with pytest.raises(ValueError, match="mpz base must be >= 2 and <= 36"):
         mpz(123).digits(123)
-    with pytest.raises(ValueError, match="mpz base must be >= 2 and <= 36"):
-        mpz(-123).digits(123, prefix=True)
     with pytest.raises(ValueError,
                        match="mpz base must be >= 2 and <= 36, or 0"):
         mpz("123", 1)
@@ -1041,24 +1039,20 @@ def test_digits_bulk(x, base):
 def test_digits_interface():
     x = mpz(123)
     with pytest.raises(TypeError):
-        x.digits(1, 2, 3)
+        x.digits(1, 2)
     with pytest.raises(TypeError):
-        x.digits("", 2)
+        x.digits("")
     with pytest.raises(TypeError):
         x.digits(10, base=16)
     with pytest.raises(TypeError):
-        x.digits(1, True, prefix=True)
-    with pytest.raises(TypeError):
         x.digits(spam=1)
     with pytest.raises(TypeError):
-        x.digits(a=1, b=2, c=3)
+        x.digits(a=1, b=2)
     with pytest.raises(OverflowError):
         x.digits(base=10**100)
     with pytest.raises(ValueError, match="mpz base must be >= 2 and <= 36"):
         x.digits(37)
     assert x.digits(10) == x.digits(base=10) == x.digits()
-    assert x.digits(16, prefix=True) == x.digits(16, True)
-    assert x.digits(16, prefix=False) == x.digits(16, False) == x.digits(16)
 
 
 @pytest.mark.skipif(platform.python_implementation() == "GraalVM",
@@ -1084,9 +1078,9 @@ def test_digits_frombase(x, base):
 def test_frombase_auto(x):
     mx = mpz(x)
     smx10 = mx.digits(10)
-    smx2 = mx.digits(2, prefix=True)
-    smx8 = mx.digits(8, prefix=True)
-    smx16 = mx.digits(16, prefix=True)
+    smx2 = format(mx, "#b")
+    smx8 = format(mx, "#o")
+    smx16 = format(mx, "#x")
     assert mpz(smx10, 0) == mx
     assert mpz(smx2, 0) == mx
     assert mpz(smx8, 0) == mx

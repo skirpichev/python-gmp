@@ -1648,41 +1648,38 @@ static PyObject *
 digits(PyObject *self, PyObject *const *args, Py_ssize_t nargs,
        PyObject *kwnames)
 {
-    static const char *const keywords[] = {"base", "prefix"};
+    static const char *const keywords[] = {"base"};
     const static gmp_pyargs fnargs = {
         .keywords = keywords,
-        .maxpos = 2,
+        .maxpos = 1,
         .minargs = 0,
-        .maxargs = 2,
+        .maxargs = 1,
         .fname = "digits",
     };
-    Py_ssize_t argidx[2] = {-1, -1};
+    Py_ssize_t argidx[1] = {-1};
 
     if (gmp_parse_pyargs(&fnargs, argidx, args, nargs, kwnames) == -1) {
         return NULL;
     }
 
-    int base = 10, prefix = 0;
+    int base = 10;
 
     if (argidx[0] != -1) {
         PyObject *arg = args[argidx[0]];
 
         if (PyLong_Check(arg)) {
-            base = PyLong_AsInt(arg);
+            base = PyLong_AsInt(args[argidx[0]]);
             if (base == -1 && PyErr_Occurred()) {
                 return NULL;
             }
         }
         else {
             PyErr_SetString(PyExc_TypeError,
-                            "digits() takes an integer argument 'length'");
+                            "digits() takes an integer argument 'base'");
             return NULL;
         }
     }
-    if (argidx[1] != -1 && PyObject_IsTrue(args[argidx[1]])) {
-        prefix = OPT_PREFIX;
-    }
-    return MPZ_to_str((MPZ_Object *)self, base, prefix);
+    return MPZ_to_str((MPZ_Object *)self, base, 0);
 }
 
 PyDoc_STRVAR(
@@ -1744,8 +1741,8 @@ static PyMethodDef methods[] = {
      "Returns size of self in memory, in bytes."},
     {"is_integer", is_integer, METH_NOARGS, "Returns True."},
     {"digits", (PyCFunction)digits, METH_FASTCALL | METH_KEYWORDS,
-     ("digits($self, base=10, prefix=False)\n--\n\n"
-      "Return Python string representing self in the given base.\n\n"
+     ("digits($self, base=10)\n--\n\n"
+      "Return string representing self in the given base.\n\n"
       "Values for base can range between 2 to 36.")},
     {"_from_bytes", _from_bytes, METH_O | METH_CLASS, NULL},
     {NULL} /* sentinel */
