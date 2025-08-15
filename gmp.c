@@ -1124,6 +1124,18 @@ BINOP_INT(and)
 BINOP_INT(or)
 BINOP_INT(xor)
 
+#define CHECK_OP_INT(u, a)      \
+    if (MPZ_Check(a)) {         \
+        u = (MPZ_Object *)a;    \
+        Py_INCREF(u);           \
+    }                           \
+    else {                      \
+        u = MPZ_from_int(a);    \
+        if (!u) {               \
+            goto end;           \
+        }                       \
+    }                           \
+
 static PyObject *
 power(PyObject *self, PyObject *other, PyObject *module)
 {
@@ -1172,22 +1184,7 @@ power(PyObject *self, PyObject *other, PyObject *module)
     else {
         MPZ_Object *w = NULL;
 
-        if (MPZ_Check(module)) {
-            w = (MPZ_Object *)module;
-            Py_INCREF(w);
-        }
-        else if (PyLong_Check(module)) {
-            w = MPZ_from_int(module);
-            if (!w) {
-                goto end; /* LCOV_EXCL_LINE */
-            }
-        }
-        else {
-            PyErr_SetString(PyExc_TypeError,
-                            ("pow() 3rd argument not allowed "
-                             "unless all arguments are integers"));
-            goto end;
-        }
+        CHECK_OP_INT(w, module);
 
         zz_err ret = ZZ_OK;
 
@@ -1725,30 +1722,11 @@ gmp_gcd(PyObject *Py_UNUSED(module), PyObject *const *args, Py_ssize_t nargs)
     for (Py_ssize_t i = 0; i < nargs; i++) {
         MPZ_Object *arg;
 
-        if (MPZ_Check(args[i])) {
-            arg = (MPZ_Object *)args[i];
-            Py_INCREF(arg);
-        }
-        else if (PyLong_Check(args[i])) {
-            arg = MPZ_from_int(args[i]);
-            if (!arg) {
-                /* LCOV_EXCL_START */
-                Py_DECREF(res);
-                return NULL;
-                /* LCOV_EXCL_STOP */
-            }
-        }
-        else {
-            Py_DECREF(res);
-            PyErr_SetString(PyExc_TypeError,
-                            "gcd() arguments must be integers");
-            return NULL;
-        }
+        CHECK_OP_INT(arg, args[i]);
         if (zz_cmp_i32(&res->z, 1) == ZZ_EQ) {
             Py_DECREF(arg);
             continue;
         }
-
         if (zz_gcd(&res->z, &arg->z, &res->z)) {
             /* LCOV_EXCL_START */
             Py_DECREF(res);
@@ -1759,6 +1737,9 @@ gmp_gcd(PyObject *Py_UNUSED(module), PyObject *const *args, Py_ssize_t nargs)
         Py_DECREF(arg);
     }
     return (PyObject *)res;
+end:
+    Py_DECREF(res);
+    return NULL;
 }
 
 static PyObject *
@@ -1780,34 +1761,8 @@ gmp_gcdext(PyObject *Py_UNUSED(module), PyObject *const *args,
         return PyErr_NoMemory();
         /* LCOV_EXCL_STOP */
     }
-    if (MPZ_Check(args[0])) {
-        x = (MPZ_Object *)args[0];
-        Py_INCREF(x);
-    }
-    else if (PyLong_Check(args[0])) {
-        x = MPZ_from_int(args[0]);
-        if (!x) {
-            goto err; /* LCOV_EXCL_LINE */
-        }
-    }
-    else {
-        PyErr_SetString(PyExc_TypeError, "gcdext() expects integer arguments");
-        goto err;
-    }
-    if (MPZ_Check(args[1])) {
-        y = (MPZ_Object *)args[1];
-        Py_INCREF(y);
-    }
-    else if (PyLong_Check(args[1])) {
-        y = MPZ_from_int(args[1]);
-        if (!y) {
-            goto err; /* LCOV_EXCL_LINE */
-        }
-    }
-    else {
-        PyErr_SetString(PyExc_TypeError, "gcdext() expects integer arguments");
-        goto err;
-    }
+    CHECK_OP_INT(x, args[0]);
+    CHECK_OP_INT(y, args[1]);
 
     zz_err ret = zz_gcdext(&x->z, &y->z, &g->z, &s->z, &t->z);
 
@@ -1822,7 +1777,7 @@ gmp_gcdext(PyObject *Py_UNUSED(module), PyObject *const *args,
     Py_DECREF(s);
     Py_DECREF(t);
     return tup;
-err:
+end:
     Py_DECREF(g);
     Py_DECREF(s);
     Py_DECREF(t);
@@ -1839,21 +1794,7 @@ gmp_isqrt(PyObject *Py_UNUSED(module), PyObject *arg)
     if (!root) {
         return NULL; /* LCOV_EXCL_LINE */
     }
-    if (MPZ_Check(arg)) {
-        x = (MPZ_Object *)arg;
-        Py_INCREF(x);
-    }
-    else if (PyLong_Check(arg)) {
-        x = MPZ_from_int(arg);
-        if (!x) {
-            goto err; /* LCOV_EXCL_LINE */
-        }
-    }
-    else {
-        PyErr_SetString(PyExc_TypeError,
-                        "isqrt() argument must be an integer");
-        goto err;
-    }
+    CHECK_OP_INT(x, arg);
 
     zz_err ret = zz_sqrtrem(&x->z, &root->z, NULL);
 
@@ -1868,7 +1809,7 @@ gmp_isqrt(PyObject *Py_UNUSED(module), PyObject *arg)
     if (ret == ZZ_MEM) {
         PyErr_NoMemory(); /* LCOV_EXCL_LINE */
     }
-err:
+end:
     Py_DECREF(root);
     return NULL;
 }
@@ -1886,21 +1827,7 @@ gmp_isqrt_rem(PyObject *Py_UNUSED(module), PyObject *arg)
         return NULL;
         /* LCOV_EXCL_STOP */
     }
-    if (MPZ_Check(arg)) {
-        x = (MPZ_Object *)arg;
-        Py_INCREF(x);
-    }
-    else if (PyLong_Check(arg)) {
-        x = MPZ_from_int(arg);
-        if (!x) {
-            goto err; /* LCOV_EXCL_LINE */
-        }
-    }
-    else {
-        PyErr_SetString(PyExc_TypeError,
-                        "isqrt() argument must be an integer");
-        goto err;
-    }
+    CHECK_OP_INT(x, arg);
 
     zz_err ret = zz_sqrtrem(&x->z, &root->z, &rem->z);
 
@@ -1915,7 +1842,7 @@ gmp_isqrt_rem(PyObject *Py_UNUSED(module), PyObject *arg)
     if (ret == ZZ_MEM) {
         PyErr_NoMemory(); /* LCOV_EXCL_LINE */
     }
-err:
+end:
     Py_DECREF(root);
     Py_DECREF(rem);
     return tup;
@@ -1930,21 +1857,7 @@ err:
         if (!res) {                                                      \
             return NULL; /* LCOV_EXCL_LINE */                            \
         }                                                                \
-        if (MPZ_Check(arg)) {                                            \
-            x = (MPZ_Object *)arg;                                       \
-            Py_INCREF(x);                                                \
-        }                                                                \
-        else if (PyLong_Check(arg)) {                                    \
-            x = MPZ_from_int(arg);                                       \
-            if (!x) {                                                    \
-                goto err; /* LCOV_EXCL_LINE */                           \
-            }                                                            \
-        }                                                                \
-        else {                                                           \
-            PyErr_SetString(PyExc_TypeError,                             \
-                            #name "() argument must be an integer");     \
-            goto err;                                                    \
-        }                                                                \
+        CHECK_OP_INT(x, arg);                                            \
         if (zz_isneg(&x->z)) {                                           \
             PyErr_SetString(PyExc_ValueError,                            \
                             #name "() not defined for negative values"); \
@@ -1968,6 +1881,7 @@ err:
         }                                                                \
         return (PyObject *)res;                                          \
     err:                                                                 \
+    end:                                                                 \
         Py_DECREF(res);                                                  \
         return NULL;                                                     \
     }
@@ -2068,24 +1982,13 @@ gmp__mpmath_create(PyObject *self, PyObject *const *args, Py_ssize_t nargs)
     if (nargs < 2 || nargs > 4) {
         PyErr_Format(PyExc_TypeError,
                      "_mpmath_create() takes from 2 to 4 arguments");
+end:
         return NULL;
     }
 
     MPZ_Object *man;
 
-    if (MPZ_Check(args[0])) {
-        man = (MPZ_Object *)plus(args[0]);
-    }
-    else if (PyLong_Check(args[0])) {
-        man = MPZ_from_int(args[0]);
-        if (!man) {
-            return NULL; /* LCOV_EXCL_LINE */
-        }
-    }
-    else {
-        PyErr_Format(PyExc_TypeError, "_mpmath_create() expects an integer");
-        return NULL;
-    }
+    CHECK_OP_INT(man, args[0]);
     if (!PyLong_Check(args[1])) {
         Py_DECREF(man);
         PyErr_Format(PyExc_TypeError,
