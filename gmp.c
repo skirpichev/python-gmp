@@ -585,8 +585,14 @@ str:
         Py_DECREF(str);
         return res;
     }
-    PyErr_SetString(PyExc_TypeError,
-                    "can't convert non-string with explicit base");
+    if (Py_IsNone(base_arg)) {
+        PyErr_SetString(PyExc_TypeError,
+                        "argument must be a number or a string");
+    }
+    else {
+        PyErr_SetString(PyExc_TypeError,
+                        "can't convert non-string with explicit base");
+    }
     return NULL;
 }
 

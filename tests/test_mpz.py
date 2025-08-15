@@ -250,6 +250,8 @@ def test_mpz_interface():
     with pytest.raises(TypeError):
         mpz(1j, 10)
     with pytest.raises(TypeError):
+        mpz(object())
+    with pytest.raises(TypeError):
         mpz(123, spam=321)
     with pytest.raises(OverflowError):
         mpz("1", base=10**1000)
