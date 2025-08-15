@@ -1350,12 +1350,12 @@ get_zero(PyObject *Py_UNUSED(self), void *Py_UNUSED(closure))
 
 static PyGetSetDef getsetters[] = {
     {"numerator", (getter)get_copy, NULL,
-     "the numerator of a rational number in lowest terms", NULL},
+     "the numerator of self (the value itself)", NULL},
     {"denominator", (getter)get_one, NULL,
-     "the denominator of a rational number in lowest terms", NULL},
-    {"real", (getter)get_copy, NULL, "the real part of a complex number",
+     "the denominator of self (mpz(1))", NULL},
+    {"real", (getter)get_copy, NULL, "the real part of self (the value itself)",
      NULL},
-    {"imag", (getter)get_zero, NULL, "the imaginary part of a complex number",
+    {"imag", (getter)get_zero, NULL, "the imaginary part of self (mpz(0))",
      NULL},
     {NULL} /* sentinel */
 };
@@ -1678,44 +1678,32 @@ digits(PyObject *self, PyObject *const *args, Py_ssize_t nargs,
 PyDoc_STRVAR(
     to_bytes__doc__,
     "to_bytes($self, /, length=1, byteorder=\'big\', *, signed=False)\n--\n\n\
-Return an array of bytes representing an integer.\n\n\
-  length\n\
-    Length of bytes object to use.  An OverflowError is raised if the\n\
-    integer is not representable with the given number of bytes.  Default\n\
-    is length 1.\n\
-  byteorder\n\
-    The byte order used to represent the integer.  If byteorder is \'big\',\n\
-    the most significant byte is at the beginning of the byte array.  If\n\
-    byteorder is \'little\', the most significant byte is at the end of the\n\
-    byte array.  To request the native byte order of the host system, use\n\
-    sys.byteorder as the byte order value.  Default is to use \'big\'.\n\
-  signed\n\
-    Determines whether two\'s complement is used to represent the integer.\n\
-    If signed is False and a negative integer is given, an OverflowError\n\
-    is raised.");
+Return an array of bytes representing self.\n\n\
+The integer is represented using length bytes.  An OverflowError is\n\
+raised if self is not representable with the given number of bytes.\n\n\
+The byteorder argument determines the byte order used to represent self.\n\
+Accepted values are \'big\' and \'little\', when the most significant\n\
+byte is at the beginning or at the end of the byte array, respectively.\n\n\
+The signed argument determines whether two\'s complement is used to\n\
+represent self.  If signed is False and a negative integer is given,\n\
+an OverflowError is raised.");
 PyDoc_STRVAR(
     from_bytes__doc__,
     "from_bytes($type, /, bytes, byteorder=\'big\', *, signed=False)\n--\n\n\
 Return the integer represented by the given array of bytes.\n\n\
-  bytes\n\
-    Holds the array of bytes to convert.  The argument must either\n\
-    support the buffer protocol or be an iterable object producing bytes.\n\
-    Bytes and bytearray are examples of built-in objects that support the\n\
-    buffer protocol.\n\
-  byteorder\n\
-    The byte order used to represent the integer.  If byteorder is \'big\',\n\
-    the most significant byte is at the beginning of the byte array.  If\n\
-    byteorder is \'little\', the most significant byte is at the end of the\n\
-    byte array.  To request the native byte order of the host system, use\n\
-    sys.byteorder as the byte order value.  Default is to use \'big\'.\n\
-  signed\n\
-    Indicates whether two\'s complement is used to represent the integer.");
+The argument bytes must either be a bytes-like object or an iterable\n\
+producing bytes.\n\n\
+The byteorder argument determines the byte order used to represent the\n\
+integer.  Accepted values are \'big\' and \'little\', when the most\n\
+significant byte is at the beginning or at the end of the byte array,\n\
+respectively.\n\n\
+The signed argument indicates whether two’s complement is used.");
 
 extern PyObject * __format__(PyObject *self, PyObject *format_spec);
 
 static PyMethodDef methods[] = {
     {"conjugate", (PyCFunction)plus, METH_NOARGS,
-     "Returns self, the complex conjugate of any int."},
+     "Returns self."},
     {"bit_length", bit_length, METH_NOARGS,
      "Number of bits necessary to represent self in binary."},
     {"bit_count", bit_count, METH_NOARGS,
@@ -1726,28 +1714,25 @@ static PyMethodDef methods[] = {
     {"from_bytes", (PyCFunction)from_bytes,
      METH_FASTCALL | METH_KEYWORDS | METH_CLASS, from_bytes__doc__},
     {"as_integer_ratio", as_integer_ratio, METH_NOARGS,
-     ("Return a pair of integers, whose ratio is equal to "
-      "the original int.\n\nThe ratio is in lowest terms "
-      "and has a positive denominator.")},
-    {"__trunc__", (PyCFunction)plus, METH_NOARGS,
-     "Truncating an Integral returns itself."},
-    {"__floor__", (PyCFunction)plus, METH_NOARGS,
-     "Flooring an Integral returns itself."},
-    {"__ceil__", (PyCFunction)plus, METH_NOARGS,
-     "Ceiling of an Integral returns itself."},
+     ("Return a pair of integers, whose ratio is equal to self.\n\n"
+      "The ratio is in lowest terms and has a positive denominator.")},
+    {"__trunc__", (PyCFunction)plus, METH_NOARGS, "Returns self."},
+    {"__floor__", (PyCFunction)plus, METH_NOARGS, "Returns self."},
+    {"__ceil__", (PyCFunction)plus, METH_NOARGS, "Returns self."},
     {"__round__", (PyCFunction)__round__, METH_FASTCALL,
-     ("__round__($self, ndigits=None, /)\n--\n\n"
-      "Rounding an Integral returns itself.\n\n"
-      "Rounding with an ndigits argument also returns an integer.")},
-    {"__reduce_ex__", __reduce_ex__, METH_O, NULL},
+     ("__round__($self, ndigits=0, /)\n--\n\n"
+      "Round self to to the closest multiple of 10**-ndigits\n\n"
+      "Always return an integer.  If two multiples are equally close,\n"
+      "rounding is done toward the even choice.")},
+    {"__reduce_ex__", __reduce_ex__, METH_O,
+     ("__reduce_ex__($self, protocol, /)\n--\n\n"
+      "Return state information for pickling.")},
     {"__format__", __format__, METH_O,
      ("__format__($self, format_spec, /)\n--\n\n"
-      "Convert to a string according to format_spec.")},
+      "Convert self to a string according to format_spec.")},
     {"__sizeof__", __sizeof__, METH_NOARGS,
-     "Returns size in memory, in bytes."},
-    {"is_integer", is_integer, METH_NOARGS,
-     ("Returns True.  Exists for duck type compatibility "
-      "with float.is_integer.")},
+     "Returns size of self in memory, in bytes."},
+    {"is_integer", is_integer, METH_NOARGS, "Returns True."},
     {"digits", (PyCFunction)digits, METH_FASTCALL | METH_KEYWORDS,
      ("digits($self, base=10, prefix=False)\n--\n\n"
       "Return Python string representing self in the given base.\n\n"
@@ -1757,18 +1742,14 @@ static PyMethodDef methods[] = {
 };
 
 PyDoc_STRVAR(mpz_doc,
-             "mpz(x, /)\n\
-mpz(x, /, base=10)\n\
-\n\
-Convert a number or string to an integer, or return 0 if no arguments\n\
-are given.  If x is a number, return x.__int__().  For floating-point\n\
-numbers, this truncates towards zero.\n\
-\n\
-If x is not a number or if base is given, then x must be a string,\n\
+             "mpz(number=0, /)\nmpz(string, /, base=10)\n\n\
+Convert a number or a string to an integer.  If numeric argument is not\n\
+an int subclass, return mpz(number.__int__()).\n\n\
+If argument is not a number or if base is given, then it must be a string,\n\
 bytes, or bytearray instance representing an integer literal in the\n\
 given base.  The literal can be preceded by '+' or '-' and be surrounded\n\
-by whitespace.  The base defaults to 10.  Valid bases are 0 and 2-36.\n\
-Base 0 means to interpret the base from the string as an integer literal.");
+by whitespace.  Valid bases are 0 and 2-36.  Base 0 means to interpret \n\
+the base from the string as an integer literal.");
 
 PyTypeObject MPZ_Type = {
     PyVarObject_HEAD_INIT(NULL, 0)
@@ -2243,16 +2224,16 @@ static PyMethodDef gmp_functions[] = {
       "Compute extended GCD.")},
     {"isqrt", gmp_isqrt, METH_O,
      ("isqrt($module, n, /)\n--\n\n"
-      "Return the integer part of the square root of the input.")},
+      "Return the integer part of the square root of n.")},
     {"isqrt_rem", gmp_isqrt_rem, METH_O,
      ("isqrt_rem($module, n, /)\n--\n\n"
-      "Return a 2-element tuple (s,t) such that s=isqrt(x) and t=x-s*s.")},
+      "Return a 2-element tuple (s,t) such that s=isqrt(n) and t=n-s*s.")},
     {"factorial", gmp_fac, METH_O,
      ("factorial($module, n, /)\n--\n\n"
       "Find n!.")},
     {"double_fac", gmp_fac2, METH_O,
      ("double_fac($module, n, /)\n--\n\n"
-      "Return the exact double factorial (n!!) of n.")},
+      "Return the exact double factorial n!!.")},
     {"fib", gmp_fib, METH_O,
      ("fib($module, n, /)\n--\n\n"
       "Return the n-th Fibonacci number.")},
@@ -2264,15 +2245,14 @@ static PyMethodDef gmp_functions[] = {
 };
 
 PyDoc_STRVAR(gmp_info__doc__,
-             "gmp.gmplib_info\n\
-\n\
+             "gmp.gmplib_info\n\n\
 A named tuple that holds information about GNU GMP\n\
 and it's internal representation of integers.\n\
 The attributes are read only.");
 
 static PyStructSequence_Field gmp_info_fields[] = {
     {"bits_per_limb", "size of a limb in bits"},
-    {"sizeof_limb", "size in bytes of the C type used to represent a limb"},
+    {"sizeof_limb", "size in bytes of the C type, used to represent a limb"},
     {"version", "the GNU GMP version"},
     {NULL}};
 
