@@ -118,7 +118,7 @@ def test_format_interface():
     mx = mpz(123)
     with pytest.raises(ValueError, match="Unknown format code"):
         format(mx, "q")
-    if platform.python_implementation() != "PyPy":  # XXX
+    if platform.python_implementation() != "PyPy":  # XXX: pypy/pypy#5311
         with pytest.raises(ValueError, match="Unknown format code"):
             format(mx, "\x81")
     with pytest.raises(ValueError,
@@ -188,7 +188,7 @@ def test_format_interface():
 
     if (platform.python_implementation() == "PyPy"
             and sys.pypy_version_info[:3] <= (7, 3, 20)):
-        return  # issue pypy/pypy#5311
+        return  # XXX: pypy/pypy#5311
 
     try:
         locale.setlocale(locale.LC_ALL, "ru_RU.UTF-8")
@@ -197,7 +197,7 @@ def test_format_interface():
         assert format(mpz(123), "011n") == f"000{s}000{s}123"
         locale.setlocale(locale.LC_ALL, "C")
         if platform.python_implementation() == "GraalVM":
-            return  # issue oracle/graalpython#521
+            return  # XXX: oracle/graalpython#521
         locale.setlocale(locale.LC_NUMERIC, "ps_AF.UTF-8")
         s = locale.localeconv()["thousands_sep"]
         assert format(mpz(123456789), "n") == f"123{s}456{s}789"
@@ -458,7 +458,7 @@ def test_mul_distributivity(x, y, z):
 
 
 @pytest.mark.skipif(platform.python_implementation() == "GraalVM",
-                    reason="XXX: fails in CI for x,y=0,-1382074480823709287")
+                    reason="XXX: oracle/graalpython#534")
 @given(bigints(), bigints())
 @example(18446744073709551615, -1)
 @example(-2, 1<<64)
