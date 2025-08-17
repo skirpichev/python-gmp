@@ -109,6 +109,7 @@ def test_mpmath_create(man, exp, prec, rnd):
     mman = mpz(man)
     res = mpmath.libmp.from_man_exp(man, exp, prec, rnd)
     assert _mpmath_create(mman, exp, prec, rnd) == res
+    assert mman == man
     assert _mpmath_create(man, exp, prec, rnd) == res
 
 

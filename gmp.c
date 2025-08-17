@@ -1926,13 +1926,24 @@ gmp__mpmath_create(PyObject *self, PyObject *const *args, Py_ssize_t nargs)
     if (nargs < 2 || nargs > 4) {
         PyErr_Format(PyExc_TypeError,
                      "_mpmath_create() takes from 2 to 4 arguments");
-end:
         return NULL;
     }
 
     MPZ_Object *man;
 
-    CHECK_OP_INT(man, args[0]);
+    if (MPZ_Check(args[0])) {
+        man = (MPZ_Object *)plus(args[0]);
+    }
+    else if (PyLong_Check(args[0])) {
+        man = MPZ_from_int(args[0]);
+        if (!man) {
+            return NULL; /* LCOV_EXCL_LINE */
+        }
+    }
+    else {
+        PyErr_Format(PyExc_TypeError, "_mpmath_create() expects an integer");
+        return NULL;
+    }
     if (!PyLong_Check(args[1])) {
         Py_DECREF(man);
         PyErr_Format(PyExc_TypeError,
