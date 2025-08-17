@@ -27,7 +27,11 @@
 #  error GMP_NUMB_BITS expected to be more than GMP_NUMB_BITS
 #endif
 
-jmp_buf zz_env;
+#if defined(_MSC_VER)
+#  define _Thread_local __declspec(thread)
+#endif
+
+_Thread_local jmp_buf zz_env;
 /* Function should include if(TMP_OVERFLOW){...} workaround in
    case it calls any mpn_*() API, which does memory allocation for
    temporary storage.  Not all functions do this, sometimes it's
@@ -36,10 +40,6 @@ jmp_buf zz_env;
    aren't documented and if you feel that in the given case things
    might be changed - please add a workaround. */
 #define TMP_OVERFLOW (setjmp(zz_env) == 1)
-
-#if defined(_MSC_VER)
-#  define _Thread_local __declspec(thread)
-#endif
 
 #define TRACKER_MAX_SIZE 64
 _Thread_local struct {
