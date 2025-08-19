@@ -88,3 +88,4 @@ repair-wheel-command = """delvewheel repair -w {dest_dir} {wheel} \
 
 [tool.cibuildwheel.windows.environment]
 PYTEST_ADDOPTS = "--verbose"
+CFLAGS = "-Wall -Wpedantic -Werror -std=c17"
