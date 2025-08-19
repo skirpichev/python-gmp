@@ -410,6 +410,10 @@ def test_binary_bulk(x, y):
 
 
 @given(bigints(), bigints())
+@example(1, 1<<67)
+@example(1, -(1<<67))
+@example(-2, -1)
+@example(2, -1)
 def test_binary_commutative(x, y):
     mx = mpz(x)
     my = mpz(y)
