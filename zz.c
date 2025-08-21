@@ -1,10 +1,19 @@
 #include <assert.h>
 #include <ctype.h>
 #include <float.h>
+#if defined(__MINGW32__) && defined(__GNUC__)
+#  pragma GCC diagnostic push
+#  pragma GCC diagnostic ignored "-Wconversion"
+#endif
 #ifdef __GNUC__
 #  pragma GCC diagnostic push
 #  pragma GCC diagnostic ignored "-Wsign-conversion"
+#endif
 #include <gmp.h>
+#ifdef __GNUC__
+#  pragma GCC diagnostic pop
+#endif
+#if defined(__MINGW32__) && defined(__GNUC__)
 #  pragma GCC diagnostic pop
 #endif
 #include <inttypes.h>
@@ -657,9 +666,16 @@ done:
         *d = -*d;
     }
     *d = ldexp(*d, e - shift);
+#if defined(__MINGW32__) && defined(__GNUC__)
+#  pragma GCC diagnostic push
+#  pragma GCC diagnostic ignored "-Wfloat-conversion"
+#endif
     if (e > DBL_MAX_EXP || isinf(*d)) {
         return ZZ_BUF;
     }
+#if defined(__MINGW32__) && defined(__GNUC__)
+#  pragma GCC diagnostic pop
+#endif
     return ZZ_OK;
 }
 
@@ -1175,7 +1191,7 @@ zz_quo_2exp(const zz_t *u, uint64_t shift, zz_t *v)
         return ZZ_OK;
     }
 
-    mp_size_t whole = (int64_t)(shift / GMP_NUMB_BITS);
+    mp_size_t whole = (mp_size_t)(shift / GMP_NUMB_BITS);
     zz_size_t size = u->size;
 
     shift %= GMP_NUMB_BITS;
@@ -1232,7 +1248,7 @@ zz_mul_2exp(const zz_t *u, uint64_t shift, zz_t *v)
         return ZZ_OK;
     }
 
-    mp_size_t whole = (int64_t)(shift / GMP_NUMB_BITS);
+    mp_size_t whole = (mp_size_t)(shift / GMP_NUMB_BITS);
     mp_size_t u_size = u->size, v_size = u_size + whole;
 
     shift %= GMP_NUMB_BITS;
