@@ -5,6 +5,7 @@ import pytest
 from gmp import (
     _mpmath_create,
     _mpmath_normalize,
+    comb,
     double_fac,
     fac,
     factorial,
@@ -43,6 +44,18 @@ def test_factorials(x):
         r = f(x)
         assert fm(mx) == r
         assert fm(x) == r
+
+
+@given(integers(min_value=0, max_value=12345),
+       integers(min_value=0, max_value=12345))
+def test_comb(x, y):
+    mx = mpz(x)
+    my = mpz(y)
+    r = math.comb(x, y)
+    assert comb(mx, my) == r
+    assert comb(mx, y) == r
+    assert comb(x, my) == r
+    assert comb(x, y) == r
 
 
 @given(bigints(), bigints(), bigints())
@@ -139,6 +152,16 @@ def test_interfaces():
         fac(-1)
     with pytest.raises(OverflowError):
         fac(2**1000)
+    with pytest.raises(TypeError):
+        comb(123)
+    with pytest.raises(ValueError, match="not defined for negative values"):
+        comb(-1, 2)
+    with pytest.raises(ValueError, match="not defined for negative values"):
+        comb(2, -1)
+    with pytest.raises(OverflowError):
+        comb(2**1000, 1)
+    with pytest.raises(OverflowError):
+        comb(1, 2**1000)
     with pytest.raises(TypeError):
         _mpmath_create(1j)
     with pytest.raises(TypeError):
