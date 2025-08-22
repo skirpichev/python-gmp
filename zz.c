@@ -2132,6 +2132,31 @@ MK_ZZ_FUNC_UL(fac2, 2fac_ui)
 MK_ZZ_FUNC_UL(fib, fib_ui)
 
 zz_err
+zz_bin(uint64_t n, uint64_t k, zz_t *v)
+{
+    if (n > ULONG_MAX || k > ULONG_MAX) {
+        return ZZ_BUF;
+    }
+    if (TMP_OVERFLOW) {
+        return ZZ_MEM; /* LCOV_EXCL_LINE */
+    }
+
+    mpz_t z;
+
+    mpz_init(z);
+    mpz_bin_uiui(z, (unsigned long)n, (unsigned long)k);
+    if (zz_resize(z->_mp_size, v) == ZZ_MEM) {
+        /* LCOV_EXCL_START */
+        mpz_clear(z);
+        return ZZ_MEM;
+        /* LCOV_EXCL_STOP */
+    }
+    mpn_copyi(v->digits, z->_mp_d, z->_mp_size);
+    mpz_clear(z);
+    return ZZ_OK;
+}
+
+zz_err
 _zz_mpmath_normalize(zz_bitcnt_t prec, zz_rnd rnd, bool *negative,
                      zz_t *man, zz_t *exp, zz_bitcnt_t *bc)
 {

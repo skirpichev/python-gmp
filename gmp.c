@@ -1834,6 +1834,52 @@ MAKE_MPZ_UI_FUN(fac)
 MAKE_MPZ_UI_FUN(fac2)
 MAKE_MPZ_UI_FUN(fib)
 
+static PyObject *
+gmp_comb(PyObject *self, PyObject *const *args, Py_ssize_t nargs)
+{
+    if (nargs != 2) {
+        PyErr_SetString(PyExc_TypeError, "two arguments required");
+        return NULL;
+    }
+
+    MPZ_Object *x, *y, *res = MPZ_new(0);
+
+    if (!res) {
+        return NULL; /* LCOV_EXCL_LINE */
+    }
+    CHECK_OP_INT(x, args[0]);
+    CHECK_OP_INT(y, args[1]);
+    if (zz_isneg(&x->z) || zz_isneg(&y->z)) {
+        PyErr_SetString(PyExc_ValueError,
+                        "comb() not defined for negative values");
+        goto err;
+    }
+
+    int64_t n, k;
+
+    if ((zz_to_i64(&x->z, &n) || n > ULONG_MAX)
+        || (zz_to_i64(&y->z, &k) || k > ULONG_MAX))
+    {
+        PyErr_Format(PyExc_OverflowError,
+                     "comb() arguments should not exceed %ld",
+                     ULONG_MAX);
+        goto err;
+    }
+    Py_XDECREF(x);
+    Py_XDECREF(y);
+    if (zz_bin((uint64_t)n, (uint64_t)k, &res->z)) {
+        /* LCOV_EXCL_START */
+        PyErr_NoMemory();
+        goto err;
+        /* LCOV_EXCL_STOP */
+    }
+    return (PyObject *)res;
+err:
+end:
+    Py_DECREF(res);
+    return NULL;
+}
+
 static zz_rnd
 get_round_mode(PyObject *rndstr)
 {
@@ -2040,6 +2086,10 @@ static PyMethodDef gmp_functions[] = {
     {"fib", gmp_fib, METH_O,
      ("fib($module, n, /)\n--\n\n"
       "Return the n-th Fibonacci number.")},
+    {"comb", (PyCFunction)gmp_comb, METH_FASTCALL,
+     ("comb($module, n, k, /)\n--\n\nNumber of ways to choose k"
+      " items from n items without repetition and order.\n\n"
+      "Also called the binomial coefficient.")},
     {"_mpmath_normalize", (PyCFunction)gmp__mpmath_normalize, METH_FASTCALL,
      NULL},
     {"_mpmath_create", (PyCFunction)gmp__mpmath_create, METH_FASTCALL, NULL},
@@ -2131,7 +2181,8 @@ gmp_exec(PyObject *m)
     const char *str = ("import numbers, importlib.metadata as imp\n"
                        "numbers.Integral.register(gmp.mpz)\n"
                        "gmp.fac = gmp.factorial\n"
-                       "gmp.__all__ = ['factorial', 'gcd', 'isqrt', 'mpz']\n"
+                       "gmp.__all__ = ['comb', 'factorial', 'gcd', 'isqrt',\n"
+                       "               'mpz']\n"
                        "gmp.__version__ = imp.version('python-gmp')\n");
 
     PyObject *res = PyRun_String(str, Py_file_input, ns, ns);
