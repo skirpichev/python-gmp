@@ -14,6 +14,7 @@ from gmp import (
     gcdext,
     isqrt,
     isqrt_rem,
+    lcm,
     mpz,
 )
 from hypothesis import example, given
@@ -77,6 +78,17 @@ def test_gcdext_binary(x, y, c):
         assert fm(x, y) == r
 
 
+@given(bigints(), bigints())
+def test_lcm_binary(x, y):
+    mx = mpz(x)
+    my = mpz(y)
+    r = math.lcm(x, y)
+    assert lcm(mx, my) == r
+    assert lcm(mx, y) == r
+    assert lcm(x, my) == r
+    assert lcm(x, y) == r
+
+
 @given(lists(bigints(), max_size=6), bigints())
 @example([], 1)
 @example([2, 3, 4], 1)
@@ -88,6 +100,15 @@ def test_gcd_nary(xs, c):
     r = math.gcd(*xs)
     assert gcd(*mxs) == r
     assert gcd(*xs) == r
+
+
+@given(lists(bigints(), max_size=6))
+@example([])
+def test_lcm_nary(xs):
+    mxs = list(map(mpz, xs))
+    r = math.lcm(*xs)
+    assert lcm(*mxs) == r
+    assert lcm(*xs) == r
 
 
 @given(booleans(), bigints(min_value=0), bigints(),
@@ -138,6 +159,10 @@ def test_interfaces():
         gcdext(2, 1j)
     with pytest.raises(TypeError):
         gcdext(2j, 2)
+    with pytest.raises(TypeError):
+        lcm(1j)
+    with pytest.raises(TypeError):
+        lcm(1, 1j)
     with pytest.raises(TypeError):
         isqrt(1j)
     with pytest.raises(TypeError):

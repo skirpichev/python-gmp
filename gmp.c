@@ -1713,7 +1713,7 @@ gmp_gcdext(PyObject *Py_UNUSED(module), PyObject *const *args,
     Py_XDECREF(x);
     Py_XDECREF(y);
     if (ret == ZZ_MEM) {
-        PyErr_NoMemory(); /* LCOV_EXCL_LINE */
+        return PyErr_NoMemory(); /* LCOV_EXCL_LINE */
     }
     PyObject *tup = PyTuple_Pack(3, g, s, t);
 
@@ -1727,6 +1727,37 @@ end:
     Py_DECREF(t);
     Py_XDECREF(x);
     Py_XDECREF(y);
+    return NULL;
+}
+
+static PyObject *
+gmp_lcm(PyObject *Py_UNUSED(module), PyObject *const *args, Py_ssize_t nargs)
+{
+    MPZ_Object *res = MPZ_new(0);
+
+    if (!res || zz_from_i64(1, &res->z)) {
+        return PyErr_NoMemory(); /* LCOV_EXCL_LINE */
+    }
+    for (Py_ssize_t i = 0; i < nargs; i++) {
+        MPZ_Object *arg;
+
+        CHECK_OP_INT(arg, args[i]);
+        if (zz_cmp_i32(&res->z, 0) == ZZ_EQ) {
+            Py_DECREF(arg);
+            continue;
+        }
+        if (zz_lcm(&res->z, &arg->z, &res->z)) {
+            /* LCOV_EXCL_START */
+            Py_DECREF(res);
+            Py_DECREF(arg);
+            return PyErr_NoMemory();
+            /* LCOV_EXCL_STOP */
+        }
+        Py_DECREF(arg);
+    }
+    return (PyObject *)res;
+end:
+    Py_DECREF(res);
     return NULL;
 }
 
@@ -2071,6 +2102,9 @@ static PyMethodDef gmp_functions[] = {
     {"gcdext", (PyCFunction)gmp_gcdext, METH_FASTCALL,
      ("gcdext($module, x, y, /)\n--\n\n"
       "Compute extended GCD.")},
+    {"lcm", (PyCFunction)gmp_lcm, METH_FASTCALL,
+     ("lcm($module, /, *integers)\n--\n\n"
+      "Least Common Multiple.")},
     {"isqrt", gmp_isqrt, METH_O,
      ("isqrt($module, n, /)\n--\n\n"
       "Return the integer part of the square root of n.")},
@@ -2182,7 +2216,7 @@ gmp_exec(PyObject *m)
                        "numbers.Integral.register(gmp.mpz)\n"
                        "gmp.fac = gmp.factorial\n"
                        "gmp.__all__ = ['comb', 'factorial', 'gcd', 'isqrt',\n"
-                       "               'mpz']\n"
+                       "               'lcm', 'mpz']\n"
                        "gmp.__version__ = imp.version('python-gmp')\n");
 
     PyObject *res = PyRun_String(str, Py_file_input, ns, ns);

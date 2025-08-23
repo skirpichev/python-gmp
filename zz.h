@@ -122,6 +122,7 @@ zz_err zz_pow(const zz_t *u, uint64_t v, zz_t *w);
 zz_err zz_gcd(const zz_t *u, const zz_t *v, zz_t *w);
 zz_err zz_gcdext(const zz_t *u, const zz_t *v, zz_t *g, zz_t *s, zz_t *t);
 zz_err zz_inverse(const zz_t *u, const zz_t *v, zz_t *w);
+zz_err zz_lcm(const zz_t *u, const zz_t *v, zz_t *w);
 
 zz_err zz_powm(const zz_t *u, const zz_t *v, const zz_t *w, zz_t *res);
 
