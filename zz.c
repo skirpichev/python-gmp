@@ -1952,6 +1952,26 @@ zz_inverse(const zz_t *u, const zz_t *v, zz_t *w)
 }
 
 zz_err
+zz_lcm(const zz_t *u, const zz_t *v, zz_t *w)
+{
+    zz_t g;
+
+    if (zz_init(&g) || zz_gcd(u, v, &g)) {
+        /* LCOV_EXCL_START */
+err:
+        zz_clear(&g);
+        return ZZ_MEM;
+        /* LCOV_EXCL_STOP */
+    }
+    if (zz_div(u, &g, ZZ_RNDD, w, NULL) || zz_mul(w, v, w)) {
+        goto err; /* LCOV_EXCL_LINE */
+    }
+    zz_clear(&g);
+    (void)zz_abs(w, w);
+    return ZZ_OK;
+}
+
+zz_err
 zz_powm(const zz_t *u, const zz_t *v, const zz_t *w, zz_t *res)
 {
     if (!w->size) {
