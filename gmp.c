@@ -2192,7 +2192,7 @@ static PyMethodDef gmp_functions[] = {
       "Also called the binomial coefficient.")},
     {"perm", (PyCFunction)gmp_perm, METH_FASTCALL,
      ("perm($module, n, k=None, /)\n--\n\nNumber of ways to choose k"
-      " items from n items without repetition and withorder.")},
+      " items from n items without repetition and with order.")},
     {"_mpmath_normalize", (PyCFunction)gmp__mpmath_normalize, METH_FASTCALL,
      NULL},
     {"_mpmath_create", (PyCFunction)gmp__mpmath_create, METH_FASTCALL, NULL},
