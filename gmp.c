@@ -1911,6 +1911,72 @@ end:
     return NULL;
 }
 
+static PyObject *
+gmp_perm(PyObject *self, PyObject *const *args, Py_ssize_t nargs)
+{
+    if (nargs > 2 || nargs < 1) {
+        PyErr_SetString(PyExc_TypeError, "one or two arguments required");
+        return NULL;
+    }
+    if (nargs == 1) {
+        return gmp_fac(self, args[0]);
+    }
+
+    MPZ_Object *x, *y, *res = MPZ_new(0);
+
+    if (!res) {
+        return NULL; /* LCOV_EXCL_LINE */
+    }
+    CHECK_OP_INT(x, args[0]);
+    CHECK_OP_INT(y, args[1]);
+    if (zz_isneg(&x->z) || zz_isneg(&y->z)) {
+        PyErr_SetString(PyExc_ValueError,
+                        "perm() not defined for negative values");
+        goto err;
+    }
+
+    int64_t n, k;
+
+    if ((zz_to_i64(&x->z, &n) || n > ULONG_MAX)
+        || (zz_to_i64(&y->z, &k) || k > ULONG_MAX))
+    {
+        PyErr_Format(PyExc_OverflowError,
+                     "perm() arguments should not exceed %ld",
+                     ULONG_MAX);
+        goto err;
+    }
+    Py_XDECREF(x);
+    Py_XDECREF(y);
+    if (k > n) {
+        return (PyObject *)res;
+    }
+
+    MPZ_Object *den = MPZ_new(0);
+
+    if (!den) {
+        /* LCOV_EXCL_START */
+        PyErr_NoMemory();
+        goto err;
+        /* LCOV_EXCL_STOP */
+    }
+    if (zz_fac((uint64_t)n, &res->z)
+        || zz_fac((uint64_t)(n-k), &den->z)
+        || zz_div(&res->z, &den->z, ZZ_RNDD, &res->z, NULL))
+    {
+        /* LCOV_EXCL_START */
+        Py_DECREF(den);
+        PyErr_NoMemory();
+        goto err;
+        /* LCOV_EXCL_STOP */
+    }
+    Py_DECREF(den);
+    return (PyObject *)res;
+err:
+end:
+    Py_DECREF(res);
+    return NULL;
+}
+
 static zz_rnd
 get_round_mode(PyObject *rndstr)
 {
@@ -2124,6 +2190,9 @@ static PyMethodDef gmp_functions[] = {
      ("comb($module, n, k, /)\n--\n\nNumber of ways to choose k"
       " items from n items without repetition and order.\n\n"
       "Also called the binomial coefficient.")},
+    {"perm", (PyCFunction)gmp_perm, METH_FASTCALL,
+     ("perm($module, n, k=None, /)\n--\n\nNumber of ways to choose k"
+      " items from n items without repetition and withorder.")},
     {"_mpmath_normalize", (PyCFunction)gmp__mpmath_normalize, METH_FASTCALL,
      NULL},
     {"_mpmath_create", (PyCFunction)gmp__mpmath_create, METH_FASTCALL, NULL},
@@ -2216,7 +2285,7 @@ gmp_exec(PyObject *m)
                        "numbers.Integral.register(gmp.mpz)\n"
                        "gmp.fac = gmp.factorial\n"
                        "gmp.__all__ = ['comb', 'factorial', 'gcd', 'isqrt',\n"
-                       "               'lcm', 'mpz']\n"
+                       "               'lcm', 'mpz', 'perm']\n"
                        "gmp.__version__ = imp.version('python-gmp')\n");
 
     PyObject *res = PyRun_String(str, Py_file_input, ns, ns);
