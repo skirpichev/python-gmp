@@ -16,6 +16,7 @@ from gmp import (
     isqrt_rem,
     lcm,
     mpz,
+    perm,
 )
 from hypothesis import example, given
 from hypothesis.strategies import booleans, integers, lists, sampled_from
@@ -57,6 +58,21 @@ def test_comb(x, y):
     assert comb(mx, y) == r
     assert comb(x, my) == r
     assert comb(x, y) == r
+
+
+@given(integers(min_value=0, max_value=12345),
+       integers(min_value=0, max_value=12345))
+def test_perm(x, y):
+    mx = mpz(x)
+    my = mpz(y)
+    r = math.perm(x, y)
+    assert perm(mx, my) == r
+    assert perm(mx, y) == r
+    assert perm(x, my) == r
+    assert perm(x, y) == r
+    rx = math.factorial(x)
+    assert perm(mx) == rx
+    assert perm(x) == rx
 
 
 @given(bigints(), bigints(), bigints())
@@ -187,6 +203,16 @@ def test_interfaces():
         comb(2**1000, 1)
     with pytest.raises(OverflowError):
         comb(1, 2**1000)
+    with pytest.raises(TypeError):
+        perm(1, 2, 3)
+    with pytest.raises(ValueError, match="not defined for negative values"):
+        perm(-1, 2)
+    with pytest.raises(ValueError, match="not defined for negative values"):
+        perm(2, -1)
+    with pytest.raises(OverflowError):
+        perm(2**1000, 1)
+    with pytest.raises(OverflowError):
+        perm(1, 2**1000)
     with pytest.raises(TypeError):
         _mpmath_create(1j)
     with pytest.raises(TypeError):
