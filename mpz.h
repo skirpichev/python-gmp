@@ -31,7 +31,7 @@
 #  pragma GCC diagnostic pop
 #endif
 
-#include "zz.h"
+#include "libzz/zz.h"
 
 typedef struct {
     PyObject_HEAD
