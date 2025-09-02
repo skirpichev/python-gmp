@@ -13,7 +13,7 @@ jobs:
         with:
           fetch-depth: 0
           submodules: true
-      - uses: msys2/setup-msys2@v2.28.0
+      - uses: msys2/setup-msys2@v2.29.0
         name: Setup msys2
         with:
           install: >-
