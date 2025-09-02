@@ -999,14 +999,26 @@ numbers:
     return res;
 }
 
+#define CHECK_OP_INT(u, a)      \
+    if (MPZ_Check(a)) {         \
+        u = (MPZ_Object *)a;    \
+        Py_INCREF(u);           \
+    }                           \
+    else {                      \
+        u = MPZ_from_int(a);    \
+        if (!u) {               \
+            goto end;           \
+        }                       \
+    }                           \
+
 #define BINOP_INT(suff)                                         \
     static PyObject *                                           \
     nb_##suff(PyObject *self, PyObject *other)                  \
     {                                                           \
         MPZ_Object *u = NULL, *v = NULL, *res = NULL;           \
                                                                 \
-        CHECK_OP(u, self);                                      \
-        CHECK_OP(v, other);                                     \
+        CHECK_OP_INT(u, self);                                  \
+        CHECK_OP_INT(v, other);                                 \
                                                                 \
         res = MPZ_new(0);                                       \
         zz_err ret = ZZ_OK;                                     \
@@ -1031,11 +1043,6 @@ numbers:
         Py_XDECREF(u);                                          \
         Py_XDECREF(v);                                          \
         return (PyObject *)res;                                 \
-    fallback:                                                   \
-    numbers:                                                    \
-        Py_XDECREF(u);                                          \
-        Py_XDECREF(v);                                          \
-        Py_RETURN_NOTIMPLEMENTED;                               \
     }
 
 BINOP_INT(and)
@@ -1068,18 +1075,6 @@ zz_rshift(const zz_t *u, const zz_t *v, zz_t *w)
 
 BINOP_INT(lshift)
 BINOP_INT(rshift)
-
-#define CHECK_OP_INT(u, a)      \
-    if (MPZ_Check(a)) {         \
-        u = (MPZ_Object *)a;    \
-        Py_INCREF(u);           \
-    }                           \
-    else {                      \
-        u = MPZ_from_int(a);    \
-        if (!u) {               \
-            goto end;           \
-        }                       \
-    }                           \
 
 static PyObject *
 power(PyObject *self, PyObject *other, PyObject *module)
