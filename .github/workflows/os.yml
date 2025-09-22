@@ -1,6 +1,5 @@
 name: Run tests on different OS
-on:
-  workflow_call:
+on: [workflow_dispatch, workflow_call]
 jobs:
   os:
     runs-on: ${{ matrix.os }}
