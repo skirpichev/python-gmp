@@ -687,6 +687,8 @@ def test_power_errors():
         pow(mpz(10**1000), 1j)
     with pytest.raises(TypeError):
         pow(object(), mpz(321))
+    if platform.python_implementation() == "GraalVM":
+        return  # issue oracle/graalpython#551
     with pytest.raises(MemoryError):
         pow(mpz(123), 111111111111111111)
 
