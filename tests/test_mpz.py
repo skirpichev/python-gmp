@@ -462,8 +462,6 @@ def test_mul_distributivity(x, y, z):
         assert mul(op(mx, my), mz) == op(mul(mx, mz), mul(my, mz))
 
 
-@pytest.mark.skipif(platform.python_implementation() == "GraalVM",
-                    reason="XXX: oracle/graalpython#534")
 @given(bigints(), bigints())
 @example(18446744073709551615, -1)
 @example(-2, 1<<64)
@@ -472,6 +470,7 @@ def test_mul_distributivity(x, y, z):
 @example(int("0x"+"f"*32, 0), -1<<64)  # XXX: assuming BITS_PER_LIMB == 64
 @example(-68501870735943706700000000000000000001, 10**20)  # issue 117
 @example(0, 123)
+@example(0, -1382074480823709287)
 def test_divmod_bulk(x, y):
     mx = mpz(x)
     my = mpz(y)
@@ -479,6 +478,8 @@ def test_divmod_bulk(x, y):
         with pytest.raises(ZeroDivisionError):
             mx // my
         return
+    if y < 0 and platform.python_implementation() == "GraalVM":
+        return  # issue graalpython#534
     r = x // y
     assert mx // my == r
     assert mx // y == r
@@ -512,8 +513,6 @@ def test_divmod_errors():
         divmod(mx, 0)
 
 
-@pytest.mark.skipif(platform.python_implementation() == "GraalVM",
-                    reason="XXX: oracle/graalpython#474")
 @given(bigints(), bigints())
 @example(0, -1)
 @example(0, 123)
@@ -585,8 +584,6 @@ def test_truediv_errors():
     pytest.raises(TypeError, lambda: object() / mx)
 
 
-@pytest.mark.skipif(platform.python_implementation() == "GraalVM",
-                    reason="XXX: oracle/graalpython#473")
 @given(bigints(), integers(max_value=100000))
 @example(0, 123)
 @example(123, 0)
@@ -698,8 +695,6 @@ def test_power_errors():
 @example(1, 1<<128)
 @example(90605555449081991889354259339521952450308780844225461, 64)
 def test_lshift(x, y):
-    if platform.python_implementation() == "GraalVM" and y < 0:
-        return  # XXX: oracle/graalpython#516
     mx = mpz(x)
     my = mpz(y)
     try:
@@ -805,8 +800,6 @@ def test_to_bytes_bulk(x, length, byteorder, signed):
     try:
         rx = x.to_bytes(length, byteorder, signed=signed)
     except OverflowError:
-        if platform.python_implementation() == "GraalVM" and not length:
-            return  # XXX: oracle/graalpython#475
         with pytest.raises(OverflowError):
             mpz(x).to_bytes(length, byteorder, signed=signed)
     else:
@@ -870,10 +863,7 @@ def test_from_bytes_bulk(x, length, byteorder, signed):
     else:
         rx = int.from_bytes(bytes, byteorder, signed=signed)
         assert rx == mpz.from_bytes(bytes, byteorder, signed=signed)
-        if platform.python_implementation() != "GraalVM":
-            # XXX: oracle/graalpython#476
-            assert rx == mpz.from_bytes(bytearray(bytes), byteorder,
-                                        signed=signed)
+        assert rx == mpz.from_bytes(bytearray(bytes), byteorder, signed=signed)
         assert rx == mpz.from_bytes(list(bytes), byteorder, signed=signed)
 
 
@@ -980,8 +970,6 @@ def test_digits_interface():
     assert x.digits(10) == x.digits(base=10) == x.digits()
 
 
-@pytest.mark.skipif(platform.python_implementation() == "GraalVM",
-                    reason="XXX: oracle/graalpython#479")
 @given(bigints(), integers(min_value=2, max_value=36))
 def test_digits_frombase(x, base):
     mx = mpz(x)
