@@ -94,6 +94,9 @@ def test_zz_add_i32():
     assert zz_from_i64(0, u) == zz_err.ZZ_OK
     assert zz_add_i32(u, 2, u) == zz_err.ZZ_OK
     assert zz_cmp_i32(u, 2) == zz_ord.ZZ_EQ
+    assert zz_from_i64(0, u) == zz_err.ZZ_OK
+    assert zz_add_i32(u, 0, u) == zz_err.ZZ_OK
+    assert zz_cmp_i32(u, 0) == zz_ord.ZZ_EQ
 
 
 def test_zz_lsbpos():
