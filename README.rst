@@ -68,12 +68,10 @@ The gmp module handles such errors correctly:
 Warning on --disable-alloca configure option
 --------------------------------------------
 
-Most GMP packages enable using alloca() for temporary workspace allocation.
-This module can't prevent a crash in case of a stack overflow.  To avoid this,
-you should compile the GMP library with '--disable-alloca' configure option to
-use rather the heap for all temporary allocations.
-
-Published on the PyPI binary wheels aren't affected by this issue.
+You should use the GNU GMP library, compiled with the '--disable-alloca'
+configure option to prevent using alloca() for temporary workspace allocation
+(and use the heap instead), or this module can't prevent a crash in case of a
+stack overflow.
 
 
 Warning on using mp_set_memory_functions()
