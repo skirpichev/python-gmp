@@ -10,29 +10,11 @@ functions (`comb`_, `factorial`_, `gcd`_, `isqrt`_, `lcm`_ and `perm`_),
 compatible with the Python stdlib's module `math`_.
 
 This module requires Python 3.9 or later versions and has been tested with
-CPython 3.9 through 3.14, with PyPy 3.11 and with GraalPy 25.0.  Free-threading
-builds of the CPython are supported.
+CPython 3.9 through 3.14, with PyPy3.11 7.3.20 and with GraalPy 25.0.
+Free-threading builds of the CPython are supported.
 
 Releases are available in the Python Package Index (PyPI) at
 https://pypi.org/project/python-gmp/.
-
-
-Warning on --disable-alloca configure option
---------------------------------------------
-
-Most GMP packages enable using alloca() for temporary workspace allocation.
-This module can't prevent a crash in case of a stack overflow.  To avoid this,
-you should compile the GMP library with '--disable-alloca' configure option to
-use rather the heap for all temporary allocations.
-
-Published on the PyPI binary wheels aren't affected by this issue.
-
-
-Warning on using mp_set_memory_functions()
-------------------------------------------
-
-This extension customize memory allocation routines, used by the GMP.  Don't
-import it together with other GMP bindings, like the `gmpy2`_.
 
 
 Motivation
@@ -81,6 +63,23 @@ The gmp module handles such errors correctly:
    >>> # the current scope are available,
    >>> z.bit_length()  # including pre-failure value of z
    93882077
+
+
+Warning on --disable-alloca configure option
+--------------------------------------------
+
+You should use the GNU GMP library, compiled with the '--disable-alloca'
+configure option to prevent using alloca() for temporary workspace allocation
+(and use the heap instead), or this module can't prevent a crash in case of a
+stack overflow.
+
+
+Warning on using mp_set_memory_functions()
+------------------------------------------
+
+This extension customize memory allocation routines, used by the GMP.  Don't
+import it together with other GMP bindings, like the `gmpy2`_.
+
 
 .. _gmpy2: https://pypi.org/project/gmpy2/
 .. _python-flint: https://pypi.org/project/python-flint/
