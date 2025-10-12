@@ -83,8 +83,7 @@ CFLAGS = "-Wall -Wpedantic -Werror -std=c17 -Wconversion"
 before-all = "msys2 -c scripts/cibw_before_all.sh"
 before-build = "pip install wheel delvewheel"
 repair-wheel-command = """delvewheel repair -w {dest_dir} {wheel} \
-                          --add-path .local/bin --no-mangle-all \
-                          --include-imports"""
+                          --add-path .local/bin"""
 
 [tool.cibuildwheel.windows.environment]
 PYTEST_ADDOPTS = "--verbose"
