@@ -391,8 +391,10 @@ MPZ_to_bytes(MPZ_Object *u, Py_ssize_t length, int is_little, int is_signed)
         Py_DECREF(bytes);
         return NULL;
     }
+    /* LCOV_EXCL_START */
     Py_DECREF(bytes);
-    return PyErr_NoMemory(); /* LCOV_EXCL_LINE */
+    return PyErr_NoMemory();
+    /* LCOV_EXCL_STOP */
 }
 
 static MPZ_Object *
