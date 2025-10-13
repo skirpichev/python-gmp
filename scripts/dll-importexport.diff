@@ -1,8 +1,10 @@
 # https://gmplib.org/list-archives/gmp-devel/2025-August/006311.html
 #
---- gmp-h.in.orig	2025-08-15 13:37:06.328877394 +0300
-+++ gmp-h.in	2025-08-15 13:40:01.036262673 +0300
-@@ -101,8 +101,13 @@
+diff --git a/gmp-h.in b/gmp-h.in
+index 8598e97..6649434 100644
+--- a/gmp-h.in
++++ b/gmp-h.in
+@@ -101,8 +101,13 @@ see https://www.gnu.org/licenses/.  */
     make use of that.  Probably more trouble than it's worth.  */
 
  #if defined (__GNUC__)

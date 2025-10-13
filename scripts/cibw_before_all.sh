@@ -1,31 +1,33 @@
-#!/bin/bash
+#!/bin/sh
 
 set -e -x
 
 GMP_VERSION=6.3.0
-
+GMP_DIR=gmp-${GMP_VERSION}
+GMP_URL=https://ftp.gnu.org/gnu/gmp/${GMP_DIR}.tar.xz
 PREFIX="$(pwd)/.local/"
+CFLAGS=
 
-# -- build GMP --
-curl -s -O https://ftp.gnu.org/gnu/gmp/gmp-${GMP_VERSION}.tar.xz
-tar -xf gmp-${GMP_VERSION}.tar.xz
-cd gmp-${GMP_VERSION}
-patch -N -Z -p1 < ../scripts/fat_build_fix.diff
-patch -N -Z -p0 < ../scripts/dll-importexport.diff
-patch -N -Z -p1 < ../scripts/gcc15.diff
+curl --retry 3 --silent --remote-name ${GMP_URL}
+tar --extract --file ${GMP_DIR}.tar.xz
+cd ${GMP_DIR}
 
-unset CFLAGS
+for f in ../scripts/*.diff
+do
+  patch --strip 1 < $f
+done
 
 # config.guess uses microarchitecture and configfsf.guess doesn't
 # We replace config.guess with configfsf.guess to avoid microarchitecture
 # specific code in common code.
 rm config.guess && mv configfsf.guess config.guess && chmod +x config.guess
+
 ./configure --enable-fat \
             --enable-shared \
             --disable-static \
             --with-pic \
             --disable-alloca \
-            --prefix=$PREFIX -q
-make -j6 -s
-make -s install
-cd ../
+            --prefix=$PREFIX \
+            --quiet
+
+make --silent all install

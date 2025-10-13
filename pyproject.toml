@@ -69,7 +69,7 @@ build-frontend = {name="build", args=["--verbose"]}
 enable = "pypy cpython-prerelease cpython-freethreading graalpy"
 skip = """*-win32 gp311_242* *-manylinux_i686 *-musllinux_* \
           *-manylinux_armv7l pp*aarch64* gp3*win*"""
-before-all = "bash scripts/cibw_before_all.sh"
+before-all = "sh scripts/cibw_before_all.sh"
 test-extras = "tests"
 test-command = "pytest {package}"
 
@@ -81,7 +81,7 @@ CFLAGS = "-Wall -Wpedantic -Werror -std=c17 -Wconversion"
 
 [tool.cibuildwheel.windows]
 before-all = "msys2 -c scripts/cibw_before_all.sh"
-before-build = "pip install wheel delvewheel"
+before-build = "pip install delvewheel"
 repair-wheel-command = """delvewheel repair -w {dest_dir} {wheel} \
                           --add-path .local/bin"""
 
