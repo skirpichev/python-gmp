@@ -13,7 +13,6 @@ cd gmp-${GMP_VERSION}
 patch -N -Z -p1 < ../scripts/fat_build_fix.diff
 patch -N -Z -p0 < ../scripts/dll-importexport.diff
 patch -N -Z -p1 < ../scripts/gcc15.diff
-autoreconf -fi
 
 unset CFLAGS
 

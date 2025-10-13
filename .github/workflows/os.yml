@@ -25,14 +25,14 @@ jobs:
       - uses: actions/setup-python@v6
         with:
           python-version: "3.x"
-      - run: brew install autoconf automake libtool
-        if: ${{ startsWith(matrix.os, 'macos') }}
       - uses: msys2/setup-msys2@v2.29.0
         with:
           install: >-
             mingw-w64-ucrt-x86_64-pkg-config
             mingw-w64-ucrt-x86_64-gcc
-            autotools
+            diffutils
+            m4
+            make
             patch
           msystem: ucrt64
           path-type: inherit
