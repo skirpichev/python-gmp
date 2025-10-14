@@ -85,7 +85,7 @@ jobs:
           gcov_ignore: pythoncapi_compat.h
           gcov_include: fmt.c
                         gmp.c
-                        zz.c
+                        libzz/zz.c
                         utils.c
           gcov_args: --no-external
           fail_ci_if_error: true
