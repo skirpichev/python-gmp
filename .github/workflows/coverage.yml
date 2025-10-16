@@ -72,7 +72,7 @@ jobs:
           pattern: coverage-*
           path: build/
           merge-multiple: true
-      - run: genhtml build/coverage*.info --output-directory build/coverage
+      - run: genhtml build/coverage*.info --hierarchical --output-directory build/coverage
       - uses: actions/upload-artifact@v4
         with:
           name: coverage
