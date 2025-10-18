@@ -74,13 +74,6 @@ configure option to prevent using alloca() for temporary workspace allocation
 stack overflow.
 
 
-Warning on using mp_set_memory_functions()
-------------------------------------------
-
-This extension customize memory allocation routines, used by the GMP.  Don't
-import it together with other GMP bindings, like the `gmpy2`_.
-
-
 .. _gmpy2: https://pypi.org/project/gmpy2/
 .. _python-flint: https://pypi.org/project/python-flint/
 .. _mpz: https://python-gmp.readthedocs.io/en/latest/#gmp.mpz
