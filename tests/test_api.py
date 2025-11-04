@@ -8,12 +8,10 @@ from ctypes import (
     c_int8,
     c_int32,
     c_int64,
-    c_size_t,
     c_uint8,
     c_uint64,
     c_ulong,
     cast,
-    sizeof,
 )
 from enum import IntEnum
 
@@ -29,10 +27,10 @@ class zz_t_struct(Structure):
                 ("digits", POINTER(c_ulong))]
 
 class zz_layout(Structure):
-    _fields_ = [("bits_per_digit", c_uint8),
-                ("digit_size", c_uint8),
-                ("digits_order", c_int8),
-                ("digit_endianness", c_int8)]
+    _fields_ = [("bits_per_limb", c_uint8),
+                ("limb_size", c_uint8),
+                ("limbs_order", c_int8),
+                ("limb_endianness", c_int8)]
 
 class zz_err(IntEnum):
     ZZ_OK = 0
@@ -52,7 +50,6 @@ class zz_rnd(IntEnum):
 libzz = CDLL("libzz.so")
 zz_setup = libzz.zz_setup
 zz_finish = libzz.zz_finish
-zz_resize = libzz.zz_resize
 zz_from_i64 = libzz.zz_from_i64
 zz_cmp_i32 = libzz.zz_cmp_i32
 zz_cmp = libzz.zz_cmp
@@ -77,11 +74,6 @@ def libzz_setup_teardown():
     assert zz_setup(None) == zz_err.ZZ_OK
     yield
     zz_finish()
-
-
-@pytest.mark.skipif(sizeof(c_size_t) < 8, reason="Can't overflow zz_size_t")
-def test_zz_resize():
-    assert zz_resize(c_size_t(1<<34), u) == zz_err.ZZ_MEM
 
 
 def test_zz_cmp_i32():
@@ -132,12 +124,12 @@ def test_zz_div():
 def test_zz_rem_u64():
     assert zz_from_i64(123, u) == zz_err.ZZ_OK
     p = c_uint64(0)
-    assert zz_rem_u64(u, 0, byref(p)) == zz_err.ZZ_VAL
+    assert zz_rem_u64(u, 0, zz_rnd.ZZ_RNDD, byref(p)) == zz_err.ZZ_VAL
     assert zz_from_i64(111, u) == zz_err.ZZ_OK
-    assert zz_rem_u64(u, 12, byref(p)) == zz_err.ZZ_OK
+    assert zz_rem_u64(u, 12, zz_rnd.ZZ_RNDD, byref(p)) == zz_err.ZZ_OK
     assert p.value == 3
     assert zz_from_i64(-111, u) == zz_err.ZZ_OK
-    assert zz_rem_u64(u, 12, byref(p)) == zz_err.ZZ_OK
+    assert zz_rem_u64(u, 12, zz_rnd.ZZ_RNDD, byref(p)) == zz_err.ZZ_OK
     assert p.value == 9
 
 
