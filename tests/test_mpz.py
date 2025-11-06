@@ -513,12 +513,16 @@ def test_divmod_errors():
         divmod(mx, 0)
 
 
+@pytest.mark.skipif(platform.python_implementation() == "GraalVM",
+                    reason="XXX: oracle/graalpython#474")
 @given(bigints(), bigints())
 @example(0, -1)
 @example(0, 123)
 @example(10**1000, 2)
 @example(2, 18446744073709551616)
 @example(11811160064<<606, 11<<11)
+@example(2305843008955759739,
+         784637716923335094969050127462454050937374032249308213819)
 def test_truediv_bulk(x, y):
     mx = mpz(x)
     my = mpz(y)
