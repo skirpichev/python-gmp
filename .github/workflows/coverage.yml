@@ -86,3 +86,4 @@ jobs:
           gcov_include: '*.c, libzz/*.c'
           gcov_args: --no-external --preserve-paths
           fail_ci_if_error: true
+          recurse_submodules: true
