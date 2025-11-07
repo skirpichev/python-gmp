@@ -66,13 +66,18 @@ jobs:
           fetch-depth: 0
           submodules: true
       - run: sudo apt-get update
-      - run: sudo apt-get install lcov
+      - run: sudo apt-get install lcov diff-cover
       - uses: actions/download-artifact@v6
         with:
           pattern: coverage-*
           path: build/
           merge-multiple: true
-      - run: genhtml build/coverage*.info --hierarchical --output-directory build/coverage
+      - run: |
+          genhtml build/coverage*.info --hierarchical \
+            --output-directory build/coverage
+      - run: |
+          diff-cover build/coverage*.info --fail-under=100 \
+            --compare-branch=origin/master
       - uses: actions/upload-artifact@v5
         with:
           name: coverage
