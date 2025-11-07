@@ -35,13 +35,13 @@ MPZ_new(void)
 
     if (global.gmp_cache_size) {
         res = global.gmp_cache[--(global.gmp_cache_size)];
-        if (zz_from_i32(0, &res->z) == ZZ_MEM) {
+        if (zz_from_i32(0, &res->z)) {
             /* LCOV_EXCL_START */
             global.gmp_cache[(global.gmp_cache_size)++] = res;
             return (MPZ_Object *)PyErr_NoMemory();
             /* LCOV_EXCL_STOP */
         }
-        Py_INCREF((PyObject *)res);
+        Py_XINCREF((PyObject *)res);
     }
     else {
         res = PyObject_New(MPZ_Object, &MPZ_Type);
@@ -69,7 +69,9 @@ MPZ_to_str(MPZ_Object *u, int base, int options)
     if ((base < INT8_MIN || base > INT8_MAX)
         || zz_sizeinbase(&u->z, (int8_t)base, &len))
     {
-        goto bad_base;
+        PyErr_SetString(PyExc_ValueError,
+                        "mpz base must be >= 2 and <= 36");
+        return NULL;
     }
     len += negative;
     if (options & OPT_TAG) {
@@ -121,14 +123,10 @@ MPZ_to_str(MPZ_Object *u, int base, int options)
         (void)zz_neg(&u->z, &u->z);
     }
     if (ret) {
+        /* LCOV_EXCL_START */
         free(buf);
-        if (ret == ZZ_VAL) {
-bad_base:
-            PyErr_SetString(PyExc_ValueError,
-                            "mpz base must be >= 2 and <= 36");
-            return NULL;
-        }
-        return PyErr_NoMemory(); /* LCOV_EXCL_LINE */
+        return PyErr_NoMemory();
+        /* LCOV_EXCL_STOP */
     }
     p += len;
     if (options & OPT_TAG) {

@@ -24,6 +24,7 @@ from hypothesis.strategies import (
 )
 from test_utils import (
     BITS_PER_LIMB,
+    SIEZEOF_LIMBCNT,
     SIZEOF_LIMB,
     bigints,
     fmt_str,
@@ -692,6 +693,10 @@ def test_power_errors():
         return  # issue oracle/graalpython#551
     with pytest.raises(MemoryError):
         pow(mpz(123), 111111111111111111)
+    if SIEZEOF_LIMBCNT < 8:
+        return
+    with pytest.raises(MemoryError):
+        mpz(1) << (1 << 42)
 
 
 @given(bigints(), integers(max_value=12345))

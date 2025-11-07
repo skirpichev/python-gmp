@@ -8,6 +8,7 @@ from ctypes import (
     c_int8,
     c_int32,
     c_int64,
+    c_size_t,
     c_uint8,
     c_uint64,
     c_ulong,
@@ -64,6 +65,7 @@ zz_quo_2exp = libzz.zz_quo_2exp
 zz_pow = libzz.zz_pow
 zz_powm = libzz.zz_powm
 zz_sqrtrem = libzz.zz_sqrtrem
+zz_to_str = libzz.zz_to_str
 
 u, v, w = map(byref, map(zz_t_struct, [[]]*3))
 int_layout = zz_layout(30, 4, -1, -1)
@@ -104,6 +106,13 @@ def test_zz_export():
     assert zz_export(u, int_layout, 0, 0) == zz_err.ZZ_VAL
 
 
+def test_zz_to_str():
+    assert zz_from_i64(123, u) == zz_err.ZZ_OK
+    p = c_int8()
+    s = c_size_t()
+    assert zz_to_str(u, 38, byref(p), byref(s)) == zz_err.ZZ_VAL
+
+
 def test_zz_mul():
     assert zz_from_i64(2, u) == zz_err.ZZ_OK
     assert zz_from_i64(3, v) == zz_err.ZZ_OK
@@ -116,9 +125,10 @@ def test_zz_mul():
 def test_zz_div():
     assert zz_from_i64(4, u) == zz_err.ZZ_OK
     assert zz_from_i64(2, v) == zz_err.ZZ_OK
-    assert zz_div(u, v, zz_rnd.ZZ_RNDD, v, 0) == zz_err.ZZ_OK
+    assert zz_div(u, v, zz_rnd.ZZ_RNDD, v, None) == zz_err.ZZ_OK
     assert zz_cmp_i32(v, 2) == zz_ord.ZZ_EQ
-    assert zz_div(u, v, 123, u, 0) == zz_err.ZZ_VAL
+    assert zz_div(u, v, 123, u, None) == zz_err.ZZ_VAL
+    assert zz_div(u, v, zz_rnd.ZZ_RNDD, None, None) == zz_err.ZZ_VAL
 
 
 def test_zz_rem_u64():

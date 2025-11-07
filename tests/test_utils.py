@@ -14,6 +14,7 @@ from hypothesis.strategies import (
 
 BITS_PER_LIMB = gmp_info[0]
 SIZEOF_LIMB = gmp_info[1]
+SIEZEOF_LIMBCNT = gmp_info[2]
 MAX_FACTORIAL_CACHE = 1000
 
 
