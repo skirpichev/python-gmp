@@ -13,11 +13,10 @@ if platform.system() != "Linux":
 if platform.python_implementation() == "GraalVM":
     pytest.skip("XXX: module 'resource' has no attribute 'setrlimit'",
                 allow_module_level=True)
-if platform.python_implementation() != "PyPy":
-    VMEM_LIMIT = 64*1000**2
-else:
-    VMEM_LIMIT = 128*1000**2
+if platform.python_implementation() == "PyPy":
+    pytest.skip("XXX: diofant/python-gmp#73", allow_module_level=True)
 
+VMEM_LIMIT = 64*1000**2
 resource = pytest.importorskip("resource")
 
 
