@@ -74,6 +74,10 @@ def test_from_to_str(x):
     sx = str(x)
     mx = mpz(sx)
     assert str(mx) == sx
+    bx = bytes(sx, "ascii")
+    bax = bytearray(sx, "ascii")
+    assert mpz(bx) == x
+    assert mpz(bax) == x
 
 
 @given(text(alphabet=characters(min_codepoint=48, max_codepoint=57,
@@ -217,13 +221,10 @@ def test_format_interface():
 @example(-1329227995784915872903807060280344576)
 @example(1<<63)
 def test_from_to_int(x):
-    sx = str(x)
-    bx = bytes(sx, "ascii")
-    bax = bytearray(sx, "ascii")
     mx = mpz(x)
-    assert mpz(sx) == mpz(mx) == mx == x
+    assert mpz(mx) == x
+    assert mx == x
     assert int(mx) == x
-    assert mpz(bx) == mpz(bax) == x
 
 
 @given(floats(allow_nan=False, allow_infinity=False))
