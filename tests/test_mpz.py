@@ -399,6 +399,8 @@ def test_unary_bulk(x):
 @example(1, -(1<<67))
 @example(-2, -1)
 @example(-1, -1)
+@example(0, -1)
+@example(-1, 2)
 def test_binary_bulk(x, y):
     mx = mpz(x)
     my = mpz(y)
@@ -473,12 +475,17 @@ def test_mul_distributivity(x, y, z):
 @example(-68501870735943706700000000000000000001, 10**20)  # issue 117
 @example(0, 123)
 @example(0, -1382074480823709287)
+@example(123, 0)
 def test_divmod_bulk(x, y):
     mx = mpz(x)
     my = mpz(y)
     if not y:
         with pytest.raises(ZeroDivisionError):
             mx // my
+        with pytest.raises(ZeroDivisionError):
+            mx // y
+        with pytest.raises(ZeroDivisionError):
+            x // my
         return
     if y < 0 and platform.python_implementation() == "GraalVM":
         return  # issue graalpython#534
