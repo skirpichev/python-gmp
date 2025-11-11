@@ -6,7 +6,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-24.04, ubuntu-24.04-arm, macos-15]
+        os: [ubuntu-24.04, ubuntu-24.04-arm, macos-15-intel, macos-15]
         shell: [bash]
         include:
           - os: windows-2022
@@ -17,6 +17,7 @@ jobs:
     env:
       PYTEST_ADDOPTS: --verbose --hypothesis-profile=default
       CFLAGS: -Wall -Wpedantic -Werror -std=c17 -Wconversion
+      MACOSX_DEPLOYMENT_TARGET: 10.15  # for 3.14
     steps:
       - uses: actions/checkout@v5
         with:
