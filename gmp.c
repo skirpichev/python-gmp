@@ -774,7 +774,7 @@ hash(PyObject *self)
     func(PyObject *self)                           \
     {                                              \
         MPZ_Object *u = (MPZ_Object *)self;        \
-        MPZ_Object *res = MPZ_new();              \
+        MPZ_Object *res = MPZ_new();               \
                                                    \
         if (res && zz_##suff(&u->z, &res->z)) {    \
             PyErr_NoMemory(); /* LCOV_EXCL_LINE */ \
@@ -803,19 +803,17 @@ to_bool(PyObject *self)
     static PyObject *                                    \
     nb_##suff(PyObject *self, PyObject *other)           \
     {                                                    \
-        PyObject *res = NULL;                            \
-        MPZ_Object *u = NULL, *v = NULL;                 \
+        MPZ_Object *u = NULL, *v = NULL, *res = NULL;    \
                                                          \
         CHECK_OP(u, self);                               \
         CHECK_OP(v, other);                              \
                                                          \
-        res = (PyObject *)MPZ_new();                    \
+        res = MPZ_new();                                 \
         if (!res) {                                      \
             goto end;                                    \
         }                                                \
                                                          \
-        zz_err ret = zz_##suff(&u->z, &v->z,             \
-                               &((MPZ_Object *)res)->z); \
+        zz_err ret = zz_##suff(&u->z, &v->z, &res->z);   \
                                                          \
         if (ret == ZZ_OK) {                              \
             goto end;                                    \
@@ -832,7 +830,7 @@ to_bool(PyObject *self)
     end:                                                 \
         Py_XDECREF(u);                                   \
         Py_XDECREF(v);                                   \
-        return res;                                      \
+        return (PyObject *)res;                          \
     fallback:                                            \
         Py_XDECREF(u);                                   \
         Py_XDECREF(v);                                   \
@@ -841,7 +839,7 @@ to_bool(PyObject *self)
         Py_XDECREF(u);                                   \
         Py_XDECREF(v);                                   \
                                                          \
-        PyObject *uf, *vf;                               \
+        PyObject *uf, *vf, *rf;                          \
                                                          \
         if (Number_Check(self)) {                        \
             uf = self;                                   \
@@ -864,10 +862,10 @@ to_bool(PyObject *self)
                 return NULL;                             \
             }                                            \
         }                                                \
-        res = slot(uf, vf);                              \
+        rf = slot(uf, vf);                               \
         Py_DECREF(uf);                                   \
         Py_DECREF(vf);                                   \
-        return res;                                      \
+        return rf;                                       \
     }
 
 BINOP(add, PyNumber_Add)
@@ -1036,7 +1034,7 @@ numbers:
         CHECK_OP_INT(u, self);                                  \
         CHECK_OP_INT(v, other);                                 \
                                                                 \
-        res = MPZ_new();                                       \
+        res = MPZ_new();                                        \
         zz_err ret = ZZ_OK;                                     \
                                                                 \
         if (!res || (ret = zz_##suff(&u->z, &v->z, &res->z))) { \
