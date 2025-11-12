@@ -697,17 +697,53 @@ to_float(PyObject *self)
     return PyFloat_FromDouble(d);
 }
 
+static inline zz_slimb_t
+PyLong_AsSlimb_t(PyObject *obj, int *error)
+{
+#if SIZEOF_LONG == 8
+    long value = PyLong_AsLongAndOverflow(obj, error);
+#else
+    long long value = PyLong_AsLongLongAndOverflow(obj, error);
+#endif
+    Py_BUILD_ASSERT(sizeof(value) == sizeof(int64_t));
+    if (!error && (ZZ_SLIMB_T_MIN > value || value > ZZ_SLIMB_T_MAX)) {
+        *error = 1;
+    }
+    return (zz_slimb_t)value;
+}
+
 static PyObject *
 richcompare(PyObject *self, PyObject *other, int op)
 {
-    MPZ_Object *u = (MPZ_Object *)self, *v = NULL;
+    MPZ_Object *u = (MPZ_Object *)self;
+    zz_ord r;
 
-    assert(MPZ_Check(self));
-    CHECK_OP(v, other);
+    if (MPZ_Check(other)) {
+        r = zz_cmp(&u->z, &((MPZ_Object *)other)->z);
+    }
+    else if (PyLong_Check(other)) {
+        int error;
+        zz_slimb_t temp = PyLong_AsSlimb_t(other, &error);
 
-    zz_ord r = zz_cmp(&u->z, &v->z);
+        if (!error) {
+            r = zz_cmp_sl(&u->z, temp);
+        }
+        else {
+            MPZ_Object *v = MPZ_from_int(other);
 
-    Py_DECREF(v);
+            if (!v) {
+                goto end; /* LCOV_EXCL_LINE */
+            }
+            r = zz_cmp(&u->z, &v->z);
+            Py_DECREF(v);
+        }
+    }
+    else if (Number_Check(other)) {
+        goto numbers;
+    }
+    else {
+        goto fallback;
+    }
     switch (op) {
         case Py_LT:
             return PyBool_FromLong(r == ZZ_LT);
