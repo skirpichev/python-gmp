@@ -1192,6 +1192,18 @@ numbers:
         }                       \
     }                           \
 
+#define CHECK_OP_INTv2(u, a)    \
+    if (MPZ_Check(a)) {         \
+        u = (MPZ_Object *)a;    \
+        Py_INCREF(u);           \
+    }                           \
+    else if (PyLong_Check(a)) { \
+        ;                       \
+    }                           \
+    else {                      \
+        goto end;               \
+    }                           \
+
 #define BINOP_INT(suff)                                         \
     static PyObject *                                           \
     nb_##suff(PyObject *self, PyObject *other)                  \
@@ -1226,7 +1238,79 @@ numbers:
         return (PyObject *)res;                                 \
     }
 
-BINOP_INT(and)
+#define BINOP_INTv2(suff)                                       \
+    static PyObject *                                           \
+    nb_##suff(PyObject *self, PyObject *other)                  \
+    {                                                           \
+        MPZ_Object *u = NULL, *v = NULL, *res = NULL;           \
+                                                                \
+        CHECK_OP_INTv2(u, self);                                \
+        CHECK_OP_INTv2(v, other);                               \
+                                                                \
+        res = MPZ_new();                                        \
+        if (!res) {                                             \
+            goto end;                                           \
+        }                                                       \
+                                                                \
+        zz_err ret = ZZ_OK;                                     \
+                                                                \
+        if (!u) {                                               \
+            int error;                                          \
+            zz_slimb_t temp = PyLong_AsSlimb_t(self, &error);   \
+                                                                \
+            if (!error) {                                       \
+                ret = zz_sl_##suff(temp, &v->z, &res->z);       \
+                goto done;                                      \
+            }                                                   \
+            else {                                              \
+                u = MPZ_from_int(self);                         \
+                if (!u) {                                       \
+                    goto end;                                   \
+                }                                               \
+            }                                                   \
+        }                                                       \
+        if (!v) {                                               \
+            int error;                                          \
+            zz_slimb_t temp = PyLong_AsSlimb_t(other, &error);  \
+                                                                \
+            if (!error) {                                       \
+                ret = zz_##suff##_sl(&u->z, temp, &res->z);     \
+                goto done;                                      \
+            }                                                   \
+            else {                                              \
+                v = MPZ_from_int(other);                        \
+                if (!v) {                                       \
+                    goto end;                                   \
+                }                                               \
+            }                                                   \
+        }                                                       \
+        ret = zz_##suff(&u->z, &v->z, &res->z);                 \
+done:                                                           \
+        if (ret) {                                              \
+            /* LCOV_EXCL_START */                               \
+            Py_CLEAR(res);                                      \
+            if (ret == ZZ_VAL) {                                \
+                PyErr_SetString(PyExc_ValueError,               \
+                                "negative shift count");        \
+            }                                                   \
+            else if (ret == ZZ_BUF) {                           \
+                PyErr_SetString(PyExc_OverflowError,            \
+                                "too many digits in integer");  \
+            }                                                   \
+            else {                                              \
+                PyErr_NoMemory();                               \
+            }                                                   \
+            /* LCOV_EXCL_STOP */                                \
+        }                                                       \
+    end:                                                        \
+        Py_XDECREF(u);                                          \
+        Py_XDECREF(v);                                          \
+        return (PyObject *)res;                                 \
+    }
+
+#define zz_sl_and(x, y, r) zz_and_sl((y), (x), (r))
+
+BINOP_INTv2(and)
 BINOP_INT(or)
 BINOP_INT(xor)
 
