@@ -401,6 +401,7 @@ def test_unary_bulk(x):
 @example(-1, -1)
 @example(0, -1)
 @example(-1, 2)
+@example(0, 0)
 def test_binary_bulk(x, y):
     mx = mpz(x)
     my = mpz(y)
