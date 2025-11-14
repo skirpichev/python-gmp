@@ -697,17 +697,53 @@ to_float(PyObject *self)
     return PyFloat_FromDouble(d);
 }
 
+static inline zz_slimb_t
+PyLong_AsSlimb_t(PyObject *obj, int *error)
+{
+#if SIZEOF_LONG == 8
+    long value = PyLong_AsLongAndOverflow(obj, error);
+#else
+    long long value = PyLong_AsLongLongAndOverflow(obj, error);
+#endif
+    Py_BUILD_ASSERT(sizeof(value) == sizeof(int64_t));
+    if (!error && (ZZ_SLIMB_T_MIN > value || value > ZZ_SLIMB_T_MAX)) {
+        *error = 1;
+    }
+    return (zz_slimb_t)value;
+}
+
 static PyObject *
 richcompare(PyObject *self, PyObject *other, int op)
 {
-    MPZ_Object *u = (MPZ_Object *)self, *v = NULL;
+    MPZ_Object *u = (MPZ_Object *)self;
+    zz_ord r;
 
-    assert(MPZ_Check(self));
-    CHECK_OP(v, other);
+    if (MPZ_Check(other)) {
+        r = zz_cmp(&u->z, &((MPZ_Object *)other)->z);
+    }
+    else if (PyLong_Check(other)) {
+        int error;
+        zz_slimb_t temp = PyLong_AsSlimb_t(other, &error);
 
-    zz_ord r = zz_cmp(&u->z, &v->z);
+        if (!error) {
+            r = zz_cmp_sl(&u->z, temp);
+        }
+        else {
+            MPZ_Object *v = MPZ_from_int(other);
 
-    Py_DECREF(v);
+            if (!v) {
+                goto end; /* LCOV_EXCL_LINE */
+            }
+            r = zz_cmp(&u->z, &v->z);
+            Py_DECREF(v);
+        }
+    }
+    else if (Number_Check(other)) {
+        goto numbers;
+    }
+    else {
+        goto fallback;
+    }
     switch (op) {
         case Py_LT:
             return PyBool_FromLong(r == ZZ_LT);
@@ -799,93 +835,167 @@ to_bool(PyObject *self)
     return !zz_iszero(&((MPZ_Object *)self)->z);
 }
 
-#define BINOP(suff, slot)                                \
-    static PyObject *                                    \
-    nb_##suff(PyObject *self, PyObject *other)           \
-    {                                                    \
-        MPZ_Object *u = NULL, *v = NULL, *res = NULL;    \
-                                                         \
-        CHECK_OP(u, self);                               \
-        CHECK_OP(v, other);                              \
-                                                         \
-        res = MPZ_new();                                 \
-        if (!res) {                                      \
-            goto end;                                    \
-        }                                                \
-                                                         \
-        zz_err ret = zz_##suff(&u->z, &v->z, &res->z);   \
-                                                         \
-        if (ret == ZZ_OK) {                              \
-            goto end;                                    \
-        }                                                \
-        if (ret == ZZ_VAL) {                             \
-            Py_CLEAR(res);                               \
-            PyErr_SetString(PyExc_ZeroDivisionError,     \
-                            "division by zero");         \
-        }                                                \
-        else {                                           \
-            Py_CLEAR(res);                               \
-            PyErr_NoMemory();                            \
-        }                                                \
-    end:                                                 \
-        Py_XDECREF(u);                                   \
-        Py_XDECREF(v);                                   \
-        return (PyObject *)res;                          \
-    fallback:                                            \
-        Py_XDECREF(u);                                   \
-        Py_XDECREF(v);                                   \
-        Py_RETURN_NOTIMPLEMENTED;                        \
-    numbers:                                             \
-        Py_XDECREF(u);                                   \
-        Py_XDECREF(v);                                   \
-                                                         \
-        PyObject *uf, *vf, *rf;                          \
-                                                         \
-        if (Number_Check(self)) {                        \
-            uf = self;                                   \
-            Py_INCREF(uf);                               \
-        }                                                \
-        else {                                           \
-            uf = to_float(self);                         \
-            if (!uf) {                                   \
-                return NULL;                             \
-            }                                            \
-        }                                                \
-        if (Number_Check(other)) {                       \
-            vf = other;                                  \
-            Py_INCREF(vf);                               \
-        }                                                \
-        else {                                           \
-            vf = to_float(other);                        \
-            if (!vf) {                                   \
-                Py_DECREF(uf);                           \
-                return NULL;                             \
-            }                                            \
-        }                                                \
-        rf = slot(uf, vf);                               \
-        Py_DECREF(uf);                                   \
-        Py_DECREF(vf);                                   \
-        return rf;                                       \
+#define CHECK_OPv2(u, a)        \
+    if (MPZ_Check(a)) {         \
+        u = (MPZ_Object *)a;    \
+        Py_INCREF(u);           \
+    }                           \
+    else if (PyLong_Check(a)) { \
+        ;                       \
+    }                           \
+    else if (Number_Check(a)) { \
+        goto numbers;           \
+    }                           \
+    else {                      \
+        goto fallback;          \
     }
+
+#define BINOP(suff, slot)                                       \
+    static PyObject *                                           \
+    nb_##suff(PyObject *self, PyObject *other)                  \
+    {                                                           \
+        MPZ_Object *u = NULL, *v = NULL, *res = NULL;           \
+                                                                \
+        CHECK_OPv2(u, self);                                    \
+        CHECK_OPv2(v, other);                                   \
+                                                                \
+        res = MPZ_new();                                        \
+        if (!res) {                                             \
+            goto end;                                           \
+        }                                                       \
+                                                                \
+        zz_err ret = ZZ_OK;                                     \
+                                                                \
+        if (!u) {                                               \
+            int error;                                          \
+            zz_slimb_t temp = PyLong_AsSlimb_t(self, &error);   \
+                                                                \
+            if (!error) {                                       \
+                ret = zz_sl_##suff(temp, &v->z, &res->z);       \
+                goto done;                                      \
+            }                                                   \
+            else {                                              \
+                u = MPZ_from_int(self);                         \
+                if (!u) {                                       \
+                    goto end;                                   \
+                }                                               \
+            }                                                   \
+        }                                                       \
+        if (!v) {                                               \
+            int error;                                          \
+            zz_slimb_t temp = PyLong_AsSlimb_t(other, &error);  \
+                                                                \
+            if (!error) {                                       \
+                ret = zz_##suff##_sl(&u->z, temp, &res->z);     \
+                goto done;                                      \
+            }                                                   \
+            else {                                              \
+                v = MPZ_from_int(other);                        \
+                if (!v) {                                       \
+                    goto end;                                   \
+                }                                               \
+            }                                                   \
+        }                                                       \
+        ret = zz_##suff(&u->z, &v->z, &res->z);                 \
+done:                                                           \
+        if (ret == ZZ_OK) {                                     \
+            goto end;                                           \
+        }                                                       \
+        if (ret == ZZ_VAL) {                                    \
+            Py_CLEAR(res);                                      \
+            PyErr_SetString(PyExc_ZeroDivisionError,            \
+                            "division by zero");                \
+        }                                                       \
+        else {                                                  \
+            Py_CLEAR(res);                                      \
+            PyErr_NoMemory();                                   \
+        }                                                       \
+    end:                                                        \
+        Py_XDECREF(u);                                          \
+        Py_XDECREF(v);                                          \
+        return (PyObject *)res;                                 \
+    fallback:                                                   \
+        Py_XDECREF(u);                                          \
+        Py_XDECREF(v);                                          \
+        Py_RETURN_NOTIMPLEMENTED;                               \
+    numbers:                                                    \
+        Py_XDECREF(u);                                          \
+        Py_XDECREF(v);                                          \
+                                                                \
+        PyObject *uf, *vf, *rf;                                 \
+                                                                \
+        if (Number_Check(self)) {                               \
+            uf = self;                                          \
+            Py_INCREF(uf);                                      \
+        }                                                       \
+        else {                                                  \
+            uf = to_float(self);                                \
+            if (!uf) {                                          \
+                return NULL;                                    \
+            }                                                   \
+        }                                                       \
+        if (Number_Check(other)) {                              \
+            vf = other;                                         \
+            Py_INCREF(vf);                                      \
+        }                                                       \
+        else {                                                  \
+            vf = to_float(other);                               \
+            if (!vf) {                                          \
+                Py_DECREF(uf);                                  \
+                return NULL;                                    \
+            }                                                   \
+        }                                                       \
+        rf = slot(uf, vf);                                      \
+        Py_DECREF(uf);                                          \
+        Py_DECREF(vf);                                          \
+        return rf;                                              \
+    }
+
+#define zz_sl_add(x, y, r) zz_add_sl((y), (x), (r))
+#define zz_sl_mul(x, y, r) zz_mul_sl((y), (x), (r))
 
 BINOP(add, PyNumber_Add)
 BINOP(sub, PyNumber_Subtract)
 BINOP(mul, PyNumber_Multiply)
 
 static zz_err
-zz_quo(const zz_t *u, const zz_t *v, zz_t *w)
+zz_quo_(const zz_t *u, const zz_t *v, zz_t *w)
 {
     return zz_div(u, v, ZZ_RNDD, w, NULL);
 }
 
 static zz_err
-zz_rem(const zz_t *u, const zz_t *v, zz_t *w)
+zz_rem_(const zz_t *u, const zz_t *v, zz_t *w)
 {
     return zz_div(u, v, ZZ_RNDD, NULL, w);
 }
 
-BINOP(quo, PyNumber_FloorDivide)
-BINOP(rem, PyNumber_Remainder)
+static inline zz_err
+zz_sl_quo_(zz_slimb_t u, const zz_t *v, zz_t *w)
+{
+    return zz_sl_quo(u, v, ZZ_RNDD, w);
+}
+
+static inline zz_err
+zz_quo__sl(const zz_t *u, zz_slimb_t v, zz_t *w)
+{
+    return zz_quo_sl(u, v, ZZ_RNDD, w);
+}
+
+static inline zz_err
+zz_sl_rem_(zz_slimb_t u, const zz_t *v, zz_t *w)
+{
+    return zz_sl_rem(u, v, ZZ_RNDD, w);
+}
+
+static inline zz_err
+zz_rem__sl(const zz_t *u, zz_slimb_t v, zz_t *w)
+{
+    return zz_rem_sl(u, v, ZZ_RNDD, w);
+}
+
+BINOP(quo_, PyNumber_FloorDivide)
+BINOP(rem_, PyNumber_Remainder)
 
 static PyObject *
 nb_divmod(PyObject *self, PyObject *other)
@@ -1025,6 +1135,18 @@ numbers:
         }                       \
     }                           \
 
+#define CHECK_OP_INTv2(u, a)    \
+    if (MPZ_Check(a)) {         \
+        u = (MPZ_Object *)a;    \
+        Py_INCREF(u);           \
+    }                           \
+    else if (PyLong_Check(a)) { \
+        ;                       \
+    }                           \
+    else {                      \
+        goto end;               \
+    }                           \
+
 #define BINOP_INT(suff)                                         \
     static PyObject *                                           \
     nb_##suff(PyObject *self, PyObject *other)                  \
@@ -1059,9 +1181,83 @@ numbers:
         return (PyObject *)res;                                 \
     }
 
-BINOP_INT(and)
-BINOP_INT(or)
-BINOP_INT(xor)
+#define BINOP_INTv2(suff)                                       \
+    static PyObject *                                           \
+    nb_##suff(PyObject *self, PyObject *other)                  \
+    {                                                           \
+        MPZ_Object *u = NULL, *v = NULL, *res = NULL;           \
+                                                                \
+        CHECK_OP_INTv2(u, self);                                \
+        CHECK_OP_INTv2(v, other);                               \
+                                                                \
+        res = MPZ_new();                                        \
+        if (!res) {                                             \
+            goto end;                                           \
+        }                                                       \
+                                                                \
+        zz_err ret = ZZ_OK;                                     \
+                                                                \
+        if (!u) {                                               \
+            int error;                                          \
+            zz_slimb_t temp = PyLong_AsSlimb_t(self, &error);   \
+                                                                \
+            if (!error) {                                       \
+                ret = zz_sl_##suff(temp, &v->z, &res->z);       \
+                goto done;                                      \
+            }                                                   \
+            else {                                              \
+                u = MPZ_from_int(self);                         \
+                if (!u) {                                       \
+                    goto end;                                   \
+                }                                               \
+            }                                                   \
+        }                                                       \
+        if (!v) {                                               \
+            int error;                                          \
+            zz_slimb_t temp = PyLong_AsSlimb_t(other, &error);  \
+                                                                \
+            if (!error) {                                       \
+                ret = zz_##suff##_sl(&u->z, temp, &res->z);     \
+                goto done;                                      \
+            }                                                   \
+            else {                                              \
+                v = MPZ_from_int(other);                        \
+                if (!v) {                                       \
+                    goto end;                                   \
+                }                                               \
+            }                                                   \
+        }                                                       \
+        ret = zz_##suff(&u->z, &v->z, &res->z);                 \
+done:                                                           \
+        if (ret) {                                              \
+            /* LCOV_EXCL_START */                               \
+            Py_CLEAR(res);                                      \
+            if (ret == ZZ_VAL) {                                \
+                PyErr_SetString(PyExc_ValueError,               \
+                                "negative shift count");        \
+            }                                                   \
+            else if (ret == ZZ_BUF) {                           \
+                PyErr_SetString(PyExc_OverflowError,            \
+                                "too many digits in integer");  \
+            }                                                   \
+            else {                                              \
+                PyErr_NoMemory();                               \
+            }                                                   \
+            /* LCOV_EXCL_STOP */                                \
+        }                                                       \
+    end:                                                        \
+        Py_XDECREF(u);                                          \
+        Py_XDECREF(v);                                          \
+        return (PyObject *)res;                                 \
+    }
+
+#define zz_sl_and(x, y, r) zz_and_sl((y), (x), (r))
+#define zz_sl_or(x, y, r) zz_or_sl((y), (x), (r))
+#define zz_sl_xor(x, y, r) zz_xor_sl((y), (x), (r))
+
+BINOP_INTv2(and)
+BINOP_INTv2(or)
+BINOP_INTv2(xor)
 
 static zz_err
 zz_lshift(const zz_t *u, const zz_t *v, zz_t *w)
@@ -1205,9 +1401,9 @@ static PyNumberMethods as_number = {
     .nb_subtract = nb_sub,
     .nb_multiply = nb_mul,
     .nb_divmod = nb_divmod,
-    .nb_floor_divide = nb_quo,
+    .nb_floor_divide = nb_quo_,
     .nb_true_divide = nb_truediv,
-    .nb_remainder = nb_rem,
+    .nb_remainder = nb_rem_,
     .nb_power = power,
     .nb_positive = plus,
     .nb_negative = nb_negative,
