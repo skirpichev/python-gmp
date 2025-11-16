@@ -477,6 +477,8 @@ def test_mul_distributivity(x, y, z):
 @example(0, 123)
 @example(0, -1382074480823709287)
 @example(123, 0)
+@example(0, -18446744073709551615)
+@example(1, -1)
 def test_divmod_bulk(x, y):
     mx = mpz(x)
     my = mpz(y)
