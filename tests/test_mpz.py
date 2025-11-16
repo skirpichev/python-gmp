@@ -479,6 +479,8 @@ def test_mul_distributivity(x, y, z):
 @example(123, 0)
 @example(0, -18446744073709551615)
 @example(1, -1)
+@example(12, 0)
+@example(12, -5)
 def test_divmod_bulk(x, y):
     mx = mpz(x)
     my = mpz(y)
@@ -489,6 +491,12 @@ def test_divmod_bulk(x, y):
             mx // y
         with pytest.raises(ZeroDivisionError):
             x // my
+        with pytest.raises(ZeroDivisionError):
+            mx % my
+        with pytest.raises(ZeroDivisionError):
+            mx % y
+        with pytest.raises(ZeroDivisionError):
+            x % my
         return
     if y < 0 and platform.python_implementation() == "GraalVM":
         return  # issue graalpython#534
