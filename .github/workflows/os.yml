@@ -22,7 +22,6 @@ jobs:
       - uses: actions/checkout@v5
         with:
           fetch-depth: 0
-          submodules: true
       - uses: actions/setup-python@v6
         with:
           python-version: "3.x"
@@ -47,10 +46,14 @@ jobs:
       - run: bash scripts/cibw_before_all.sh
         if: steps.cache-gmp.outputs.cache-hit != 'true'
       - run: python -m pip install --upgrade pip
-      - run: pip --verbose wheel . -Csetup-args=-Dbuildtype=debug
-        env:
-          PKG_CONFIG_PATH: ${{ github.workspace }}/.local/lib/pkgconfig
       - run: |
+          # XXX: this is for M$ Windows, see msys2/setup-msys2#171
+          PKG_CONFIG_PATH=${PKG_CONFIG_PATH}:$(pwd)/.local/lib/pkgconfig
+          pip --verbose wheel . -Csetup-args=-Dbuildtype=debug
+      - run: |
+          # XXX: this is too, see
+          # https://mesonbuild.com/meson-python/how-to-guides/shared-libraries
+          PATH="$PATH:$(pwd)/.local/bin"
           pip install delvewheel
           delvewheel repair *.whl
           mv wheelhouse/*.whl .

@@ -1,8 +1,4 @@
 version: 2
-submodules:
-  include:
-    - libzz
-  recursive: true
 formats:
     - htmlzip
     - pdf
@@ -10,7 +6,13 @@ build:
     os: ubuntu-24.04
     apt_packages:
         - libgmp-dev
-        - gcc
+        - build-essential
+        - pkg-config
+    jobs:
+      pre_create_environment:
+        - wget https://github.com/diofant/zz/releases/download/v0.6.1/zz-0.6.1.tar.gz
+        - tar xzf zz-0.6.1.tar.gz
+        - cd zz-0.6.1 && ./configure -q --prefix=$(pwd)/../.local && make -s && make -s install
     tools:
         python: "3"
 python:

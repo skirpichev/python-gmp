@@ -31,3 +31,22 @@ rm config.guess && mv configfsf.guess config.guess && chmod +x config.guess
             --quiet
 
 make --silent all install
+
+cd ..
+
+ZZ_VERSION=0.6.1
+ZZ_DIR=zz-${ZZ_VERSION}
+ZZ_URL=https://github.com/diofant/zz/releases/download/v${ZZ_VERSION}/${ZZ_DIR}.tar.gz
+
+curl --location --retry 3 --silent --remote-name ${ZZ_URL}
+tar --extract --file ${ZZ_DIR}.tar.gz
+cd ${ZZ_DIR}
+
+./configure --quiet \
+            --enable-shared \
+            --disable-static \
+            --with-pic \
+            --with-gmp=$PREFIX \
+            --prefix=$PREFIX
+
+make --silent all install

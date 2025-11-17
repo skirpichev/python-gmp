@@ -48,7 +48,7 @@ class zz_rnd(IntEnum):
     ZZ_RNDD = 0
     ZZ_RNDN = 1
 
-libzz = CDLL("libzz.so")
+libzz = CDLL("libzz.so.0")
 zz_setup = libzz.zz_setup
 zz_finish = libzz.zz_finish
 zz_from_sl = libzz.zz_from_sl
