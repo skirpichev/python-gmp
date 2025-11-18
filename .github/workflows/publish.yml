@@ -13,7 +13,17 @@ jobs:
       with:
         python-version: "3.x"
     - run: pip install build
+    - name: Cache GNU GMP builds
+      id: cache-gmp
+      uses: actions/cache@v4
+      with:
+        path: .local
+        key: ${{ matrix.os }}-${{ hashFiles('scripts/*') }}
+    - run: bash scripts/cibw_before_all.sh
+      if: steps.cache-gmp.outputs.cache-hit != 'true'
     - run: python -m build -s
+      env:
+        PKG_CONFIG_PATH: ${{ github.workspace }}/.local/lib/pkgconfig
     - uses: actions/upload-artifact@v5
       with:
         name: python-gmp-sdist
