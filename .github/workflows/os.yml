@@ -58,6 +58,7 @@ jobs:
       - run: |
           # XXX: this is for M$ Windows, see msys2/setup-msys2#171
           PKG_CONFIG_PATH=${PKG_CONFIG_PATH}:$(pwd)/.local/lib/pkgconfig
+          export CC=gcc
           pip --verbose wheel . -Csetup-args=-Dbuildtype=debug
       - run: |
           # XXX: this is too, see
