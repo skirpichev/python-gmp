@@ -1,3 +1,0 @@
-[submodule "libzz"]
-	path = libzz
-	url = https://github.com/diofant/zz.git

@@ -15,7 +15,6 @@ jobs:
       - uses: actions/checkout@v5
         with:
           fetch-depth: 0
-          submodules: true
       - uses: actions/setup-python@v6
         with:
           python-version: ${{ matrix.python-version }}
@@ -64,7 +63,6 @@ jobs:
       - uses: actions/checkout@v5
         with:
           fetch-depth: 0
-          submodules: true
       - run: sudo apt-get update
       - run: sudo apt-get install lcov diff-cover
       - uses: actions/download-artifact@v6
@@ -88,7 +86,6 @@ jobs:
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
           gcov_ignore: pythoncapi_compat.h
-          gcov_include: '*.c, libzz/*.c'
+          gcov_include: '*.c'
           gcov_args: --no-external --preserve-paths
           fail_ci_if_error: true
-          recurse_submodules: true
