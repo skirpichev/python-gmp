@@ -25,7 +25,7 @@ jobs:
       PYTEST_ADDOPTS: --verbose
       CFLAGS: -Wall -Wpedantic -Werror -std=c17 -Wconversion
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
         with:
           fetch-depth: 0
       - uses: actions/setup-python@v6
