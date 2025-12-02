@@ -65,7 +65,7 @@ line-length = 79
 select = ["E", "F", "I", "PT", "W", "Q", "SIM"]
 
 [tool.cibuildwheel]
-build-frontend = {name="build", args=["--verbose"]}
+build-frontend = {name="build", args=["--verbose", "-Csetup-args=--vsenv"]}
 enable = "pypy cpython-prerelease cpython-freethreading graalpy"
 skip = """*-win32 gp311_242* *-manylinux_i686 *-musllinux_* \
           *-manylinux_armv7l pp*aarch64* gp3*win*"""
@@ -86,5 +86,4 @@ repair-wheel-command = """delvewheel repair -w {dest_dir} {wheel} \
                           --add-path .local/bin"""
 
 [tool.cibuildwheel.windows.environment]
-PYTEST_ADDOPTS = "--verbose"
-CFLAGS = "-Wall -Wpedantic -Werror -std=c17 -Wconversion"
+CFLAGS = ""
