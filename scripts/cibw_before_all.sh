@@ -7,8 +7,9 @@ GMP_DIR=gmp-${GMP_VERSION}
 GMP_URL=https://ftp.gnu.org/gnu/gmp/${GMP_DIR}.tar.xz
 PREFIX="$(pwd)/.local/"
 CFLAGS=
+CURL_OPTS="--location --retry 3 --connect-timeout 30"
 
-curl --retry 3 --silent --remote-name ${GMP_URL}
+curl ${CURL_OPTS} --remote-name ${GMP_URL}
 tar --extract --file ${GMP_DIR}.tar.xz
 cd ${GMP_DIR}
 
@@ -17,18 +18,26 @@ do
   patch --strip 1 < $f
 done
 
+CONFIG_ARGS="--enable-shared --disable-static --with-pic --disable-alloca --prefix=$PREFIX"
+if [ "$OSTYPE" = "cygwin" ]
+then
+  if [ "${RUNNER_ARCH}" = "ARM64" ]
+  then
+    autoreconf -fi
+    CONFIG_ARGS="${CONFIG_ARGS} --disable-assembly"
+  else
+    CONFIG_ARGS="${CONFIG_ARGS} --enable-fat"
+  fi
+else
+  CONFIG_ARGS="${CONFIG_ARGS} --enable-fat"
+fi
+
 # config.guess uses microarchitecture and configfsf.guess doesn't
 # We replace config.guess with configfsf.guess to avoid microarchitecture
 # specific code in common code.
 rm config.guess && mv configfsf.guess config.guess && chmod +x config.guess
 
-./configure --enable-fat \
-            --enable-shared \
-            --disable-static \
-            --with-pic \
-            --disable-alloca \
-            --prefix=$PREFIX \
-            --quiet
+./configure ${CONFIG_ARGS}
 
 make --silent all install
 
@@ -38,15 +47,40 @@ ZZ_VERSION=0.6.1
 ZZ_DIR=zz-${ZZ_VERSION}
 ZZ_URL=https://github.com/diofant/zz/releases/download/v${ZZ_VERSION}/${ZZ_DIR}.tar.gz
 
-curl --location --retry 3 --silent --remote-name ${ZZ_URL}
+curl ${CURL_OPTS} --remote-name ${ZZ_URL}
 tar --extract --file ${ZZ_DIR}.tar.gz
 cd ${ZZ_DIR}
 
-./configure --quiet \
-            --enable-shared \
+if [ "$OSTYPE" = "cygwin" ] && [ "${RUNNER_ARCH}" = "ARM64" ]
+then
+  autoreconf -if
+fi
+
+./configure --enable-shared \
             --disable-static \
             --with-pic \
             --with-gmp=$PREFIX \
             --prefix=$PREFIX
 
 make --silent all install
+
+cd ../
+
+# -- generate *.lib files from *.dll on M$ Windows --
+if [ "$OSTYPE" = "cygwin" ]
+then
+  cd .local/bin
+  for dll_file in libgmp-10.dll libzz-0.dll
+  do
+    lib_name=$(basename -s .dll ${dll_file})
+    name=$(echo ${lib_name}|sed 's/^lib//;s/-[0-9]\+//')
+
+    gendef ${dll_file}
+    dlltool -d ${lib_name}.def -l ${name}.lib
+
+    cp ${name}.lib ../lib/
+    cp ${dll_file} ../lib/
+  done
+fi
+
+cd ../..
