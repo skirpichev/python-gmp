@@ -199,6 +199,8 @@ def test_format_interface():
     try:
         locale.setlocale(locale.LC_ALL, "ru_RU.UTF-8")
         s = locale.localeconv()["thousands_sep"]
+        if not s:
+            return  # XXX: on musllinux
         assert format(mpz(123456789), "n") == f"123{s}456{s}789"
         assert format(mpz(123), "011n") == f"000{s}000{s}123"
         locale.setlocale(locale.LC_ALL, "C")
