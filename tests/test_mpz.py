@@ -29,6 +29,7 @@ from test_utils import (
     bigints,
     fmt_str,
     numbers,
+    python_truediv,
     to_digits,
 )
 
@@ -535,8 +536,6 @@ def test_divmod_errors():
         divmod(mx, 0)
 
 
-@pytest.mark.skipif(platform.python_implementation() == "GraalVM",
-                    reason="XXX: oracle/graalpython#474")
 @given(bigints(), bigints())
 @example(0, -1)
 @example(0, 123)
@@ -550,10 +549,10 @@ def test_truediv_bulk(x, y):
     my = mpz(y)
     if not y:
         with pytest.raises(ZeroDivisionError):
-            mx / my
+            python_truediv(mx, my)
         return
     try:
-        r = x / y
+        r = python_truediv(x, y)
     except OverflowError:
         with pytest.raises(OverflowError):
             mx / my
