@@ -2583,7 +2583,6 @@ gmp_exec(PyObject *m)
                        "gmp.__all__ = ['comb', 'factorial', 'gcd', 'isqrt',\n"
                        "               'lcm', 'mpz', 'perm']\n"
                        "gmp.__version__ = imp.version('python-gmp')\n");
-
     PyObject *res = PyRun_String(str, Py_file_input, ns, ns);
 
     Py_DECREF(ns);

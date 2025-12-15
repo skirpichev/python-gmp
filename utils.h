@@ -6,13 +6,11 @@
 #  pragma GCC diagnostic ignored "-Warray-bounds"
 #endif
 #if defined(__clang__)
-#  pragma GCC diagnostic push
-#  pragma GCC diagnostic ignored "-Wnewline-eof" /* XXX: pypy/pypy#5312 */
+#  pragma GCC diagnostic push /* XXX: pypy/pypy#5312 */
+#  pragma GCC diagnostic ignored "-Wnewline-eof"
 #endif
-/* For GraalVM: unicodeobject.h, implicit conversion changes
-   signedness: 'enum PyUnicode_Kind' to 'int' */
 #if defined(__GNUC__) || defined(__clang__)
-#  pragma GCC diagnostic push
+#  pragma GCC diagnostic push /* XXX: oracle/graalpython#580 */
 #  pragma GCC diagnostic ignored "-Wsign-conversion"
 #endif
 
