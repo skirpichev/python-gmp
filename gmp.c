@@ -1983,7 +1983,7 @@ gmp_gcd(PyObject *Py_UNUSED(module), PyObject *const *args, Py_ssize_t nargs)
             Py_DECREF(arg);
             continue;
         }
-        if (zz_gcd(&res->z, &arg->z, &res->z)) {
+        if (zz_gcdext(&res->z, &arg->z, &res->z, NULL, NULL)) {
             /* LCOV_EXCL_START */
             Py_DECREF(res);
             Py_DECREF(arg);
