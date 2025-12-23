@@ -555,12 +555,16 @@ def test_divmod_errors():
          784637716923335094969050127462454050937374032249308213819)
 @example(-576460752303423485, 147)
 @example(-16, 15)
+@example(123, 0)
+@example(1, 1<<1076)
+@example(1<<1025, 1)
+@example(1<<1024, 1)
 def test_truediv_bulk(x, y):
     mx = mpz(x)
     my = mpz(y)
     if not y:
         with pytest.raises(ZeroDivisionError):
-            python_truediv(mx, my)
+            mx / my
         return
     try:
         r = python_truediv(x, y)

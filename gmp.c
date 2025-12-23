@@ -1053,6 +1053,116 @@ numbers:
     Py_RETURN_NOTIMPLEMENTED;
 }
 
+#define GMP_NUMB_BITS 64
+
+#define SWAP(T, a, b) \
+    do {              \
+        T _tmp = a;   \
+        a = b;        \
+        b = _tmp;     \
+    } while (0);
+
+static zz_err
+_zz_truediv(const zz_t *u, const zz_t *v, double *res)
+{
+    if (!v->size) {
+        return ZZ_VAL;
+    }
+    if (!u->size) {
+        *res = v->negative ? -0.0 : 0.0;
+        return ZZ_OK;
+    }
+
+    zz_bitcnt_t ubits = zz_bitlen(u);
+    zz_bitcnt_t vbits = zz_bitlen(v);
+
+    if (ubits > vbits && ubits - vbits > DBL_MAX_EXP) {
+        return ZZ_BUF;
+    }
+    if (ubits < vbits && vbits - ubits > -DBL_MIN_EXP + DBL_MANT_DIG + 1) {
+        *res = u->negative != v->negative ? -0.0 : 0.0;
+        return ZZ_OK;
+    }
+
+    zz_size_t shift = (zz_size_t)(vbits - ubits);
+    zz_size_t n = shift, whole = n / GMP_NUMB_BITS;
+    zz_t a, b;
+
+    if (zz_init(&a) || zz_init(&b) || zz_abs(u, &a) || zz_abs(v, &b)) {
+        /* LCOV_EXCL_START */
+tmp_clear:
+        zz_clear(&a);
+        zz_clear(&b);
+        return ZZ_MEM;
+        /* LCOV_EXCL_STOP */
+    }
+    if (shift < 0) {
+        SWAP(const zz_t *, u, v);
+        n = -n;
+        whole = -whole;
+    }
+    /*                       -shift - 1             -shift
+      find shift satisfying 2           <= |a/b| < 2       */
+    n %= GMP_NUMB_BITS;
+    for (zz_size_t i = v->size; i--;) {
+        zz_limb_t du, dv = v->digits[i];
+
+        if (i >= whole) {
+            if (i - whole < u->size) {
+                du = u->digits[i - whole] << n;
+            }
+            else {
+                du = 0;
+            }
+            if (n && i > whole) {
+                du |= u->digits[i - whole - 1] >> (GMP_NUMB_BITS - n);
+            }
+        }
+        else {
+            du = 0;
+        }
+        if (du < dv) {
+            if (shift < 0) {
+                shift--;
+            }
+            break;
+        }
+        if (du > dv) {
+            if (shift >= 0) {
+                shift--;
+            }
+            break;
+        }
+    }
+    shift += DBL_MANT_DIG;
+    if (shift > 0 && zz_mul_2exp(&a, (uint64_t)shift, &a)) {
+        goto tmp_clear; /* LCOV_EXCL_LINE */
+    }
+    if (shift < 0 && zz_mul_2exp(&b, (uint64_t)-shift, &b)) {
+        goto tmp_clear; /* LCOV_EXCL_LINE */
+    }
+    if (zz_div(&a, &b, ZZ_RNDN, &b, NULL)) {
+        /* LCOV_EXCL_START */
+        zz_clear(&a);
+        zz_clear(&b);
+        return ZZ_MEM;
+        /* LCOV_EXCL_STOP */
+    }
+    zz_clear(&a);
+    (void)zz_to_double(&b, res);
+    zz_clear(&b);
+    *res = ldexp(*res, -shift);
+    if (u->negative != v->negative) {
+        *res = -*res;
+    }
+    if (isinf(*res)) {
+        return ZZ_BUF;
+    }
+    return ZZ_OK;
+}
+
+#define zz_truediv _zz_truediv
+
 static PyObject *
 nb_truediv(PyObject *self, PyObject *other)
 {
