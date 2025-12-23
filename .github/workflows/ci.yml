@@ -15,7 +15,6 @@ jobs:
       - linter
       - coverage
     strategy:
-      fail-fast: true
       matrix:
         os: [ubuntu-24.04]
         python-version: [3.9, '3.10', pypy3.11, graalpy-25.0,
@@ -39,7 +38,7 @@ jobs:
           path: .local
           key: ${{ matrix.os }}-${{ hashFiles('scripts/*') }}
       - run: bash scripts/cibw_before_all.sh
-        if: steps.cache-gmp.outputs.cache-hit != 'true'
+        if: steps.cache-gmp.outputs.cache-hit != true
       - run: python -m pip install --upgrade pip
       - run: pip --verbose install .[tests] -Csetup-args=-Dbuildtype=debug
         env:
@@ -48,6 +47,7 @@ jobs:
         env:
           LD_LIBRARY_PATH: ${{ github.workspace }}/.local/lib
   os:
-    uses: ./.github/workflows/os.yml
+    uses: ./.github/workflows/wheels.yml
+    if: startsWith(github.ref, 'refs/tags/') != true
     needs:
       - tests
