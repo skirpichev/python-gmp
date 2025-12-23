@@ -445,9 +445,14 @@ def test_add_int_subclasses():
 
 
 @given(bigints(), numbers())
+@example(0, complex(0.0, -0.0))
 def test_binary_mixed(x, y):
     mx = mpz(x)
     for op in [operator.add, operator.mul, operator.sub]:
+        if (platform.python_implementation() == "GraalVM"
+                and op in [operator.add, operator.sub]
+                and str(y.imag) == "-0.0"):
+            continue  # issue oracle/graalpython#585
         assert str(op(mx, y)) == str(op(x, y))
         assert str(op(y, mx)) == str(op(y, x))
         if op != operator.sub:
@@ -506,7 +511,7 @@ def test_divmod_bulk(x, y):
             x % my
         return
     if y < 0 and platform.python_implementation() == "GraalVM":
-        return  # issue graalpython#534
+        return  # issue oracle/graalpython#534
     r = x // y
     assert mx // my == r
     assert mx // y == r
