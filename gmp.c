@@ -791,10 +791,14 @@ hash(PyObject *self)
         (void)zz_abs(&u->z, &u->z);
     }
 
-    Py_hash_t r;
+    zz_limb_t digits[1];
+    zz_t w = {false, 1, 1, digits};
 
-    assert(-(uint64_t)INT64_MIN > PyHASH_MODULUS);
-    (void)zz_rem_ul(&u->z, (zz_limb_t)PyHASH_MODULUS, ZZ_RNDD, (zz_limb_t *)&r);
+    assert((int64_t)INT64_MAX > PyHASH_MODULUS);
+    (void)zz_rem_sl(&u->z, (zz_slimb_t)PyHASH_MODULUS, ZZ_RNDD, &w);
+
+    Py_hash_t r = w.size ? (Py_hash_t)w.digits[0] : 0;
+
     if (negative) {
         (void)zz_neg(&u->z, &u->z);
         r = -r;
