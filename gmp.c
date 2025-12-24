@@ -1104,6 +1104,72 @@ numbers:
     } while (0);
 
 static zz_err
+zz_divnear(const zz_t *u, const zz_t *v, zz_t *q, zz_t *r)
+{
+    if (!q || !r) {
+        assert(q != NULL || r != NULL);
+        if (!q) {
+            zz_t tmp;
+
+            if (zz_init(&tmp)) {
+                return ZZ_MEM; /* LCOV_EXCL_LINE */
+            }
+
+            zz_err ret = zz_divnear(u, v, &tmp, r);
+
+            zz_clear(&tmp);
+            return ret;
+        }
+        else {
+            zz_t tmp;
+
+            if (zz_init(&tmp)) {
+                return ZZ_MEM; /* LCOV_EXCL_LINE */
+            }
+
+            zz_err ret = zz_divnear(u, v, q, &tmp);
+
+            zz_clear(&tmp);
+            return ret;
+        }
+    }
+
+    zz_err ret = zz_div(u, v, ZZ_RNDD, q, r);
+
+    if (ret) {
+        /* LCOV_EXCL_START */
+err:
+        zz_clear(q);
+        zz_clear(r);
+        return ret;
+        /* LCOV_EXCL_STOP */
+    }
+
+    zz_ord unexpect = v->negative ? ZZ_LT : ZZ_GT;
+    zz_t halfQ;
+
+    if (zz_init(&halfQ) || zz_quo_2exp(v, 1, &halfQ)) {
+        /* LCOV_EXCL_START */
+        zz_clear(&halfQ);
+        goto err;
+        /* LCOV_EXCL_STOP */
+    }
+
+    zz_ord cmp = zz_cmp(r, &halfQ);
+
+    zz_clear(&halfQ);
+    if (cmp == ZZ_EQ && v->digits[0]%2 == 0 && q->size
+        && q->digits[0]%2 != 0)
+    {
+        cmp = unexpect;
+    }
+    if (cmp == unexpect && (zz_add_sl(q, 1, q) || zz_sub(r, v, r))) {
+        goto err; /* LCOV_EXCL_LINE */
+    }
+    return ZZ_OK;
+}
+
+static zz_err
 _zz_truediv(const zz_t *u, const zz_t *v, double *res)
 {
     if (!v->size) {
@@ -1182,16 +1248,16 @@ tmp_clear:
     if (shift < 0 && zz_mul_2exp(&b, (uint64_t)-shift, &b)) {
         goto tmp_clear; /* LCOV_EXCL_LINE */
     }
-    if (zz_div(&a, &b, ZZ_RNDN, &b, NULL)) {
+    if (zz_divnear(&a, &b, &a, NULL)) {
         /* LCOV_EXCL_START */
         zz_clear(&a);
         zz_clear(&b);
         return ZZ_MEM;
         /* LCOV_EXCL_STOP */
     }
-    zz_clear(&a);
-    (void)zz_to_double(&b, res);
     zz_clear(&b);
+    (void)zz_to_double(&a, res);
+    zz_clear(&a);
     *res = ldexp(*res, -shift);
     if (u->negative != v->negative) {
         *res = -*res;
@@ -1827,7 +1893,7 @@ noop:
         return NULL;
         /* LCOV_EXCL_STOP */
     }
-    if (zz_div(&u->z, &((MPZ_Object *)p)->z, ZZ_RNDN, NULL, &r->z)) {
+    if (zz_divnear(&u->z, &((MPZ_Object *)p)->z, NULL, &r->z)) {
         /* LCOV_EXCL_START */
         Py_DECREF(r);
         return PyErr_NoMemory();
