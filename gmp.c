@@ -776,6 +776,43 @@ numbers:
     return res;
 }
 
+zz_err
+_zz_div_sl (const zz_t *u, zz_slimb_t v, zz_rnd rnd, zz_t *q, zz_t *r)
+{
+    zz_err ret = ZZ_OK;
+
+    if (q) {
+        ret = zz_quo_sl(u, v, rnd, q);
+    }
+    if (ret) {
+        return ret;
+    }
+    if (r) {
+        ret = zz_rem_sl(u, v, rnd, r);
+    }
+    return ret;
+}
+
+zz_err
+_zz_sl_div (zz_slimb_t u, const zz_t *v, zz_rnd rnd, zz_t *q, zz_t *r)
+{
+    zz_err ret = ZZ_OK;
+
+    if (q) {
+        ret = zz_sl_quo(u, v, rnd, q);
+    }
+    if (ret) {
+        return ret;
+    }
+    if (r) {
+        ret = zz_sl_rem(u, v, rnd, r);
+    }
+    return ret;
+}
+
+#define zz_div_sl _zz_div_sl
+#define zz_sl_div _zz_sl_div
+
 static Py_hash_t
 hash(PyObject *self)
 {
@@ -795,7 +832,7 @@ hash(PyObject *self)
     zz_t w = {false, 1, 1, digits};
 
     assert((int64_t)INT64_MAX > PyHASH_MODULUS);
-    (void)zz_rem_sl(&u->z, (zz_slimb_t)PyHASH_MODULUS, ZZ_RNDD, &w);
+    (void)zz_div_sl(&u->z, (zz_slimb_t)PyHASH_MODULUS, ZZ_RNDD, NULL, &w);
 
     Py_hash_t r = w.size ? (Py_hash_t)w.digits[0] : 0;
 
@@ -977,25 +1014,25 @@ zz_rem_(const zz_t *u, const zz_t *v, zz_t *w)
 static inline zz_err
 zz_sl_quo_(zz_slimb_t u, const zz_t *v, zz_t *w)
 {
-    return zz_sl_quo(u, v, ZZ_RNDD, w);
+    return zz_sl_div(u, v, ZZ_RNDD, w, NULL);
 }
 
 static inline zz_err
 zz_quo__sl(const zz_t *u, zz_slimb_t v, zz_t *w)
 {
-    return zz_quo_sl(u, v, ZZ_RNDD, w);
+    return zz_div_sl(u, v, ZZ_RNDD, w, NULL);
 }
 
 static inline zz_err
 zz_sl_rem_(zz_slimb_t u, const zz_t *v, zz_t *w)
 {
-    return zz_sl_rem(u, v, ZZ_RNDD, w);
+    return zz_sl_div(u, v, ZZ_RNDD, NULL, w);
 }
 
 static inline zz_err
 zz_rem__sl(const zz_t *u, zz_slimb_t v, zz_t *w)
 {
-    return zz_rem_sl(u, v, ZZ_RNDD, w);
+    return zz_div_sl(u, v, ZZ_RNDD, NULL, w);
 }
 
 BINOP(quo_, PyNumber_FloorDivide)
