@@ -776,6 +776,43 @@ numbers:
     return res;
 }
 
+zz_err
+_zz_div_sl (const zz_t *u, zz_slimb_t v, zz_rnd rnd, zz_t *q, zz_t *r)
+{
+    zz_err ret = ZZ_OK;
+
+    if (q) {
+        ret = zz_quo_sl(u, v, rnd, q);
+    }
+    if (ret) {
+        return ret;
+    }
+    if (r) {
+        ret = zz_rem_sl(u, v, rnd, r);
+    }
+    return ret;
+}
+
+zz_err
+_zz_sl_div (zz_slimb_t u, const zz_t *v, zz_rnd rnd, zz_t *q, zz_t *r)
+{
+    zz_err ret = ZZ_OK;
+
+    if (q) {
+        ret = zz_sl_quo(u, v, rnd, q);
+    }
+    if (ret) {
+        return ret;
+    }
+    if (r) {
+        ret = zz_sl_rem(u, v, rnd, r);
+    }
+    return ret;
+}
+
+#define zz_div_sl _zz_div_sl
+#define zz_sl_div _zz_sl_div
+
 static Py_hash_t
 hash(PyObject *self)
 {
@@ -791,10 +828,14 @@ hash(PyObject *self)
         (void)zz_abs(&u->z, &u->z);
     }
 
-    Py_hash_t r;
+    zz_limb_t digits[1];
+    zz_t w = {false, 1, 1, digits};
 
-    assert(-(uint64_t)INT64_MIN > PyHASH_MODULUS);
-    (void)zz_rem_ul(&u->z, (zz_limb_t)PyHASH_MODULUS, ZZ_RNDD, (zz_limb_t *)&r);
+    assert((int64_t)INT64_MAX > PyHASH_MODULUS);
+    (void)zz_div_sl(&u->z, (zz_slimb_t)PyHASH_MODULUS, ZZ_RNDD, NULL, &w);
+
+    Py_hash_t r = w.size ? (Py_hash_t)w.digits[0] : 0;
+
     if (negative) {
         (void)zz_neg(&u->z, &u->z);
         r = -r;
@@ -973,25 +1014,25 @@ zz_rem_(const zz_t *u, const zz_t *v, zz_t *w)
 static inline zz_err
 zz_sl_quo_(zz_slimb_t u, const zz_t *v, zz_t *w)
 {
-    return zz_sl_quo(u, v, ZZ_RNDD, w);
+    return zz_sl_div(u, v, ZZ_RNDD, w, NULL);
 }
 
 static inline zz_err
 zz_quo__sl(const zz_t *u, zz_slimb_t v, zz_t *w)
 {
-    return zz_quo_sl(u, v, ZZ_RNDD, w);
+    return zz_div_sl(u, v, ZZ_RNDD, w, NULL);
 }
 
 static inline zz_err
 zz_sl_rem_(zz_slimb_t u, const zz_t *v, zz_t *w)
 {
-    return zz_sl_rem(u, v, ZZ_RNDD, w);
+    return zz_sl_div(u, v, ZZ_RNDD, NULL, w);
 }
 
 static inline zz_err
 zz_rem__sl(const zz_t *u, zz_slimb_t v, zz_t *w)
 {
-    return zz_rem_sl(u, v, ZZ_RNDD, w);
+    return zz_div_sl(u, v, ZZ_RNDD, NULL, w);
 }
 
 BINOP(quo_, PyNumber_FloorDivide)
@@ -1052,6 +1093,182 @@ numbers:
     Py_XDECREF(v);
     Py_RETURN_NOTIMPLEMENTED;
 }
+
+#define GMP_NUMB_BITS 64
+
+#define SWAP(T, a, b) \
+    do {              \
+        T _tmp = a;   \
+        a = b;        \
+        b = _tmp;     \
+    } while (0);
+
+static zz_err
+zz_divnear(const zz_t *u, const zz_t *v, zz_t *q, zz_t *r)
+{
+    if (!q || !r) {
+        assert(q != NULL || r != NULL);
+        if (!q) {
+            zz_t tmp;
+
+            if (zz_init(&tmp)) {
+                return ZZ_MEM; /* LCOV_EXCL_LINE */
+            }
+
+            zz_err ret = zz_divnear(u, v, &tmp, r);
+
+            zz_clear(&tmp);
+            return ret;
+        }
+        else {
+            zz_t tmp;
+
+            if (zz_init(&tmp)) {
+                return ZZ_MEM; /* LCOV_EXCL_LINE */
+            }
+
+            zz_err ret = zz_divnear(u, v, q, &tmp);
+
+            zz_clear(&tmp);
+            return ret;
+        }
+    }
+
+    zz_err ret = zz_div(u, v, ZZ_RNDD, q, r);
+
+    if (ret) {
+        /* LCOV_EXCL_START */
+err:
+        zz_clear(q);
+        zz_clear(r);
+        return ret;
+        /* LCOV_EXCL_STOP */
+    }
+
+    zz_ord unexpect = v->negative ? ZZ_LT : ZZ_GT;
+    zz_t halfQ;
+
+    if (zz_init(&halfQ) || zz_quo_2exp(v, 1, &halfQ)) {
+        /* LCOV_EXCL_START */
+        zz_clear(&halfQ);
+        goto err;
+        /* LCOV_EXCL_STOP */
+    }
+
+    zz_ord cmp = zz_cmp(r, &halfQ);
+
+    zz_clear(&halfQ);
+    if (cmp == ZZ_EQ && v->digits[0]%2 == 0 && q->size
+        && q->digits[0]%2 != 0)
+    {
+        cmp = unexpect;
+    }
+    if (cmp == unexpect && (zz_add_sl(q, 1, q) || zz_sub(r, v, r))) {
+        goto err; /* LCOV_EXCL_LINE */
+    }
+    return ZZ_OK;
+}
+
+static zz_err
+_zz_truediv(const zz_t *u, const zz_t *v, double *res)
+{
+    if (!v->size) {
+        return ZZ_VAL;
+    }
+    if (!u->size) {
+        *res = v->negative ? -0.0 : 0.0;
+        return ZZ_OK;
+    }
+
+    zz_bitcnt_t ubits = zz_bitlen(u);
+    zz_bitcnt_t vbits = zz_bitlen(v);
+
+    if (ubits > vbits && ubits - vbits > DBL_MAX_EXP) {
+        return ZZ_BUF;
+    }
+    if (ubits < vbits && vbits - ubits > -DBL_MIN_EXP + DBL_MANT_DIG + 1) {
+        *res = u->negative != v->negative ? -0.0 : 0.0;
+        return ZZ_OK;
+    }
+
+    zz_size_t shift = (zz_size_t)(vbits - ubits);
+    zz_size_t n = shift, whole = n / GMP_NUMB_BITS;
+    zz_t a, b;
+
+    if (zz_init(&a) || zz_init(&b) || zz_abs(u, &a) || zz_abs(v, &b)) {
+        /* LCOV_EXCL_START */
+tmp_clear:
+        zz_clear(&a);
+        zz_clear(&b);
+        return ZZ_MEM;
+        /* LCOV_EXCL_STOP */
+    }
+    if (shift < 0) {
+        SWAP(const zz_t *, u, v);
+        n = -n;
+        whole = -whole;
+    }
+    /*                       -shift - 1             -shift
+      find shift satisfying 2           <= |a/b| < 2       */
+    n %= GMP_NUMB_BITS;
+    for (zz_size_t i = v->size; i--;) {
+        zz_limb_t du, dv = v->digits[i];
+
+        if (i >= whole) {
+            if (i - whole < u->size) {
+                du = u->digits[i - whole] << n;
+            }
+            else {
+                du = 0;
+            }
+            if (n && i > whole) {
+                du |= u->digits[i - whole - 1] >> (GMP_NUMB_BITS - n);
+            }
+        }
+        else {
+            du = 0;
+        }
+        if (du < dv) {
+            if (shift < 0) {
+                shift--;
+            }
+            break;
+        }
+        if (du > dv) {
+            if (shift >= 0) {
+                shift--;
+            }
+            break;
+        }
+    }
+    shift += DBL_MANT_DIG;
+    if (shift > 0 && zz_mul_2exp(&a, (uint64_t)shift, &a)) {
+        goto tmp_clear; /* LCOV_EXCL_LINE */
+    }
+    if (shift < 0 && zz_mul_2exp(&b, (uint64_t)-shift, &b)) {
+        goto tmp_clear; /* LCOV_EXCL_LINE */
+    }
+    if (zz_divnear(&a, &b, &a, NULL)) {
+        /* LCOV_EXCL_START */
+        zz_clear(&a);
+        zz_clear(&b);
+        return ZZ_MEM;
+        /* LCOV_EXCL_STOP */
+    }
+    zz_clear(&b);
+    (void)zz_to_double(&a, res);
+    zz_clear(&a);
+    *res = ldexp(*res, -shift);
+    if (u->negative != v->negative) {
+        *res = -*res;
+    }
+    if (isinf(*res)) {
+        return ZZ_BUF;
+    }
+    return ZZ_OK;
+}
+
+#define zz_truediv _zz_truediv
 
 static PyObject *
 nb_truediv(PyObject *self, PyObject *other)
@@ -1676,7 +1893,7 @@ noop:
         return NULL;
         /* LCOV_EXCL_STOP */
     }
-    if (zz_div(&u->z, &((MPZ_Object *)p)->z, ZZ_RNDN, NULL, &r->z)) {
+    if (zz_divnear(&u->z, &((MPZ_Object *)p)->z, NULL, &r->z)) {
         /* LCOV_EXCL_START */
         Py_DECREF(r);
         return PyErr_NoMemory();
@@ -1873,7 +2090,7 @@ gmp_gcd(PyObject *Py_UNUSED(module), PyObject *const *args, Py_ssize_t nargs)
             Py_DECREF(arg);
             continue;
         }
-        if (zz_gcd(&res->z, &arg->z, &res->z)) {
+        if (zz_gcdext(&res->z, &arg->z, &res->z, NULL, NULL)) {
             /* LCOV_EXCL_START */
             Py_DECREF(res);
             Py_DECREF(arg);

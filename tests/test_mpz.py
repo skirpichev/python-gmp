@@ -1,4 +1,3 @@
-import cmath
 import inspect
 import locale
 import math
@@ -15,7 +14,6 @@ from hypothesis import assume, example, given, settings
 from hypothesis.strategies import (
     booleans,
     characters,
-    complex_numbers,
     floats,
     integers,
     lists,
@@ -257,6 +255,12 @@ def test_mpz_interface():
         mpz(1j, 10)
     with pytest.raises(TypeError):
         mpz(object())
+    with pytest.raises(OverflowError):
+        mpz(float("inf"))
+    with pytest.raises(OverflowError):
+        mpz(float("-inf"))
+    with pytest.raises(ValueError, match="cannot convert float NaN to int"):
+        mpz(float("nan"))
     with pytest.raises(TypeError):
         mpz(123, spam=321)
     with pytest.raises(OverflowError):
@@ -348,7 +352,7 @@ def test_repr(x):
     assert repr(mx) == f"mpz({x!s})"
 
 
-@given(bigints(), floats(allow_nan=False))
+@given(bigints(), floats())
 def test_richcompare_mixed(x, y):
     mx = mpz(x)
     for op in [operator.eq, operator.ne, operator.lt, operator.le,
@@ -441,13 +445,18 @@ def test_add_int_subclasses():
 
 
 @given(bigints(), numbers())
+@example(0, complex(0.0, -0.0))
 def test_binary_mixed(x, y):
     mx = mpz(x)
     for op in [operator.add, operator.mul, operator.sub]:
-        assert op(mx, y) == op(x, y)
-        assert op(y, mx) == op(y, x)
+        if (platform.python_implementation() == "GraalVM"
+                and op in [operator.add, operator.sub]
+                and str(y.imag) == "-0.0"):
+            continue  # issue oracle/graalpython#585
+        assert str(op(mx, y)) == str(op(x, y))
+        assert str(op(y, mx)) == str(op(y, x))
         if op != operator.sub:
-            assert op(mx, y) == op(y, mx)
+            assert str(op(mx, y)) == str(op(y, mx))
 
 
 @given(bigints(), bigints(), bigints())
@@ -502,7 +511,7 @@ def test_divmod_bulk(x, y):
             x % my
         return
     if y < 0 and platform.python_implementation() == "GraalVM":
-        return  # issue graalpython#534
+        return  # issue oracle/graalpython#534
     r = x // y
     assert mx // my == r
     assert mx // y == r
@@ -515,15 +524,15 @@ def test_divmod_bulk(x, y):
     assert divmod(mx, my) == r
 
 
-@given(bigints(), floats(allow_nan=False))
+@given(bigints(), floats())
 def test_divmod_mixed(x, y):
     mx = mpz(x)
     if not y:
         with pytest.raises(ZeroDivisionError):
             mx // y
     else:
-        assert mx // y == x // y
-        assert mx % y == x % y
+        assert str(mx // y) == str(x // y)
+        assert str(mx % y) == str(x % y)
 
 
 def test_divmod_errors():
@@ -544,12 +553,18 @@ def test_divmod_errors():
 @example(11811160064<<606, 11<<11)
 @example(2305843008955759739,
          784637716923335094969050127462454050937374032249308213819)
+@example(-576460752303423485, 147)
+@example(-16, 15)
+@example(123, 0)
+@example(1, 1<<1076)
+@example(1<<1025, 1)
+@example(1<<1024, 1)
 def test_truediv_bulk(x, y):
     mx = mpz(x)
     my = mpz(y)
     if not y:
         with pytest.raises(ZeroDivisionError):
-            python_truediv(mx, my)
+            mx / my
         return
     try:
         r = python_truediv(x, y)
@@ -557,13 +572,14 @@ def test_truediv_bulk(x, y):
         with pytest.raises(OverflowError):
             mx / my
     else:
-        assert mx / my == r
-        assert mx / y == r
-        assert x / my == r
+        r = str(r)
+        assert str(mx / my) == str(r)
+        assert str(mx / y) == str(r)
+        assert str(x / my) == str(r)
 
 
-@given(bigints(), floats(allow_nan=False), complex_numbers(allow_nan=False))
-def test_truediv_mixed(x, y, z):
+@given(bigints(), numbers())
+def test_truediv_mixed(x, y):
     mx = mpz(x)
     if not x:
         with pytest.raises(ZeroDivisionError):
@@ -575,7 +591,7 @@ def test_truediv_mixed(x, y, z):
             with pytest.raises(OverflowError):
                 y / mx
         else:
-            assert y / mx == r
+            assert str(y / mx) == str(r)
     if not y:
         with pytest.raises(ZeroDivisionError):
             mx / y
@@ -586,21 +602,7 @@ def test_truediv_mixed(x, y, z):
             with pytest.raises(OverflowError):
                 mx / y
         else:
-            assert mx / y == r
-    if not z:
-        with pytest.raises(ZeroDivisionError):
-            mx / z
-    else:
-        try:
-            r = x / z
-        except OverflowError:
-            with pytest.raises(OverflowError):
-                mx / z
-        else:
-            if cmath.isnan(r):
-                assert cmath.isnan(mx / z)
-            else:
-                assert mx / z == r
+            assert str(mx / y) == str(r)
 
 
 def test_truediv_errors():
@@ -638,7 +640,7 @@ def test_power_bulk(x, y):
         assert x**my == r
 
 
-@given(bigints(), floats(allow_nan=False))
+@given(bigints(), floats())
 def test_power_mixed(x, y):
     mx = mpz(x)
     try:
@@ -650,7 +652,7 @@ def test_power_mixed(x, y):
         with pytest.raises(ZeroDivisionError):
             mx**y
     else:
-        assert mx**y == r
+        assert str(mx**y) == str(r)
     try:
         r = y**x
     except OverflowError:
@@ -660,7 +662,7 @@ def test_power_mixed(x, y):
         with pytest.raises(ZeroDivisionError):
             y**mx
     else:
-        assert y**mx == r
+        assert str(y**mx) == str(r)
 
 
 @given(bigints(), integers(max_value=1000000), bigints())
@@ -935,6 +937,7 @@ def test_from_bytes_interface():
 @example((1<<53) + 1)
 @example(1<<116)
 @example(646541478744828163276576707651635923929979156076518566789121)
+@example((0xfffffffffffff8<<(242*4)) + (1<<970))
 def test_to_float(x):
     mx = mpz(x)
     try:
@@ -942,7 +945,7 @@ def test_to_float(x):
     except OverflowError:
         pytest.raises(OverflowError, lambda: float(mx))
     else:
-        assert float(mx) == fx
+        assert str(float(mx)) == str(fx)
 
 
 @given(bigints(), integers(min_value=-20, max_value=30))

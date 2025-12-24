@@ -217,5 +217,5 @@ def bigints(draw, min_value=None, max_value=None):
 @composite
 def numbers(draw):
     if draw(booleans()):
-        return draw(floats(allow_nan=False, allow_infinity=False))
-    return draw(complex_numbers(allow_nan=False, allow_infinity=False))
+        return draw(floats())
+    return draw(complex_numbers())
