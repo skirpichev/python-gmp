@@ -1057,15 +1057,6 @@ numbers:
     Py_RETURN_NOTIMPLEMENTED;
 }
 
-#define GMP_NUMB_BITS 64
-
-#define SWAP(T, a, b) \
-    do {              \
-        T _tmp = a;   \
-        a = b;        \
-        b = _tmp;     \
-    } while (0);
-
 static zz_err
 zz_divnear(const zz_t *u, const zz_t *v, zz_t *q, zz_t *r)
 {
@@ -1133,7 +1124,7 @@ err:
 }
 
 static zz_err
-_zz_truediv(const zz_t *u, const zz_t *v, double *res)
+zz_truediv(const zz_t *u, const zz_t *v, double *res)
 {
     if (!v->size) {
         return ZZ_VAL;
@@ -1155,7 +1146,7 @@ _zz_truediv(const zz_t *u, const zz_t *v, double *res)
     }
 
     zz_size_t shift = (zz_size_t)(vbits - ubits);
-    zz_size_t n = shift, whole = n / GMP_NUMB_BITS;
+    zz_size_t n = shift, whole = n / ZZ_LIMB_T_BITS;
     zz_t a, b;
 
     if (zz_init(&a) || zz_init(&b) || zz_abs(u, &a) || zz_abs(v, &b)) {
@@ -1167,13 +1158,16 @@ tmp_clear:
         /* LCOV_EXCL_STOP */
     }
     if (shift < 0) {
-        SWAP(const zz_t *, u, v);
+        const zz_t *t = u;
+
+        u = v;
+        v = t;
         n = -n;
         whole = -whole;
     }
     /*                       -shift - 1             -shift
       find shift satisfying 2           <= |a/b| < 2       */
-    n %= GMP_NUMB_BITS;
+    n %= ZZ_LIMB_T_BITS;
     for (zz_size_t i = v->size; i--;) {
         zz_limb_t du, dv = v->digits[i];
 
@@ -1185,7 +1179,7 @@ tmp_clear:
                 du = 0;
             }
             if (n && i > whole) {
-                du |= u->digits[i - whole - 1] >> (GMP_NUMB_BITS - n);
+                du |= u->digits[i - whole - 1] >> (ZZ_LIMB_T_BITS - n);
             }
         }
         else {
@@ -1230,8 +1224,6 @@ tmp_clear:
     }
     return ZZ_OK;
 }
-
-#define zz_truediv _zz_truediv
 
 static PyObject *
 nb_truediv(PyObject *self, PyObject *other)
