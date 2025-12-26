@@ -1141,8 +1141,8 @@ zz_truediv(const zz_t *u, const zz_t *v, double *res)
         return ZZ_OK;
     }
 
-    zz_size_t shift = (zz_size_t)(vbits - ubits);
-    zz_size_t n = shift, whole = n / ZZ_LIMB_T_BITS;
+    int shift = (int)(vbits - ubits);
+    int n = shift, whole = n / ZZ_LIMB_T_BITS;
     zz_t a, b;
 
     if (zz_init(&a) || zz_init(&b) || zz_abs(u, &a) || zz_abs(v, &b)) {
