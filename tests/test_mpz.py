@@ -713,12 +713,22 @@ def test_power_errors():
         pow(object(), mpz(321))
     if platform.python_implementation() == "GraalVM":
         return  # issue oracle/graalpython#551
-    with pytest.raises(MemoryError):
-        pow(mpz(123), 111111111111111111)
     if SIEZEOF_LIMBCNT < 8:
-        return
+        with pytest.raises(MemoryError):
+            pow(mpz(1<<64), (1<<31) - 1)
+        with pytest.raises(MemoryError):
+            pow(mpz(1<<64), (1<<31))
+    else:
+        with pytest.raises(MemoryError):
+            pow(mpz(1<<64), (1<<63) - 1)
+        if platform.system() != "Darwin":
+            with pytest.raises(MemoryError):
+                pow(mpz(1<<64), (1<<63))
     with pytest.raises(MemoryError):
-        mpz(1) << (1 << 42)
+        mpz(1) << ((1 << 64) - 1)
+    if platform.system() != "Darwin":
+        with pytest.raises(MemoryError):
+            mpz(1) << (1 << 63)
 
 
 @given(bigints(), integers(max_value=12345))
