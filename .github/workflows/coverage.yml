@@ -4,7 +4,7 @@ jobs:
   coverage:
     runs-on: ${{ matrix.os }}
     env:
-      PYTEST_ADDOPTS: --verbose
+      PYTEST_ADDOPTS: --verbose -n 2
       CFLAGS: -Wall -Wpedantic -Werror -std=c17 -Wconversion
     strategy:
       matrix:
@@ -34,9 +34,9 @@ jobs:
         if: steps.cache-gmp.outputs.cache-hit != 'true'
       - run: python -m pip install --upgrade pip
       - run: |
-          pip install --verbose .[tests] -Cbuild-dir=build \
-                                         -Csetup-args=-Dbuildtype=debug \
-                                         -Csetup-args=-Db_coverage=true
+          pip install --verbose .[ci] -Cbuild-dir=build \
+                                      -Csetup-args=-Dbuildtype=debug \
+                                      -Csetup-args=-Db_coverage=true
         env:
           PKG_CONFIG_PATH: ${{ github.workspace }}/.local/lib/pkgconfig
       - run: pytest
