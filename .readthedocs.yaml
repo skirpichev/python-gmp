@@ -10,9 +10,9 @@ build:
         - pkg-config
     jobs:
       pre_create_environment:
-        - wget https://github.com/diofant/zz/releases/download/v0.6.1/zz-0.6.1.tar.gz
-        - tar xzf zz-0.6.1.tar.gz
-        - cd zz-0.6.1 && ./configure -q --prefix=$(pwd)/../.local && make -s && make -s install
+        - wget https://github.com/diofant/zz/releases/download/v0.7.0/zz-0.7.0.tar.gz
+        - tar xzf zz-0.7.0.tar.gz
+        - cd zz-0.7.0 && ./configure -q --prefix=$(pwd)/../.local && make -s && make -s install
     tools:
         python: "3"
 python:

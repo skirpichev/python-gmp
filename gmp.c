@@ -776,43 +776,6 @@ numbers:
     return res;
 }
 
-zz_err
-_zz_div_sl (const zz_t *u, zz_slimb_t v, zz_rnd rnd, zz_t *q, zz_t *r)
-{
-    zz_err ret = ZZ_OK;
-
-    if (q) {
-        ret = zz_quo_sl(u, v, rnd, q);
-    }
-    if (ret) {
-        return ret;
-    }
-    if (r) {
-        ret = zz_rem_sl(u, v, rnd, r);
-    }
-    return ret;
-}
-
-zz_err
-_zz_sl_div (zz_slimb_t u, const zz_t *v, zz_rnd rnd, zz_t *q, zz_t *r)
-{
-    zz_err ret = ZZ_OK;
-
-    if (q) {
-        ret = zz_sl_quo(u, v, rnd, q);
-    }
-    if (ret) {
-        return ret;
-    }
-    if (r) {
-        ret = zz_sl_rem(u, v, rnd, r);
-    }
-    return ret;
-}
-
-#define zz_div_sl _zz_div_sl
-#define zz_sl_div _zz_sl_div
-
 static Py_hash_t
 hash(PyObject *self)
 {
@@ -832,7 +795,7 @@ hash(PyObject *self)
     zz_t w = {false, 1, 1, digits};
 
     assert((int64_t)INT64_MAX > PyHASH_MODULUS);
-    (void)zz_div_sl(&u->z, (zz_slimb_t)PyHASH_MODULUS, ZZ_RNDD, NULL, &w);
+    (void)zz_div_sl(&u->z, (zz_slimb_t)PyHASH_MODULUS, NULL, &w);
 
     Py_hash_t r = w.size ? (Py_hash_t)w.digits[0] : 0;
 
@@ -915,11 +878,9 @@ to_bool(PyObject *self)
                 ret = zz_sl_##suff(temp, &v->z, &res->z);       \
                 goto done;                                      \
             }                                                   \
-            else {                                              \
-                u = MPZ_from_int(self);                         \
-                if (!u) {                                       \
-                    goto end;                                   \
-                }                                               \
+            u = MPZ_from_int(self);                             \
+            if (!u) {                                           \
+                goto end;                                       \
             }                                                   \
         }                                                       \
         if (!v) {                                               \
@@ -930,11 +891,9 @@ to_bool(PyObject *self)
                 ret = zz_##suff##_sl(&u->z, temp, &res->z);     \
                 goto done;                                      \
             }                                                   \
-            else {                                              \
-                v = MPZ_from_int(other);                        \
-                if (!v) {                                       \
-                    goto end;                                   \
-                }                                               \
+            v = MPZ_from_int(other);                            \
+            if (!v) {                                           \
+                goto end;                                       \
             }                                                   \
         }                                                       \
         ret = zz_##suff(&u->z, &v->z, &res->z);                 \
@@ -999,40 +958,40 @@ BINOP(add, PyNumber_Add)
 BINOP(sub, PyNumber_Subtract)
 BINOP(mul, PyNumber_Multiply)
 
-static zz_err
+static inline zz_err
 zz_quo_(const zz_t *u, const zz_t *v, zz_t *w)
 {
-    return zz_div(u, v, ZZ_RNDD, w, NULL);
+    return zz_div(u, v, w, NULL);
 }
 
-static zz_err
+static inline zz_err
 zz_rem_(const zz_t *u, const zz_t *v, zz_t *w)
 {
-    return zz_div(u, v, ZZ_RNDD, NULL, w);
+    return zz_div(u, v, NULL, w);
 }
 
 static inline zz_err
 zz_sl_quo_(zz_slimb_t u, const zz_t *v, zz_t *w)
 {
-    return zz_sl_div(u, v, ZZ_RNDD, w, NULL);
+    return zz_sl_div(u, v, w, NULL);
 }
 
 static inline zz_err
 zz_quo__sl(const zz_t *u, zz_slimb_t v, zz_t *w)
 {
-    return zz_div_sl(u, v, ZZ_RNDD, w, NULL);
+    return zz_div_sl(u, v, w, NULL);
 }
 
 static inline zz_err
 zz_sl_rem_(zz_slimb_t u, const zz_t *v, zz_t *w)
 {
-    return zz_sl_div(u, v, ZZ_RNDD, NULL, w);
+    return zz_sl_div(u, v, NULL, w);
 }
 
 static inline zz_err
 zz_rem__sl(const zz_t *u, zz_slimb_t v, zz_t *w)
 {
-    return zz_div_sl(u, v, ZZ_RNDD, NULL, w);
+    return zz_div_sl(u, v, NULL, w);
 }
 
 BINOP(quo_, PyNumber_FloorDivide)
@@ -1061,7 +1020,7 @@ nb_divmod(PyObject *self, PyObject *other)
         /* LCOV_EXCL_STOP */
     }
 
-    zz_err ret = zz_div(&u->z, &v->z, ZZ_RNDD, &q->z, &r->z);
+    zz_err ret = zz_div(&u->z, &v->z, &q->z, &r->z);
 
     if (ret) {
         Py_DECREF(q);
@@ -1094,15 +1053,6 @@ numbers:
     Py_RETURN_NOTIMPLEMENTED;
 }
 
-#define GMP_NUMB_BITS 64
-
-#define SWAP(T, a, b) \
-    do {              \
-        T _tmp = a;   \
-        a = b;        \
-        b = _tmp;     \
-    } while (0);
-
 static zz_err
 zz_divnear(const zz_t *u, const zz_t *v, zz_t *q, zz_t *r)
 {
@@ -1134,7 +1084,7 @@ zz_divnear(const zz_t *u, const zz_t *v, zz_t *q, zz_t *r)
         }
     }
 
-    zz_err ret = zz_div(u, v, ZZ_RNDD, q, r);
+    zz_err ret = zz_div(u, v, q, r);
 
     if (ret) {
         /* LCOV_EXCL_START */
@@ -1170,7 +1120,7 @@ err:
 }
 
 static zz_err
-_zz_truediv(const zz_t *u, const zz_t *v, double *res)
+zz_truediv(const zz_t *u, const zz_t *v, double *res)
 {
     if (!v->size) {
         return ZZ_VAL;
@@ -1191,8 +1141,8 @@ _zz_truediv(const zz_t *u, const zz_t *v, double *res)
         return ZZ_OK;
     }
 
-    zz_size_t shift = (zz_size_t)(vbits - ubits);
-    zz_size_t n = shift, whole = n / GMP_NUMB_BITS;
+    int shift = (int)(vbits - ubits);
+    int n = shift, whole = n / ZZ_LIMB_T_BITS;
     zz_t a, b;
 
     if (zz_init(&a) || zz_init(&b) || zz_abs(u, &a) || zz_abs(v, &b)) {
@@ -1204,13 +1154,16 @@ tmp_clear:
         /* LCOV_EXCL_STOP */
     }
     if (shift < 0) {
-        SWAP(const zz_t *, u, v);
+        const zz_t *t = u;
+
+        u = v;
+        v = t;
         n = -n;
         whole = -whole;
     }
     /*                       -shift - 1             -shift
       find shift satisfying 2           <= |a/b| < 2       */
-    n %= GMP_NUMB_BITS;
+    n %= ZZ_LIMB_T_BITS;
     for (zz_size_t i = v->size; i--;) {
         zz_limb_t du, dv = v->digits[i];
 
@@ -1222,7 +1175,7 @@ tmp_clear:
                 du = 0;
             }
             if (n && i > whole) {
-                du |= u->digits[i - whole - 1] >> (GMP_NUMB_BITS - n);
+                du |= u->digits[i - whole - 1] >> (ZZ_LIMB_T_BITS - n);
             }
         }
         else {
@@ -1267,8 +1220,6 @@ tmp_clear:
     }
     return ZZ_OK;
 }
-
-#define zz_truediv _zz_truediv
 
 static PyObject *
 nb_truediv(PyObject *self, PyObject *other)
@@ -1398,85 +1349,94 @@ numbers:
         return (PyObject *)res;                                 \
     }
 
-#define BINOP_INTv2(suff)                                       \
-    static PyObject *                                           \
-    nb_##suff(PyObject *self, PyObject *other)                  \
-    {                                                           \
-        MPZ_Object *u = NULL, *v = NULL, *res = NULL;           \
-                                                                \
-        CHECK_OP_INTv2(u, self);                                \
-        CHECK_OP_INTv2(v, other);                               \
-                                                                \
-        res = MPZ_new();                                        \
-        if (!res) {                                             \
-            goto end;                                           \
-        }                                                       \
-                                                                \
-        zz_err ret = ZZ_OK;                                     \
-                                                                \
-        if (!u) {                                               \
-            int error;                                          \
-            zz_slimb_t temp = PyLong_AsSlimb_t(self, &error);   \
-                                                                \
-            if (!error) {                                       \
-                ret = zz_sl_##suff(temp, &v->z, &res->z);       \
-                goto done;                                      \
-            }                                                   \
-            else {                                              \
-                u = MPZ_from_int(self);                         \
-                if (!u) {                                       \
-                    goto end;                                   \
-                }                                               \
-            }                                                   \
-        }                                                       \
-        if (!v) {                                               \
-            int error;                                          \
-            zz_slimb_t temp = PyLong_AsSlimb_t(other, &error);  \
-                                                                \
-            if (!error) {                                       \
-                ret = zz_##suff##_sl(&u->z, temp, &res->z);     \
-                goto done;                                      \
-            }                                                   \
-            else {                                              \
-                v = MPZ_from_int(other);                        \
-                if (!v) {                                       \
-                    goto end;                                   \
-                }                                               \
-            }                                                   \
-        }                                                       \
-        ret = zz_##suff(&u->z, &v->z, &res->z);                 \
-done:                                                           \
-        if (ret) {                                              \
-            /* LCOV_EXCL_START */                               \
-            Py_CLEAR(res);                                      \
-            if (ret == ZZ_VAL) {                                \
-                PyErr_SetString(PyExc_ValueError,               \
-                                "negative shift count");        \
-            }                                                   \
-            else if (ret == ZZ_BUF) {                           \
-                PyErr_SetString(PyExc_OverflowError,            \
-                                "too many digits in integer");  \
-            }                                                   \
-            else {                                              \
-                PyErr_NoMemory();                               \
-            }                                                   \
-            /* LCOV_EXCL_STOP */                                \
-        }                                                       \
-    end:                                                        \
-        Py_XDECREF(u);                                          \
-        Py_XDECREF(v);                                          \
-        return (PyObject *)res;                                 \
+#define BINOP_INTv2(suff)                                            \
+    static PyObject *                                                \
+    nb_##suff(PyObject *self, PyObject *other)                       \
+    {                                                                \
+        MPZ_Object *u = NULL, *v = NULL, *res = NULL;                \
+                                                                     \
+        CHECK_OP_INTv2(u, self);                                     \
+        CHECK_OP_INTv2(v, other);                                    \
+                                                                     \
+        res = MPZ_new();                                             \
+        if (!res) {                                                  \
+            goto end;                                                \
+        }                                                            \
+                                                                     \
+        zz_err ret = ZZ_OK;                                          \
+                                                                     \
+        if (!u) {                                                    \
+            int error = PyLong_IsNegative(self) || zz_isneg(&v->z);  \
+                                                                     \
+            if (!error) {                                            \
+                zz_slimb_t temp = PyLong_AsSlimb_t(self, &error);    \
+                                                                     \
+                if (!error) {                                        \
+                    ret = zz_sl_##suff(temp, &v->z, &res->z);        \
+                    goto done;                                       \
+                }                                                    \
+            }                                                        \
+            u = MPZ_from_int(self);                                  \
+            if (!u) {                                                \
+                goto end;                                            \
+            }                                                        \
+        }                                                            \
+        if (!v) {                                                    \
+            int error = zz_isneg(&u->z) || PyLong_IsNegative(other); \
+                                                                     \
+            if (!error) {                                            \
+                zz_slimb_t temp = PyLong_AsSlimb_t(other, &error);   \
+                                                                     \
+                if (!error) {                                        \
+                    ret = zz_##suff##_sl(&u->z, temp, &res->z);      \
+                    goto done;                                       \
+                }                                                    \
+            }                                                        \
+            v = MPZ_from_int(other);                                 \
+            if (!v) {                                                \
+                goto end;                                            \
+            }                                                        \
+        }                                                            \
+        ret = zz_##suff(&u->z, &v->z, &res->z);                      \
+done:                                                                \
+        if (ret) {                                                   \
+            /* LCOV_EXCL_START */                                    \
+            Py_CLEAR(res);                                           \
+            if (ret == ZZ_VAL) {                                     \
+                PyErr_SetString(PyExc_ValueError,                    \
+                                "negative shift count");             \
+            }                                                        \
+            else if (ret == ZZ_BUF) {                                \
+                PyErr_SetString(PyExc_OverflowError,                 \
+                                "too many digits in integer");       \
+            }                                                        \
+            else {                                                   \
+                PyErr_NoMemory();                                    \
+            }                                                        \
+            /* LCOV_EXCL_STOP */                                     \
+        }                                                            \
+    end:                                                             \
+        Py_XDECREF(u);                                               \
+        Py_XDECREF(v);                                               \
+        return (PyObject *)res;                                      \
     }
 
+static inline zz_err
+zz_and_sl(const zz_t *u, zz_slimb_t v, zz_t *w)
+{
+    if (!u->size || !v) {
+        return zz_from_sl(0, w);
+    }
+    assert(!u->negative && v > 0);
+    return zz_from_sl((zz_slimb_t)(u->digits[0] & (zz_limb_t)v), w);
+}
 #define zz_sl_and(x, y, r) zz_and_sl((y), (x), (r))
-#define zz_sl_or(x, y, r) zz_or_sl((y), (x), (r))
-#define zz_sl_xor(x, y, r) zz_xor_sl((y), (x), (r))
 
 BINOP_INTv2(and)
-BINOP_INTv2(or)
-BINOP_INTv2(xor)
+BINOP_INT(or)
+BINOP_INT(xor)
 
-static zz_err
+static inline zz_err
 zz_lshift(const zz_t *u, const zz_t *v, zz_t *w)
 {
     if (zz_isneg(v)) {
@@ -1488,7 +1448,7 @@ zz_lshift(const zz_t *u, const zz_t *v, zz_t *w)
     return zz_mul_2exp(u, v->size ? v->digits[0] : 0, w);
 }
 
-static zz_err
+static inline zz_err
 zz_rshift(const zz_t *u, const zz_t *v, zz_t *w)
 {
     if (zz_isneg(v)) {
@@ -2380,7 +2340,7 @@ gmp_perm(PyObject *self, PyObject *const *args, Py_ssize_t nargs)
     }
     if (zz_fac((zz_limb_t)n, &res->z)
         || zz_fac((zz_limb_t)(n-k), &den->z)
-        || zz_div(&res->z, &den->z, ZZ_RNDD, &res->z, NULL))
+        || zz_div(&res->z, &den->z, &res->z, NULL))
     {
         /* LCOV_EXCL_START */
         Py_DECREF(den);
@@ -2395,6 +2355,14 @@ end:
     Py_DECREF(res);
     return NULL;
 }
+
+typedef enum {
+    ZZ_RNDD = 0,
+    ZZ_RNDN = 1,
+    ZZ_RNDU = 2,
+    ZZ_RNDZ = 3,
+    ZZ_RNDA = 4,
+} zz_rnd;
 
 static zz_rnd
 get_round_mode(PyObject *rndstr)

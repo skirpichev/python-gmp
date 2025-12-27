@@ -48,6 +48,7 @@ Documentation = "https://python-gmp.readthedocs.io/en/latest/"
 
 [project.optional-dependencies]
 tests = ["pytest", "hypothesis", "mpmath>=1.4.0a7"]
+ci = ["python-gmp[tests]", "pytest-xdist"]
 docs = ["sphinx>=8.2"]
 develop = ["python-gmp[tests,docs]", "pre-commit", "pyperf"]
 
@@ -70,13 +71,13 @@ enable = "pypy cpython-prerelease cpython-freethreading graalpy"
 skip = "gp311_242* gp3*win*amd64*"
 
 before-all = "sh scripts/cibw_before_all.sh"
-test-extras = "tests"
+test-extras = "ci"
 test-command = "pytest {package}"
 
 [tool.cibuildwheel.environment]
 LD_LIBRARY_PATH = "$(pwd)/.local/lib:$LD_LIBRARY_PATH"
 PKG_CONFIG_PATH = "$(pwd)/.local/lib/pkgconfig"
-PYTEST_ADDOPTS = "--verbose"
+PYTEST_ADDOPTS = "--verbose -n 2"
 CFLAGS = "-Wall -Wpedantic -Werror -std=c17 -Wconversion"
 
 [tool.cibuildwheel.windows]
@@ -87,4 +88,5 @@ repair-wheel-command = """delvewheel repair -w {dest_dir} {wheel} \
                           --add-path .local/bin"""
 
 [tool.cibuildwheel.windows.environment]
+PYTEST_ADDOPTS = "--verbose -n 2"
 CFLAGS = ""
