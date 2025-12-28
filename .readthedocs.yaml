@@ -10,9 +10,18 @@ build:
         - pkg-config
     jobs:
       pre_create_environment:
-        - wget https://github.com/diofant/zz/releases/download/v0.7.0/zz-0.7.0.tar.gz
-        - tar xzf zz-0.7.0.tar.gz
-        - cd zz-0.7.0 && ./configure -q --prefix=$(pwd)/../.local && make -s && make -s install
+        - |
+          PREFIX=$(pwd)/.local
+          ZZ_VERSION=0.7.0
+          ZZ_DIR=zz-${ZZ_VERSION}
+          GITHUB_URL=https://github.com/diofant/zz/releases/download/
+          ZZ_URL=${GITHUB_URL}v${ZZ_VERSION}/${ZZ_DIR}.tar.gz
+          wget ${ZZ_URL}
+          tar xzf ${ZZ_DIR}.tar.gz
+          cd ${ZZ_DIR}
+          ./configure -q --prefix=$PREFIX
+          make -s
+          make -s install
     tools:
         python: "3"
 python:
