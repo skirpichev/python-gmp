@@ -2,14 +2,24 @@
 
 set -e -x
 
+PREFIX=${PREFIX:-"$(pwd)/.local"}
+CFLAGS=
+CURL_OPTS="--fail --location --retry 4 --connect-timeout 32"
+
+download () {
+  sleep_ivl=16
+  until curl ${CURL_OPTS} --remote-name $1
+  do
+    sleep ${sleep_ivl}
+    sleep_ivl=$((${sleep_ivl}*2))
+  done
+}
+
 GMP_VERSION=6.3.0
 GMP_DIR=gmp-${GMP_VERSION}
 GMP_URL=https://ftp.gnu.org/gnu/gmp/${GMP_DIR}.tar.xz
-PREFIX="$(pwd)/.local/"
-CFLAGS=
-CURL_OPTS="--location --retry 3 --connect-timeout 30"
 
-curl ${CURL_OPTS} --remote-name ${GMP_URL}
+download ${GMP_URL}
 tar --extract --file ${GMP_DIR}.tar.xz
 cd ${GMP_DIR}
 
@@ -47,7 +57,7 @@ ZZ_VERSION=0.7.0
 ZZ_DIR=zz-${ZZ_VERSION}
 ZZ_URL=https://github.com/diofant/zz/releases/download/v${ZZ_VERSION}/${ZZ_DIR}.tar.gz
 
-curl ${CURL_OPTS} --remote-name ${ZZ_URL}
+download ${ZZ_URL}
 tar --extract --file ${ZZ_DIR}.tar.gz
 cd ${ZZ_DIR}
 
