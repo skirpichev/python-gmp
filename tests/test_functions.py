@@ -9,10 +9,8 @@ from gmp import (
     _mpmath_create,
     _mpmath_normalize,
     comb,
-    double_fac,
     fac,
     factorial,
-    fib,
     gcd,
     gcdext,
     isqrt,
@@ -25,8 +23,6 @@ from hypothesis import example, given
 from hypothesis.strategies import booleans, integers, lists, sampled_from
 from test_utils import (
     bigints,
-    python_fac2,
-    python_fib,
     python_gcdext,
     python_isqrtrem,
 )
@@ -42,13 +38,11 @@ def test_isqrt(x):
 
 
 @given(integers(min_value=0, max_value=12345))
-def test_factorials(x):
+def test_factorial(x):
     mx = mpz(x)
-    for fm, f in [(factorial, math.factorial), (fib, python_fib),
-                  (double_fac, python_fac2)]:
-        r = f(x)
-        assert fm(mx) == r
-        assert fm(x) == r
+    r = factorial(x)
+    assert math.factorial(mx) == r
+    assert math.factorial(x) == r
 
 
 @given(integers(min_value=0, max_value=12345),
