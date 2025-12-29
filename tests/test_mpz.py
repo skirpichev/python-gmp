@@ -20,7 +20,7 @@ from hypothesis.strategies import (
     sampled_from,
     text,
 )
-from test_utils import (
+from utils import (
     BITS_PER_LIMB,
     SIEZEOF_LIMBCNT,
     SIZEOF_LIMB,

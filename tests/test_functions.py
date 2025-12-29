@@ -21,7 +21,7 @@ from gmp import (
 )
 from hypothesis import example, given
 from hypothesis.strategies import booleans, integers, lists, sampled_from
-from test_utils import (
+from utils import (
     bigints,
     python_gcdext,
     python_isqrtrem,
