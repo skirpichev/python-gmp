@@ -8,6 +8,7 @@ repos:
     - id: trailing-whitespace
     - id: name-tests-test
       args: [--pytest-test-first]
+      exclude: ^tests/utils.py$
   - repo: https://github.com/astral-sh/ruff-pre-commit
     rev: v0.8.3
     hooks:

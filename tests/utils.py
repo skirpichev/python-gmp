@@ -1,7 +1,6 @@
 import math
 import string
 import sys
-from functools import lru_cache
 
 from gmp import gmp_info
 from hypothesis.strategies import (
@@ -44,42 +43,6 @@ def python_gcdext(a, b):
 def python_isqrtrem(x):
     y = math.isqrt(x)
     return y, x - y*y
-
-
-@lru_cache(maxsize=250)
-def python_fib(n):
-    if n < 0:
-        return (-1)**(-n+1) * python_fib(-n)
-    # Use Dijkstra's logarithmic algorithm
-    # The following implementation is basically equivalent to
-    # http://en.literateprograms.org/Fibonacci_numbers_(Scheme)
-    a, b, p, q = 1, 0, 0, 1
-    while n:
-        if n & 1:
-            aq = a*q
-            a, b = b*q + aq + a*p, b*p + aq
-            n -= 1
-        else:
-            qq = q*q
-            p, q = p*p + qq, qq + 2*p*q
-            n >>= 1
-    return b
-
-
-def python_fac2(n, _memo_pair=[{0:1}, {1:1}]):
-    """Return n!! (double factorial), integers n >= 0 only."""
-    memo = _memo_pair[n&1]
-    f = memo.get(n)
-    if f:
-        return f
-    k = max(memo)
-    p = memo[k]
-    while k < n:
-        k += 2
-        p *= k
-        if k <= MAX_FACTORIAL_CACHE:
-            memo[k] = p
-    return p
 
 
 DBL_MAX_EXP = sys.float_info.max_exp

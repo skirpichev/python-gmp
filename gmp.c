@@ -2202,47 +2202,42 @@ end:
     return tup;
 }
 
-#define MAKE_MPZ_UI_FUN(name)                                            \
-    static PyObject *                                                    \
-    gmp_##name(PyObject *Py_UNUSED(module), PyObject *arg)               \
-    {                                                                    \
-        MPZ_Object *x, *res = MPZ_new();                                 \
-                                                                         \
-        if (!res) {                                                      \
-            return NULL; /* LCOV_EXCL_LINE */                            \
-        }                                                                \
-        CHECK_OP_INT(x, arg);                                            \
-        if (zz_isneg(&x->z)) {                                           \
-            PyErr_SetString(PyExc_ValueError,                            \
-                            #name "() not defined for negative values"); \
-            goto err;                                                    \
-        }                                                                \
-                                                                         \
-        zz_slimb_t n;                                                    \
-                                                                         \
-        if (zz_to_sl(&x->z, &n) || n > LONG_MAX) {                       \
-            PyErr_Format(PyExc_OverflowError,                            \
-                         #name "() argument should not exceed %ld",      \
-                         LONG_MAX);                                      \
-            goto err;                                                    \
-        }                                                                \
-        Py_XDECREF(x);                                                   \
-        if (zz_##name((zz_limb_t)n, &res->z)) {                          \
-            /* LCOV_EXCL_START */                                        \
-            PyErr_NoMemory();                                            \
-            goto err;                                                    \
-            /* LCOV_EXCL_STOP */                                         \
-        }                                                                \
-        return (PyObject *)res;                                          \
-    err:                                                                 \
-    end:                                                                 \
-        Py_DECREF(res);                                                  \
-        return NULL;                                                     \
+static PyObject *
+gmp_fac(PyObject *Py_UNUSED(module), PyObject *arg)
+{
+    MPZ_Object *x, *res = MPZ_new();
+
+    if (!res) {
+        return NULL; /* LCOV_EXCL_LINE */
+    }
+    CHECK_OP_INT(x, arg);
+    if (zz_isneg(&x->z)) {
+        PyErr_SetString(PyExc_ValueError,
+                        "fac() not defined for negative values");
+        goto err;
     }
 
-MAKE_MPZ_UI_FUN(fac)
-MAKE_MPZ_UI_FUN(fac2)
-MAKE_MPZ_UI_FUN(fib)
+    zz_slimb_t n;
+
+    if (zz_to_sl(&x->z, &n) || n > LONG_MAX) {
+        PyErr_Format(PyExc_OverflowError,
+                     "fac() argument should not exceed %ld",
+                     LONG_MAX);
+        goto err;
+    }
+    Py_XDECREF(x);
+    if (zz_fac((zz_limb_t)n, &res->z)) {
+        /* LCOV_EXCL_START */
+        PyErr_NoMemory();
+        goto err;
+        /* LCOV_EXCL_STOP */
+    }
+    return (PyObject *)res;
+err:
+end:
+    Py_DECREF(res);
+    return NULL;
+}
 
 static PyObject *
 gmp_comb(PyObject *self, PyObject *const *args, Py_ssize_t nargs)
@@ -2661,12 +2656,6 @@ static PyMethodDef gmp_functions[] = {
     {"factorial", gmp_fac, METH_O,
      ("factorial($module, n, /)\n--\n\n"
       "Find n!.")},
-    {"double_fac", gmp_fac2, METH_O,
-     ("double_fac($module, n, /)\n--\n\n"
-      "Return the exact double factorial n!!.")},
-    {"fib", gmp_fib, METH_O,
-     ("fib($module, n, /)\n--\n\n"
-      "Return the n-th Fibonacci number.")},
     {"comb", (PyCFunction)gmp_comb, METH_FASTCALL,
      ("comb($module, n, k, /)\n--\n\nNumber of ways to choose k"
       " items from n items without repetition and order.\n\n"
