@@ -1440,10 +1440,13 @@ zz_lshift(const zz_t *u, const zz_t *v, zz_t *w)
     if (zz_isneg(v)) {
         return ZZ_VAL;
     }
-    if (v->size > 1) {
+
+    zz_slimb_t shift;
+
+    if (zz_to_sl(v, &shift)) {
         return ZZ_BUF;
     }
-    return zz_mul_2exp(u, v->size ? v->digits[0] : 0, w);
+    return zz_mul_2exp(u, (zz_bitcnt_t)shift, w);
 }
 
 static inline zz_err
@@ -1452,10 +1455,13 @@ zz_rshift(const zz_t *u, const zz_t *v, zz_t *w)
     if (zz_isneg(v)) {
         return ZZ_VAL;
     }
-    if (v->size > 1) {
+
+    zz_slimb_t shift;
+
+    if (zz_to_sl(v, &shift)) {
         return zz_from_sl(zz_isneg(u) ? -1 : 0, w);
     }
-    return zz_quo_2exp(u, v->size ? v->digits[0] : 0, w);
+    return zz_quo_2exp(u, (zz_bitcnt_t)shift, w);
 }
 
 BINOP_INT(lshift)
