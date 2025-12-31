@@ -1095,7 +1095,7 @@ err:
         /* LCOV_EXCL_STOP */
     }
 
-    zz_ord unexpect = v->negative ? ZZ_LT : ZZ_GT;
+    zz_ord unexpect = zz_isneg(v) ? ZZ_LT : ZZ_GT;
     zz_t halfQ;
 
     if (zz_init(&halfQ) || zz_quo_2exp(v, 1, &halfQ)) {
@@ -1108,9 +1108,7 @@ err:
     zz_ord cmp = zz_cmp(r, &halfQ);
 
     zz_clear(&halfQ);
-    if (cmp == ZZ_EQ && v->digits[0]%2 == 0 && q->size
-        && q->digits[0]%2 != 0)
-    {
+    if (cmp == ZZ_EQ && !zz_isodd(v) && !zz_iszero(q) && zz_isodd(q)) {
         cmp = unexpect;
     }
     if (cmp == unexpect && (zz_add_sl(q, 1, q) || zz_sub(r, v, r))) {
@@ -1122,11 +1120,11 @@ err:
 static zz_err
 zz_truediv(const zz_t *u, const zz_t *v, double *res)
 {
-    if (!v->size) {
+    if (zz_iszero(v)) {
         return ZZ_VAL;
     }
-    if (!u->size) {
-        *res = v->negative ? -0.0 : 0.0;
+    if (zz_iszero(u)) {
+        *res = zz_isneg(v) ? -0.0 : 0.0;
         return ZZ_OK;
     }
 
@@ -1137,7 +1135,7 @@ zz_truediv(const zz_t *u, const zz_t *v, double *res)
         return ZZ_BUF;
     }
     if (ubits < vbits && vbits - ubits > -DBL_MIN_EXP + DBL_MANT_DIG + 1) {
-        *res = u->negative != v->negative ? -0.0 : 0.0;
+        *res = zz_isneg(u) != zz_isneg(v) ? -0.0 : 0.0;
         return ZZ_OK;
     }
 
@@ -1212,7 +1210,7 @@ tmp_clear:
     (void)zz_to_double(&a, res);
     zz_clear(&a);
     *res = ldexp(*res, -shift);
-    if (u->negative != v->negative) {
+    if (zz_isneg(u) != zz_isneg(v)) {
         *res = -*res;
     }
     if (isinf(*res)) {
@@ -1424,10 +1422,10 @@ done:                                                                \
 static inline zz_err
 zz_and_sl(const zz_t *u, zz_slimb_t v, zz_t *w)
 {
-    if (!u->size || !v) {
+    if (zz_iszero(u) || !v) {
         return zz_from_sl(0, w);
     }
-    assert(!u->negative && v > 0);
+    assert(!zz_isneg(u) && v > 0);
     return zz_from_sl((zz_slimb_t)(u->digits[0] & (zz_limb_t)v), w);
 }
 #define zz_sl_and(x, y, r) zz_and_sl((y), (x), (r))
