@@ -66,9 +66,7 @@ MPZ_to_str(MPZ_Object *u, int base, int options)
     size_t len;
     bool negative = zz_isneg(&u->z), cast_abs = false;
 
-    if ((base < INT8_MIN || base > INT8_MAX)
-        || zz_sizeinbase(&u->z, (int8_t)base, &len))
-    {
+    if (zz_sizeinbase(&u->z, base, &len)) {
         PyErr_SetString(PyExc_ValueError,
                         "mpz base must be >= 2 and <= 36");
         return NULL;
@@ -82,13 +80,13 @@ MPZ_to_str(MPZ_Object *u, int base, int options)
     }
     len++;
 
-    int8_t *buf = malloc(len), *p = buf;
+    char *buf = malloc(len), *p = buf;
 
     if (!buf) {
         return PyErr_NoMemory(); /* LCOV_EXCL_LINE */
     }
     if (options & OPT_TAG) {
-        strcpy((char *)p, MPZ_TAG);
+        strcpy(p, MPZ_TAG);
         p += strlen(MPZ_TAG);
     }
     if (options & OPT_PREFIX) {
@@ -117,7 +115,7 @@ MPZ_to_str(MPZ_Object *u, int base, int options)
         (void)zz_abs(&u->z, &u->z);
     }
 
-    zz_err ret = zz_to_str(&u->z, (int8_t)base, p, &len);
+    zz_err ret = zz_to_str(&u->z, base, p, &len);
 
     if (cast_abs) {
         (void)zz_neg(&u->z, &u->z);
@@ -134,7 +132,7 @@ MPZ_to_str(MPZ_Object *u, int base, int options)
     }
     *(p++) = '\0';
 
-    PyObject *res = PyUnicode_FromString((char *)buf);
+    PyObject *res = PyUnicode_FromString(buf);
 
     free(buf);
     return res;
@@ -144,12 +142,12 @@ static MPZ_Object *
 MPZ_from_str(PyObject *obj, int base)
 {
     Py_ssize_t len;
-    int8_t *str = (int8_t *)PyUnicode_AsUTF8AndSize(obj, &len);
+    const char *str = PyUnicode_AsUTF8AndSize(obj, &len);
 
     if (!str) {
         return NULL; /* LCOV_EXCL_LINE */
     }
-    if (base < 0 || base > INT8_MAX) {
+    if (base < 0) {
         goto bad_base;
     }
 
@@ -211,14 +209,14 @@ skip_negation:
         base = 10;
     }
 
-    int8_t *end = str + len - 1;
+    const char *end = str + len - 1;
 
     while (len > 0 && isspace(*end)) {
         end--;
         len--;
     }
 
-    zz_err ret = zz_from_str(str, (size_t)len, (int8_t)base, &res->z);
+    zz_err ret = zz_from_str(str, (size_t)len, base, &res->z);
 
     if (ret == ZZ_MEM) {
         /* LCOV_EXCL_START */
@@ -333,7 +331,7 @@ MPZ_to_int(MPZ_Object *u)
     (void)zz_sizeinbase(&u->z, 16, &len);
     len += zz_isneg(&u->z);
 
-    int8_t *buf = malloc(len + 1);
+    char *buf = malloc(len + 1);
 
     if (zz_to_str(&u->z, 16, buf, &len)) {
         /* LCOV_EXCL_START */
@@ -343,7 +341,7 @@ MPZ_to_int(MPZ_Object *u)
     }
     buf[len] = '\0';
 
-    PyObject *res = PyLong_FromString((char *)buf, NULL, 16);
+    PyObject *res = PyLong_FromString(buf, NULL, 16);
 
     free(buf);
     return res;
@@ -372,7 +370,7 @@ MPZ_to_bytes(MPZ_Object *u, Py_ssize_t length, int is_little, int is_signed)
         return NULL; /* LCOV_EXCL_LINE */
     }
 
-    uint8_t *buffer = (uint8_t *)PyBytes_AS_STRING(bytes);
+    unsigned char *buffer = (unsigned char *)PyBytes_AS_STRING(bytes);
     zz_err ret = zz_to_bytes(&u->z, (size_t)length, is_signed, &buffer);
 
     if (ret == ZZ_OK) {
@@ -408,7 +406,7 @@ static MPZ_Object *
 MPZ_from_bytes(PyObject *obj, int is_little, int is_signed)
 {
     PyObject *bytes = PyObject_Bytes(obj);
-    uint8_t *buffer;
+    unsigned char *buffer;
     Py_ssize_t length;
 
     if (bytes == NULL) {
@@ -421,7 +419,7 @@ MPZ_from_bytes(PyObject *obj, int is_little, int is_signed)
         is_little = 0;
     }
     if (is_little) {
-        uint8_t *tmp = malloc((size_t)length);
+        unsigned char *tmp = malloc((size_t)length);
 
         if (!tmp) {
             /* LCOV_EXCL_START */
