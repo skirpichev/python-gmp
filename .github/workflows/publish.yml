@@ -15,7 +15,7 @@ jobs:
     - run: pip install build
     - name: Cache GNU GMP builds
       id: cache-gmp
-      uses: actions/cache@v4
+      uses: actions/cache@v5
       with:
         path: .local
         key: ${{ matrix.os }}-${{ hashFiles('scripts/*') }}
