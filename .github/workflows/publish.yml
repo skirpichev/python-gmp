@@ -24,7 +24,7 @@ jobs:
     - run: python -m build -s
       env:
         PKG_CONFIG_PATH: ${{ github.workspace }}/.local/lib/pkgconfig
-    - uses: actions/upload-artifact@v5
+    - uses: actions/upload-artifact@v6
       with:
         name: python-gmp-sdist
         path: dist/
