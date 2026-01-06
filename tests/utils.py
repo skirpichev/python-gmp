@@ -12,9 +12,9 @@ from hypothesis.strategies import (
     sampled_from,
 )
 
-BITS_PER_LIMB = gmp_info[0]
-SIZEOF_LIMB = gmp_info[1]
-SIEZEOF_LIMBCNT = gmp_info[2]
+BITS_PER_DIGIT = gmp_info.bits_per_digit
+SIZEOF_DIGIT = gmp_info.sizeof_digit
+SIEZEOF_DIGITCNT = gmp_info.sizeof_digitcnt
 MAX_FACTORIAL_CACHE = 1000
 
 
@@ -160,7 +160,7 @@ def bigints(draw, min_value=None, max_value=None):
     # different weights (16-bit - most preferred).  If upper/lower boundaries
     # are specified, values near boundries are more likely (roughly 1.56%
     # chance for boundary and 0.78% - for 1-bit off).
-    max_digit = 1<<BITS_PER_LIMB
+    max_digit = 1<<BITS_PER_DIGIT
     ndigits = draw(sampled_from([1]*12 +
                                 [2]*8 +
                                 [3]*6 +

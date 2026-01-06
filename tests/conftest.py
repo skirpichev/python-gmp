@@ -20,9 +20,9 @@ settings.register_profile("ci", ci)
 def pytest_report_header(config):
     print(f"""
   The GNU GMP version: {gmp.gmp_info.version}
-  Bits per limb:       {gmp.gmp_info.bits_per_limb}
-  sizeof(mp_limb_t):   {gmp.gmp_info.sizeof_limb}
-  sizeof(mp_size_t):   {gmp.gmp_info.sizeof_limbcnt}
+  Bits per digit:      {gmp.gmp_info.bits_per_digit}
+  sizeof(mp_limb_t):   {gmp.gmp_info.sizeof_digit}
+  sizeof(mp_size_t):   {gmp.gmp_info.sizeof_digitcnt}
   sizeof(mp_bitcnt_t): {gmp.gmp_info.sizeof_bitcnt}
 """)
 
