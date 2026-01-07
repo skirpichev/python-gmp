@@ -12,6 +12,8 @@ jobs:
     - uses: actions/setup-python@v6
       with:
         python-version: "3.x"
+    - run: sudo apt-get update
+    - run: sudo apt-get install autoconf-archive
     - run: pip install build
     - name: Cache GNU GMP builds
       id: cache-gmp

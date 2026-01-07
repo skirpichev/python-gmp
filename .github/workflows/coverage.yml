@@ -19,7 +19,7 @@ jobs:
           python-version: ${{ matrix.python-version }}
           allow-prereleases: true
       - run: sudo apt-get update
-      - run: sudo apt-get install lcov
+      - run: sudo apt-get install autoconf-archive lcov
       - name: Setup locales
         run: |
           sudo locale-gen ru_RU.UTF-8
