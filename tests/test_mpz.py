@@ -21,9 +21,9 @@ from hypothesis.strategies import (
     text,
 )
 from utils import (
-    BITS_PER_LIMB,
-    SIEZEOF_LIMBCNT,
-    SIZEOF_LIMB,
+    BITS_PER_DIGIT,
+    SIEZEOF_DIGITCNT,
+    SIZEOF_DIGIT,
     bigints,
     fmt_str,
     numbers,
@@ -484,7 +484,7 @@ def test_mul_distributivity(x, y, z):
 @example(-2, 1<<64)
 @example(2, 1<<64)
 @example(18446744073709551615<<64, -1<<64)
-@example(int("0x"+"f"*32, 0), -1<<64)  # XXX: assuming BITS_PER_LIMB == 64
+@example(int("0x"+"f"*32, 0), -1<<64)  # XXX: assuming BITS_PER_DIGIT == 64
 @example(-68501870735943706700000000000000000001, 10**20)  # issue 117
 @example(0, 123)
 @example(0, -1382074480823709287)
@@ -713,7 +713,7 @@ def test_power_errors():
         pow(object(), mpz(321))
     if platform.python_implementation() == "GraalVM":
         return  # issue oracle/graalpython#551
-    if SIEZEOF_LIMBCNT < 8:
+    if SIEZEOF_DIGITCNT < 8:
         with pytest.raises(MemoryError):
             pow(mpz(1<<64), (1<<31) - 1)
         with pytest.raises(MemoryError):
@@ -724,11 +724,11 @@ def test_power_errors():
         if platform.system() != "Darwin":
             with pytest.raises(MemoryError):
                 pow(mpz(1<<64), (1<<63))
-    with pytest.raises(MemoryError):
+    with pytest.raises(OverflowError):
         mpz(1) << ((1 << 64) - 1)
     if platform.system() != "Darwin":
         with pytest.raises(MemoryError):
-            mpz(1) << (1 << 63)
+            mpz(1) << ((1 << 63) - 1)
 
 
 @given(bigints(), integers(max_value=12345))
@@ -982,8 +982,8 @@ def test_round_interface():
                     reason="sys.getsizeof raises TypeError")
 def test_sizeof():
     for i in [1, 20, 300]:
-        ms = mpz(1 << i*BITS_PER_LIMB)
-        assert sys.getsizeof(ms) >= i*SIZEOF_LIMB
+        ms = mpz(1 << i*BITS_PER_DIGIT)
+        assert sys.getsizeof(ms) >= i*SIZEOF_DIGIT
 
 
 @given(bigints(), integers(min_value=2, max_value=36))

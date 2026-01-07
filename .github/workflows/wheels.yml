@@ -30,6 +30,7 @@ jobs:
             make
             patch
             autotools
+            autoconf-archive
           msystem: ${{ matrix.msystem }}
         if: ${{ startsWith(matrix.os, 'windows') }}
       # Install pkgconfig on Windows from choco rather than from msys and
