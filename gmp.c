@@ -8,10 +8,6 @@
 #include <stdlib.h>
 #include <string.h>
 
-#if defined(_MSC_VER)
-#  define _Thread_local __declspec(thread)
-#endif
-
 #if !defined(PYPY_VERSION)
 #  define CACHE_SIZE (99)
 #else
