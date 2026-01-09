@@ -246,6 +246,9 @@ def test_mpz_interface():
         mpz("123", 123)
     with pytest.raises(ValueError,
                        match="mpz base must be >= 2 and <= 36, or 0"):
+        mpz("123", -123)
+    with pytest.raises(ValueError,
+                       match="mpz base must be >= 2 and <= 36, or 0"):
         mpz("123", 129)
     with pytest.raises(ValueError, match="invalid literal"):
         mpz("0123", 0)
