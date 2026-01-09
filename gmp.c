@@ -31,7 +31,7 @@ MPZ_new(void)
 
     if (global.gmp_cache_size) {
         res = global.gmp_cache[--(global.gmp_cache_size)];
-        if (zz_from_i32(0, &res->z)) {
+        if (zz_set(0, &res->z)) {
             /* LCOV_EXCL_START */
             global.gmp_cache[(global.gmp_cache_size)++] = res;
             return (MPZ_Object *)PyErr_NoMemory();
@@ -111,7 +111,7 @@ MPZ_to_str(MPZ_Object *u, int base, int options)
         (void)zz_abs(&u->z, &u->z);
     }
 
-    zz_err ret = zz_to_str(&u->z, base, p, &len);
+    zz_err ret = zz_get_str(&u->z, base, p, &len);
 
     if (cast_abs) {
         (void)zz_neg(&u->z, &u->z);
@@ -212,7 +212,7 @@ skip_negation:
         len--;
     }
 
-    zz_err ret = zz_from_str(str, (size_t)len, base, &res->z);
+    zz_err ret = zz_set_str(str, (size_t)len, base, &res->z);
 
     if (ret == ZZ_MEM) {
         /* LCOV_EXCL_START */
@@ -267,7 +267,7 @@ MPZ_from_int(PyObject *obj)
     }
     else {
         res = MPZ_new();
-        if (res && zz_from_i64(long_export.value, &res->z)) {
+        if (res && zz_set(long_export.value, &res->z)) {
             PyErr_NoMemory(); /* LCOV_EXCL_LINE */
         }
     }
@@ -278,7 +278,7 @@ MPZ_from_int(PyObject *obj)
     if (!PyLong_AsInt64(obj, &value)) {
         MPZ_Object *res = MPZ_new();
 
-        if (res && zz_from_i64(value, &res->z)) {
+        if (res && zz_set(value, &res->z)) {
             PyErr_NoMemory(); /* LCOV_EXCL_LINE */
         }
         return res;
@@ -303,7 +303,7 @@ MPZ_to_int(MPZ_Object *u)
 {
     int64_t value;
 
-    if (zz_to_i64(&u->z, &value) == ZZ_OK) {
+    if (zz_get(&u->z, &value) == ZZ_OK) {
         return PyLong_FromInt64(value);
     }
 
@@ -329,7 +329,7 @@ MPZ_to_int(MPZ_Object *u)
 
     char *buf = malloc(len + 1);
 
-    if (zz_to_str(&u->z, 16, buf, &len)) {
+    if (zz_get_str(&u->z, 16, buf, &len)) {
         /* LCOV_EXCL_START */
         free(buf);
         return NULL;
@@ -360,8 +360,8 @@ revstr(unsigned char *s, Py_ssize_t l, Py_ssize_t r)
 static const zz_layout bytes_layout = {8, 1, 1, 0};
 
 static zz_err
-zz_to_bytes(const zz_t *u, size_t length, bool is_signed,
-            unsigned char **buffer)
+zz_get_bytes(const zz_t *u, size_t length, bool is_signed,
+             unsigned char **buffer)
 {
     zz_t tmp;
     bool is_negative = zz_isneg(u);
@@ -377,7 +377,7 @@ zz_to_bytes(const zz_t *u, size_t length, bool is_signed,
             zz_clear(&tmp);
             return ZZ_BUF;
         }
-        if (zz_from_i32(1, &tmp) || zz_mul_2exp(&tmp, 8*length, &tmp)
+        if (zz_set(1, &tmp) || zz_mul_2exp(&tmp, 8*length, &tmp)
             || zz_add(&tmp, u, &tmp))
         {
             /* LCOV_EXCL_START */
@@ -416,7 +416,7 @@ MPZ_to_bytes(MPZ_Object *u, Py_ssize_t length, int is_little, int is_signed)
     }
 
     unsigned char *buffer = (unsigned char *)PyBytes_AS_STRING(bytes);
-    zz_err ret = zz_to_bytes(&u->z, (size_t)length, is_signed, &buffer);
+    zz_err ret = zz_get_bytes(&u->z, (size_t)length, is_signed, &buffer);
 
     if (ret == ZZ_OK) {
         if (is_little && length) {
@@ -448,11 +448,11 @@ MPZ_to_bytes(MPZ_Object *u, Py_ssize_t length, int is_little, int is_signed)
 }
 
 static zz_err
-zz_from_bytes(const unsigned char *buffer, size_t length, bool is_signed,
-              zz_t *u)
+zz_set_bytes(const unsigned char *buffer, size_t length, bool is_signed,
+             zz_t *u)
 {
     if (!length) {
-        return zz_from_i64(0, u);
+        return zz_set(0, u);
     }
     if (zz_import(length, buffer, bytes_layout, u)) {
         return ZZ_MEM; /* LCOV_EXCL_LINE */
@@ -461,7 +461,7 @@ zz_from_bytes(const unsigned char *buffer, size_t length, bool is_signed,
     if (is_signed && zz_bitlen(u) == 8*(size_t)length) {
         zz_t tmp;
 
-        if (zz_init(&tmp) || zz_from_i32(1, &tmp)
+        if (zz_init(&tmp) || zz_set(1, &tmp)
             || zz_mul_2exp(&tmp, 8*length, &tmp)
             || zz_sub(&tmp, u, u) || zz_neg(u, u))
         {
@@ -507,7 +507,7 @@ MPZ_from_bytes(PyObject *obj, int is_little, int is_signed)
 
     MPZ_Object *res = MPZ_new();
 
-    if (!res || zz_from_bytes(buffer, (size_t)length, is_signed, &res->z)) {
+    if (!res || zz_set_bytes(buffer, (size_t)length, is_signed, &res->z)) {
         /* LCOV_EXCL_START */
         Py_DECREF(bytes);
         if (is_little) {
@@ -758,7 +758,7 @@ to_float(PyObject *self)
 {
     double d;
     MPZ_Object *u = (MPZ_Object *)self;
-    zz_err ret = zz_to_double(&u->z, &d);
+    zz_err ret = zz_get(&u->z, &d);
 
     if (ret == ZZ_BUF) {
         PyErr_SetString(PyExc_OverflowError,
@@ -1242,7 +1242,7 @@ tmp_clear:
         /* LCOV_EXCL_STOP */
     }
     zz_clear(&b);
-    (void)zz_to_double(&a, res);
+    (void)zz_get(&a, res);
     zz_clear(&a);
     *res = ldexp(*res, -shift);
     if (zz_isneg(u) != zz_isneg(v)) {
@@ -1458,10 +1458,10 @@ static inline zz_err
 zz_and_i64(const zz_t *u, int64_t v, zz_t *w)
 {
     if (zz_iszero(u) || !v) {
-        return zz_from_i32(0, w);
+        return zz_set(0, w);
     }
     assert(!zz_isneg(u) && v > 0);
-    return zz_from_i64((int64_t)(u->digits[0] & (zz_digit_t)v), w);
+    return zz_set((int64_t)(u->digits[0] & (zz_digit_t)v), w);
 }
 #define zz_i64_and(x, y, r) zz_and_i64((y), (x), (r))
 
@@ -1478,7 +1478,7 @@ zz_lshift(const zz_t *u, const zz_t *v, zz_t *w)
 
     int64_t shift;
 
-    if (zz_to_i64(v, &shift)) {
+    if (zz_get(v, &shift)) {
         return ZZ_BUF;
     }
     return zz_mul_2exp(u, (zz_bitcnt_t)shift, w);
@@ -1493,8 +1493,8 @@ zz_rshift(const zz_t *u, const zz_t *v, zz_t *w)
 
     int64_t shift;
 
-    if (zz_to_i64(v, &shift)) {
-        return zz_from_i32(zz_isneg(u) ? -1 : 0, w);
+    if (zz_get(v, &shift)) {
+        return zz_set(zz_isneg(u) ? -1 : 0, w);
     }
     return zz_quo_2exp(u, (zz_bitcnt_t)shift, w);
 }
@@ -1535,7 +1535,7 @@ power(PyObject *self, PyObject *other, PyObject *module)
 
         int64_t exp;
 
-        if (!res || zz_to_i64(&v->z, &exp)
+        if (!res || zz_get(&v->z, &exp)
             || zz_pow(&u->z, (zz_digit_t)exp, &res->z))
         {
             /* LCOV_EXCL_START */
@@ -1647,7 +1647,7 @@ get_one(PyObject *Py_UNUSED(self), void *Py_UNUSED(closure))
 {
     MPZ_Object *res = MPZ_new();
 
-    if (res && zz_from_i32(1, &res->z)) {
+    if (res && zz_set(1, &res->z)) {
         PyErr_NoMemory(); /* LCOV_EXCL_LINE */
     }
     return (PyObject *)res;
@@ -1868,7 +1868,7 @@ noop:
 
     MPZ_Object *ten = MPZ_new();
 
-    if (!ten || zz_from_i32(10, &ten->z)) {
+    if (!ten || zz_set(10, &ten->z)) {
         /* LCOV_EXCL_START */
         Py_DECREF(ndigits);
         Py_XDECREF(ten);
@@ -2153,7 +2153,7 @@ gmp_lcm(PyObject *Py_UNUSED(module), PyObject *const *args, Py_ssize_t nargs)
 {
     MPZ_Object *res = MPZ_new();
 
-    if (!res || zz_from_i32(1, &res->z)) {
+    if (!res || zz_set(1, &res->z)) {
         return PyErr_NoMemory(); /* LCOV_EXCL_LINE */
     }
     for (Py_ssize_t i = 0; i < nargs; i++) {
@@ -2258,7 +2258,7 @@ gmp_fac(PyObject *Py_UNUSED(module), PyObject *arg)
 
     int64_t n;
 
-    if (zz_to_i64(&x->z, &n) || n > LONG_MAX) {
+    if (zz_get(&x->z, &n) || n > LONG_MAX) {
         PyErr_Format(PyExc_OverflowError,
                      "fac() argument should not exceed %ld",
                      LONG_MAX);
@@ -2301,8 +2301,8 @@ gmp_comb(PyObject *self, PyObject *const *args, Py_ssize_t nargs)
 
     int64_t n, k;
 
-    if ((zz_to_i64(&x->z, &n) || n > ULONG_MAX)
-        || (zz_to_i64(&y->z, &k) || k > ULONG_MAX))
+    if ((zz_get(&x->z, &n) || n > ULONG_MAX)
+        || (zz_get(&y->z, &k) || k > ULONG_MAX))
     {
         PyErr_Format(PyExc_OverflowError,
                      "comb() arguments should not exceed %ld",
@@ -2350,8 +2350,8 @@ gmp_perm(PyObject *self, PyObject *const *args, Py_ssize_t nargs)
 
     int64_t n, k;
 
-    if ((zz_to_i64(&x->z, &n) || n > ULONG_MAX)
-        || (zz_to_i64(&y->z, &k) || k > ULONG_MAX))
+    if ((zz_get(&x->z, &n) || n > ULONG_MAX)
+        || (zz_get(&y->z, &k) || k > ULONG_MAX))
     {
         PyErr_Format(PyExc_OverflowError,
                      "perm() arguments should not exceed %ld",
@@ -2440,7 +2440,7 @@ zz_mpmath_normalize(zz_bitcnt_t prec, zz_rnd rnd, bool *negative,
     if (zz_iszero(man)) {
         *negative = false;
         *bc = 0;
-        return zz_from_i32(0, exp);
+        return zz_set(0, exp);
     }
     /* if size <= prec and the number is odd return it */
     if (*bc <= prec && zz_isodd(man)) {
@@ -2486,7 +2486,7 @@ do_rnd:
         zz_t tmp;
 
         if (zz_init(&tmp) || shift > INT64_MAX
-            || zz_from_i64((int64_t)shift, &tmp)
+            || zz_set((int64_t)shift, &tmp)
             || zz_add(exp, &tmp, exp))
         {
             /* LCOV_EXCL_START */
@@ -2510,7 +2510,7 @@ do_rnd:
     zz_t tmp;
 
     if (zz_init(&tmp) || zbits > INT64_MAX
-        || zz_from_i64((int64_t)zbits, &tmp)
+        || zz_set((int64_t)zbits, &tmp)
         || zz_add(exp, &tmp, exp))
     {
         /* LCOV_EXCL_START */

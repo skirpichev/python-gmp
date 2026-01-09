@@ -975,7 +975,7 @@ format_long_internal(MPZ_Object *value, const InternalFormatSpec *format)
         }
         /* taken from unicodeobject.c formatchar() */
         /* Integer input truncated to a character */
-        if (zz_to_i32(&value->z, &x) || x < 0 || x > 0x10ffff) {
+        if (zz_get(&value->z, &x) || x < 0 || x > 0x10ffff) {
             PyErr_SetString(PyExc_OverflowError,
                             "%c arg not in range(0x110000)");
             goto done;
