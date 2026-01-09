@@ -21,8 +21,8 @@ from hypothesis.strategies import (
     text,
 )
 from utils import (
+    BITCNT_MAX,
     BITS_PER_DIGIT,
-    SIEZEOF_DIGITCNT,
     SIZEOF_DIGIT,
     bigints,
     fmt_str,
@@ -713,7 +713,7 @@ def test_power_errors():
         pow(object(), mpz(321))
     if platform.python_implementation() == "GraalVM":
         return  # issue oracle/graalpython#551
-    if SIEZEOF_DIGITCNT < 8:
+    if BITCNT_MAX < (1<<64) - 1:
         with pytest.raises(MemoryError):
             pow(mpz(1<<64), (1<<31) - 1)
         with pytest.raises(MemoryError):

@@ -24,6 +24,8 @@ _Thread_local gmp_global global = {
     .gmp_cache_size = 0,
 };
 
+uint8_t bits_per_digit;
+
 static MPZ_Object *
 MPZ_new(void)
 {
@@ -373,7 +375,7 @@ zz_get_bytes(const zz_t *u, size_t length, bool is_signed,
         if (!is_signed) {
             return ZZ_BUF;
         }
-        if (8*length/ZZ_DIGIT_T_BITS + 1 < u->size) {
+        if (8*length/bits_per_digit + 1 < u->size) {
             zz_clear(&tmp);
             return ZZ_BUF;
         }
@@ -398,7 +400,7 @@ zz_get_bytes(const zz_t *u, size_t length, bool is_signed,
         return ZZ_BUF;
     }
 
-    size_t gap = length - (nbits + ZZ_DIGIT_T_BITS/8 - 1)/(ZZ_DIGIT_T_BITS/8);
+    size_t gap = length - (nbits + bits_per_digit/8 - 1)/(bits_per_digit/8);
 
     zz_export(u, bytes_layout, length - gap, *buffer + gap);
     memset(*buffer, is_negative ? 0xFF : 0, gap);
@@ -1175,7 +1177,7 @@ zz_truediv(const zz_t *u, const zz_t *v, double *res)
     }
 
     int shift = (int)(vbits - ubits);
-    int n = shift, whole = n / ZZ_DIGIT_T_BITS;
+    int n = shift, whole = n / bits_per_digit;
     zz_t a, b;
 
     if (zz_init(&a) || zz_init(&b) || zz_abs(u, &a) || zz_abs(v, &b)) {
@@ -1196,7 +1198,7 @@ tmp_clear:
     }
     /*                       -shift - 1             -shift
       find shift satisfying 2           <= |a/b| < 2       */
-    n %= ZZ_DIGIT_T_BITS;
+    n %= bits_per_digit;
     for (zz_size_t i = v->size; i--;) {
         zz_digit_t du, dv = v->digits[i];
 
@@ -1208,7 +1210,7 @@ tmp_clear:
                 du = 0;
             }
             if (n && i > whole) {
-                du |= u->digits[i - whole - 1] >> (ZZ_DIGIT_T_BITS - n);
+                du |= u->digits[i - whole - 1] >> (bits_per_digit - n);
             }
         }
         else {
@@ -2709,82 +2711,72 @@ static PyMethodDef gmp_functions[] = {
     {NULL} /* sentinel */
 };
 
-PyDoc_STRVAR(gmp_info__doc__,
-             "gmp.gmplib_info\n\n\
-A named tuple that holds information about GNU GMP\n\
-and it's internal representation of integers.\n\
+PyDoc_STRVAR(mpz_info__doc__,
+             "gmp.mpz_info\n\n\
+A named tuple that holds information about mpz type.\n\
 The attributes are read only.");
 
-static PyStructSequence_Field gmp_info_fields[] = {
+static PyStructSequence_Field mpz_info_fields[] = {
     {"bits_per_digit", "size of a digit in bits"},
     {"sizeof_digit", "size in bytes of the C type, used to represent a digit"},
-    {"sizeof_digitcnt", ("size in bytes of the C type, used to"
-                        " represent a count of digits")},
-    {"sizeof_bitcnt", ("size in bytes of the C type, used to"
-                       " represent a count of bits")},
-    {"version", "the GNU GMP version"},
+    {"bitcnt_max", "maximal count of bits in integer"},
     {NULL}};
 
-static PyStructSequence_Desc gmp_info_desc = {
-    "gmp.gmplib_info", gmp_info__doc__, gmp_info_fields, 5};
+static PyStructSequence_Desc mpz_info_desc = {
+    "gmp.mpz_info", mpz_info__doc__, mpz_info_fields, 3};
 
 static int
 gmp_exec(PyObject *m)
 {
-    static zz_info info;
-
-    if (zz_setup(&info)) {
+    if (zz_setup()) {
         return -1; /* LCOV_EXCL_LINE */
     }
     if (PyModule_AddType(m, &MPZ_Type) < 0) {
         return -1; /* LCOV_EXCL_LINE */
     }
 
-    PyTypeObject *GMP_InfoType = PyStructSequence_NewType(&gmp_info_desc);
+    PyTypeObject *MPZ_InfoType = PyStructSequence_NewType(&mpz_info_desc);
 
-    if (!GMP_InfoType) {
+    if (!MPZ_InfoType) {
         return -1; /* LCOV_EXCL_LINE */
     }
 
-    PyObject *gmp_info = PyStructSequence_New(GMP_InfoType);
+    PyObject *mpz_info = PyStructSequence_New(MPZ_InfoType);
+    const zz_layout *layout = zz_get_layout();
 
-    Py_DECREF(GMP_InfoType);
-    if (gmp_info == NULL) {
+    bits_per_digit = layout->bits_per_digit;
+    Py_DECREF(MPZ_InfoType);
+    if (mpz_info == NULL) {
         return -1; /* LCOV_EXCL_LINE */
     }
-    PyStructSequence_SET_ITEM(gmp_info, 0,
-                              PyLong_FromLong(info.bits_per_digit));
-    PyStructSequence_SET_ITEM(gmp_info, 1,
-                              PyLong_FromLong(info.digit_bytes));
-    PyStructSequence_SET_ITEM(gmp_info, 2,
-                              PyLong_FromLong(info.digitcnt_bytes));
-    PyStructSequence_SET_ITEM(gmp_info, 3,
-                              PyLong_FromLong(info.bitcnt_bytes));
-    PyStructSequence_SET_ITEM(gmp_info, 4,
-                              PyUnicode_FromFormat("%d.%d.%d",
-                                                   info.version[0],
-                                                   info.version[1],
-                                                   info.version[2]));
+    PyStructSequence_SET_ITEM(mpz_info, 0,
+                              PyLong_FromLong(bits_per_digit));
+    PyStructSequence_SET_ITEM(mpz_info, 1,
+                              PyLong_FromLong(layout->digit_size));
+    PyStructSequence_SET_ITEM(mpz_info, 2,
+                              PyLong_FromUInt64(zz_get_bitcnt_max()));
     if (PyErr_Occurred()) {
         /* LCOV_EXCL_START */
-        Py_DECREF(gmp_info);
+fail1:
+        Py_DECREF(mpz_info);
         return -1;
         /* LCOV_EXCL_STOP */
     }
-    if (PyModule_AddObject(m, "gmp_info", gmp_info) < 0) {
-        /* LCOV_EXCL_START */
-        Py_DECREF(gmp_info);
-        return -1;
-        /* LCOV_EXCL_STOP */
+    if (PyModule_AddObject(m, "mpz_info", mpz_info) < 0) {
+        goto fail1; /* LCOV_EXCL_LINE */
+    }
+    if (PyModule_AddStringConstant(m, "_zz_version", zz_get_version()) < 0) {
+        goto fail1; /* LCOV_EXCL_LINE */
     }
 
     PyObject *ns = PyDict_New();
 
     if (!ns) {
-        return -1; /* LCOV_EXCL_LINE */
+        goto fail1; /* LCOV_EXCL_LINE */
     }
     if (PyDict_SetItemString(ns, "gmp", m) < 0) {
         /* LCOV_EXCL_START */
+        Py_DECREF(mpz_info);
         Py_DECREF(ns);
         return -1;
         /* LCOV_EXCL_STOP */
@@ -2800,7 +2792,7 @@ gmp_exec(PyObject *m)
 
     Py_DECREF(ns);
     if (!res) {
-        return -1; /* LCOV_EXCL_LINE */
+        goto fail1; /* LCOV_EXCL_LINE */
     }
     Py_DECREF(res);
     return 0;
