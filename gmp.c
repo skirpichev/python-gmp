@@ -357,6 +357,55 @@ revstr(unsigned char *s, Py_ssize_t l, Py_ssize_t r)
     }
 }
 
+static const zz_layout bytes_layout = {8, 1, 1, 0};
+
+static zz_err
+zz_to_bytes(const zz_t *u, size_t length, bool is_signed,
+            unsigned char **buffer)
+{
+    zz_t tmp;
+    bool is_negative = zz_isneg(u);
+
+    if (zz_init(&tmp)) {
+        return ZZ_MEM; /* LCOV_EXCL_LINE */
+    }
+    if (is_negative) {
+        if (!is_signed) {
+            return ZZ_BUF;
+        }
+        if (8*length/ZZ_DIGIT_T_BITS + 1 < u->size) {
+            zz_clear(&tmp);
+            return ZZ_BUF;
+        }
+        if (zz_from_i32(1, &tmp) || zz_mul_2exp(&tmp, 8*length, &tmp)
+            || zz_add(&tmp, u, &tmp))
+        {
+            /* LCOV_EXCL_START */
+            zz_clear(&tmp);
+            return ZZ_MEM;
+            /* LCOV_EXCL_STOP */
+        }
+        u = &tmp;
+    }
+
+    size_t nbits = zz_bitlen(u);
+
+    if (nbits > 8*length
+        || (is_signed && ((!nbits && is_negative)
+            || (nbits && (nbits == 8 * length ? !is_negative : is_negative)))))
+    {
+        zz_clear(&tmp);
+        return ZZ_BUF;
+    }
+
+    size_t gap = length - (nbits + ZZ_DIGIT_T_BITS/8 - 1)/(ZZ_DIGIT_T_BITS/8);
+
+    zz_export(u, bytes_layout, length - gap, *buffer + gap);
+    memset(*buffer, is_negative ? 0xFF : 0, gap);
+    zz_clear(&tmp);
+    return ZZ_OK;
+}
+
 static PyObject *
 MPZ_to_bytes(MPZ_Object *u, Py_ssize_t length, int is_little, int is_signed)
 {
@@ -396,6 +445,34 @@ MPZ_to_bytes(MPZ_Object *u, Py_ssize_t length, int is_little, int is_signed)
     Py_DECREF(bytes);
     return PyErr_NoMemory();
     /* LCOV_EXCL_STOP */
+}
+
+static zz_err
+zz_from_bytes(const unsigned char *buffer, size_t length, bool is_signed,
+              zz_t *u)
+{
+    if (!length) {
+        return zz_from_i64(0, u);
+    }
+    if (zz_import(length, buffer, bytes_layout, u)) {
+        return ZZ_MEM; /* LCOV_EXCL_LINE */
+    }
+    (void)zz_abs(u, u);
+    if (is_signed && zz_bitlen(u) == 8*(size_t)length) {
+        zz_t tmp;
+
+        if (zz_init(&tmp) || zz_from_i32(1, &tmp)
+            || zz_mul_2exp(&tmp, 8*length, &tmp)
+            || zz_sub(&tmp, u, u) || zz_neg(u, u))
+        {
+            /* LCOV_EXCL_START */
+            zz_clear(&tmp);
+            return ZZ_MEM;
+            /* LCOV_EXCL_STOP */
+        }
+        zz_clear(&tmp);
+    }
+    return ZZ_OK;
 }
 
 static MPZ_Object *
