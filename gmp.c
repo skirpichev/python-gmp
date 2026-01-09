@@ -649,7 +649,7 @@ new(PyTypeObject *type, PyObject *args, PyObject *keywds)
             return NULL;
             /* LCOV_EXCL_STOP */
         }
-        if (zz_init(&newobj->z) || zz_copy(&tmp->z, &newobj->z)) {
+        if (zz_init(&newobj->z) || zz_pos(&tmp->z, &newobj->z)) {
             /* LCOV_EXCL_START */
             Py_DECREF(tmp);
             return PyErr_NoMemory();
@@ -893,7 +893,7 @@ hash(PyObject *self)
         return (PyObject *)res;                    \
     }
 
-UNOP(copy, plus)
+UNOP(pos, plus)
 UNOP(neg, nb_negative)
 UNOP(abs, nb_absolute)
 UNOP(invert, nb_invert)
