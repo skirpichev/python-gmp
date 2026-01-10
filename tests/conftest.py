@@ -19,11 +19,11 @@ settings.register_profile("ci", ci)
 
 def pytest_report_header(config):
     print(f"""
-  The GNU GMP version: {gmp.gmp_info.version}
-  Bits per digit:      {gmp.gmp_info.bits_per_digit}
-  sizeof(mp_limb_t):   {gmp.gmp_info.sizeof_digit}
-  sizeof(mp_size_t):   {gmp.gmp_info.sizeof_digitcnt}
-  sizeof(mp_bitcnt_t): {gmp.gmp_info.sizeof_bitcnt}
+  Using the ZZ library v{gmp._zz_version}
+
+  Bits per digit   :      {gmp.mpz_info.bits_per_digit}
+  sizeof(zz_limb_t):      {gmp.mpz_info.sizeof_digit}
+  Maximal bit count:      {gmp.mpz_info.bitcnt_max}
 """)
 
 

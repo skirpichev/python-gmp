@@ -2,7 +2,7 @@ import math
 import string
 import sys
 
-from gmp import gmp_info
+from gmp import mpz_info
 from hypothesis.strategies import (
     booleans,
     complex_numbers,
@@ -12,9 +12,9 @@ from hypothesis.strategies import (
     sampled_from,
 )
 
-BITS_PER_DIGIT = gmp_info.bits_per_digit
-SIZEOF_DIGIT = gmp_info.sizeof_digit
-SIEZEOF_DIGITCNT = gmp_info.sizeof_digitcnt
+BITS_PER_DIGIT = mpz_info.bits_per_digit
+SIZEOF_DIGIT = mpz_info.sizeof_digit
+BITCNT_MAX = mpz_info.bitcnt_max
 MAX_FACTORIAL_CACHE = 1000
 
 

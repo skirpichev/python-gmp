@@ -8,10 +8,6 @@
 #include <stdlib.h>
 #include <string.h>
 
-#if defined(_MSC_VER)
-#  define _Thread_local __declspec(thread)
-#endif
-
 #if !defined(PYPY_VERSION)
 #  define CACHE_SIZE (99)
 #else
@@ -28,6 +24,8 @@ _Thread_local gmp_global global = {
     .gmp_cache_size = 0,
 };
 
+uint8_t bits_per_digit;
+
 static MPZ_Object *
 MPZ_new(void)
 {
@@ -35,7 +33,7 @@ MPZ_new(void)
 
     if (global.gmp_cache_size) {
         res = global.gmp_cache[--(global.gmp_cache_size)];
-        if (zz_from_i32(0, &res->z)) {
+        if (zz_set(0, &res->z)) {
             /* LCOV_EXCL_START */
             global.gmp_cache[(global.gmp_cache_size)++] = res;
             return (MPZ_Object *)PyErr_NoMemory();
@@ -115,7 +113,7 @@ MPZ_to_str(MPZ_Object *u, int base, int options)
         (void)zz_abs(&u->z, &u->z);
     }
 
-    zz_err ret = zz_to_str(&u->z, base, p, &len);
+    zz_err ret = zz_get_str(&u->z, base, p, &len);
 
     if (cast_abs) {
         (void)zz_neg(&u->z, &u->z);
@@ -216,7 +214,7 @@ skip_negation:
         len--;
     }
 
-    zz_err ret = zz_from_str(str, (size_t)len, base, &res->z);
+    zz_err ret = zz_set_str(str, (size_t)len, base, &res->z);
 
     if (ret == ZZ_MEM) {
         /* LCOV_EXCL_START */
@@ -271,7 +269,7 @@ MPZ_from_int(PyObject *obj)
     }
     else {
         res = MPZ_new();
-        if (res && zz_from_i64(long_export.value, &res->z)) {
+        if (res && zz_set(long_export.value, &res->z)) {
             PyErr_NoMemory(); /* LCOV_EXCL_LINE */
         }
     }
@@ -282,7 +280,7 @@ MPZ_from_int(PyObject *obj)
     if (!PyLong_AsInt64(obj, &value)) {
         MPZ_Object *res = MPZ_new();
 
-        if (res && zz_from_i64(value, &res->z)) {
+        if (res && zz_set(value, &res->z)) {
             PyErr_NoMemory(); /* LCOV_EXCL_LINE */
         }
         return res;
@@ -307,7 +305,7 @@ MPZ_to_int(MPZ_Object *u)
 {
     int64_t value;
 
-    if (zz_to_i64(&u->z, &value) == ZZ_OK) {
+    if (zz_get(&u->z, &value) == ZZ_OK) {
         return PyLong_FromInt64(value);
     }
 
@@ -333,7 +331,7 @@ MPZ_to_int(MPZ_Object *u)
 
     char *buf = malloc(len + 1);
 
-    if (zz_to_str(&u->z, 16, buf, &len)) {
+    if (zz_get_str(&u->z, 16, buf, &len)) {
         /* LCOV_EXCL_START */
         free(buf);
         return NULL;
@@ -361,6 +359,55 @@ revstr(unsigned char *s, Py_ssize_t l, Py_ssize_t r)
     }
 }
 
+static const zz_layout bytes_layout = {8, 1, 1, 0};
+
+static zz_err
+zz_get_bytes(const zz_t *u, size_t length, bool is_signed,
+             unsigned char **buffer)
+{
+    zz_t tmp;
+    bool is_negative = zz_isneg(u);
+
+    if (zz_init(&tmp)) {
+        return ZZ_MEM; /* LCOV_EXCL_LINE */
+    }
+    if (is_negative) {
+        if (!is_signed) {
+            return ZZ_BUF;
+        }
+        if (8*length/bits_per_digit + 1 < u->size) {
+            zz_clear(&tmp);
+            return ZZ_BUF;
+        }
+        if (zz_set(1, &tmp) || zz_mul_2exp(&tmp, 8*length, &tmp)
+            || zz_add(&tmp, u, &tmp))
+        {
+            /* LCOV_EXCL_START */
+            zz_clear(&tmp);
+            return ZZ_MEM;
+            /* LCOV_EXCL_STOP */
+        }
+        u = &tmp;
+    }
+
+    size_t nbits = zz_bitlen(u);
+
+    if (nbits > 8*length
+        || (is_signed && ((!nbits && is_negative)
+            || (nbits && (nbits == 8 * length ? !is_negative : is_negative)))))
+    {
+        zz_clear(&tmp);
+        return ZZ_BUF;
+    }
+
+    size_t gap = length - (nbits + bits_per_digit/8 - 1)/(bits_per_digit/8);
+
+    zz_export(u, bytes_layout, length - gap, *buffer + gap);
+    memset(*buffer, is_negative ? 0xFF : 0, gap);
+    zz_clear(&tmp);
+    return ZZ_OK;
+}
+
 static PyObject *
 MPZ_to_bytes(MPZ_Object *u, Py_ssize_t length, int is_little, int is_signed)
 {
@@ -371,7 +418,7 @@ MPZ_to_bytes(MPZ_Object *u, Py_ssize_t length, int is_little, int is_signed)
     }
 
     unsigned char *buffer = (unsigned char *)PyBytes_AS_STRING(bytes);
-    zz_err ret = zz_to_bytes(&u->z, (size_t)length, is_signed, &buffer);
+    zz_err ret = zz_get_bytes(&u->z, (size_t)length, is_signed, &buffer);
 
     if (ret == ZZ_OK) {
         if (is_little && length) {
@@ -400,6 +447,34 @@ MPZ_to_bytes(MPZ_Object *u, Py_ssize_t length, int is_little, int is_signed)
     Py_DECREF(bytes);
     return PyErr_NoMemory();
     /* LCOV_EXCL_STOP */
+}
+
+static zz_err
+zz_set_bytes(const unsigned char *buffer, size_t length, bool is_signed,
+             zz_t *u)
+{
+    if (!length) {
+        return zz_set(0, u);
+    }
+    if (zz_import(length, buffer, bytes_layout, u)) {
+        return ZZ_MEM; /* LCOV_EXCL_LINE */
+    }
+    (void)zz_abs(u, u);
+    if (is_signed && zz_bitlen(u) == 8*(size_t)length) {
+        zz_t tmp;
+
+        if (zz_init(&tmp) || zz_set(1, &tmp)
+            || zz_mul_2exp(&tmp, 8*length, &tmp)
+            || zz_sub(&tmp, u, u) || zz_neg(u, u))
+        {
+            /* LCOV_EXCL_START */
+            zz_clear(&tmp);
+            return ZZ_MEM;
+            /* LCOV_EXCL_STOP */
+        }
+        zz_clear(&tmp);
+    }
+    return ZZ_OK;
 }
 
 static MPZ_Object *
@@ -434,7 +509,7 @@ MPZ_from_bytes(PyObject *obj, int is_little, int is_signed)
 
     MPZ_Object *res = MPZ_new();
 
-    if (!res || zz_from_bytes(buffer, (size_t)length, is_signed, &res->z)) {
+    if (!res || zz_set_bytes(buffer, (size_t)length, is_signed, &res->z)) {
         /* LCOV_EXCL_START */
         Py_DECREF(bytes);
         if (is_little) {
@@ -576,7 +651,7 @@ new(PyTypeObject *type, PyObject *args, PyObject *keywds)
             return NULL;
             /* LCOV_EXCL_STOP */
         }
-        if (zz_init(&newobj->z) || zz_copy(&tmp->z, &newobj->z)) {
+        if (zz_init(&newobj->z) || zz_pos(&tmp->z, &newobj->z)) {
             /* LCOV_EXCL_START */
             Py_DECREF(tmp);
             return PyErr_NoMemory();
@@ -685,7 +760,7 @@ to_float(PyObject *self)
 {
     double d;
     MPZ_Object *u = (MPZ_Object *)self;
-    zz_err ret = zz_to_double(&u->z, &d);
+    zz_err ret = zz_get(&u->z, &d);
 
     if (ret == ZZ_BUF) {
         PyErr_SetString(PyExc_OverflowError,
@@ -820,7 +895,7 @@ hash(PyObject *self)
         return (PyObject *)res;                    \
     }
 
-UNOP(copy, plus)
+UNOP(pos, plus)
 UNOP(neg, nb_negative)
 UNOP(abs, nb_absolute)
 UNOP(invert, nb_invert)
@@ -1102,7 +1177,7 @@ zz_truediv(const zz_t *u, const zz_t *v, double *res)
     }
 
     int shift = (int)(vbits - ubits);
-    int n = shift, whole = n / ZZ_DIGIT_T_BITS;
+    int n = shift, whole = n / bits_per_digit;
     zz_t a, b;
 
     if (zz_init(&a) || zz_init(&b) || zz_abs(u, &a) || zz_abs(v, &b)) {
@@ -1123,7 +1198,7 @@ tmp_clear:
     }
     /*                       -shift - 1             -shift
       find shift satisfying 2           <= |a/b| < 2       */
-    n %= ZZ_DIGIT_T_BITS;
+    n %= bits_per_digit;
     for (zz_size_t i = v->size; i--;) {
         zz_digit_t du, dv = v->digits[i];
 
@@ -1135,7 +1210,7 @@ tmp_clear:
                 du = 0;
             }
             if (n && i > whole) {
-                du |= u->digits[i - whole - 1] >> (ZZ_DIGIT_T_BITS - n);
+                du |= u->digits[i - whole - 1] >> (bits_per_digit - n);
             }
         }
         else {
@@ -1169,7 +1244,7 @@ tmp_clear:
         /* LCOV_EXCL_STOP */
     }
     zz_clear(&b);
-    (void)zz_to_double(&a, res);
+    (void)zz_get(&a, res);
     zz_clear(&a);
     *res = ldexp(*res, -shift);
     if (zz_isneg(u) != zz_isneg(v)) {
@@ -1385,10 +1460,10 @@ static inline zz_err
 zz_and_i64(const zz_t *u, int64_t v, zz_t *w)
 {
     if (zz_iszero(u) || !v) {
-        return zz_from_i32(0, w);
+        return zz_set(0, w);
     }
     assert(!zz_isneg(u) && v > 0);
-    return zz_from_i64((int64_t)(u->digits[0] & (zz_digit_t)v), w);
+    return zz_set((int64_t)(u->digits[0] & (zz_digit_t)v), w);
 }
 #define zz_i64_and(x, y, r) zz_and_i64((y), (x), (r))
 
@@ -1405,7 +1480,7 @@ zz_lshift(const zz_t *u, const zz_t *v, zz_t *w)
 
     int64_t shift;
 
-    if (zz_to_i64(v, &shift)) {
+    if (zz_get(v, &shift)) {
         return ZZ_BUF;
     }
     return zz_mul_2exp(u, (zz_bitcnt_t)shift, w);
@@ -1420,8 +1495,8 @@ zz_rshift(const zz_t *u, const zz_t *v, zz_t *w)
 
     int64_t shift;
 
-    if (zz_to_i64(v, &shift)) {
-        return zz_from_i32(zz_isneg(u) ? -1 : 0, w);
+    if (zz_get(v, &shift)) {
+        return zz_set(zz_isneg(u) ? -1 : 0, w);
     }
     return zz_quo_2exp(u, (zz_bitcnt_t)shift, w);
 }
@@ -1462,7 +1537,7 @@ power(PyObject *self, PyObject *other, PyObject *module)
 
         int64_t exp;
 
-        if (!res || zz_to_i64(&v->z, &exp)
+        if (!res || zz_get(&v->z, &exp)
             || zz_pow(&u->z, (zz_digit_t)exp, &res->z))
         {
             /* LCOV_EXCL_START */
@@ -1574,7 +1649,7 @@ get_one(PyObject *Py_UNUSED(self), void *Py_UNUSED(closure))
 {
     MPZ_Object *res = MPZ_new();
 
-    if (res && zz_from_i32(1, &res->z)) {
+    if (res && zz_set(1, &res->z)) {
         PyErr_NoMemory(); /* LCOV_EXCL_LINE */
     }
     return (PyObject *)res;
@@ -1795,7 +1870,7 @@ noop:
 
     MPZ_Object *ten = MPZ_new();
 
-    if (!ten || zz_from_i32(10, &ten->z)) {
+    if (!ten || zz_set(10, &ten->z)) {
         /* LCOV_EXCL_START */
         Py_DECREF(ndigits);
         Py_XDECREF(ten);
@@ -2080,7 +2155,7 @@ gmp_lcm(PyObject *Py_UNUSED(module), PyObject *const *args, Py_ssize_t nargs)
 {
     MPZ_Object *res = MPZ_new();
 
-    if (!res || zz_from_i32(1, &res->z)) {
+    if (!res || zz_set(1, &res->z)) {
         return PyErr_NoMemory(); /* LCOV_EXCL_LINE */
     }
     for (Py_ssize_t i = 0; i < nargs; i++) {
@@ -2185,7 +2260,7 @@ gmp_fac(PyObject *Py_UNUSED(module), PyObject *arg)
 
     int64_t n;
 
-    if (zz_to_i64(&x->z, &n) || n > LONG_MAX) {
+    if (zz_get(&x->z, &n) || n > LONG_MAX) {
         PyErr_Format(PyExc_OverflowError,
                      "fac() argument should not exceed %ld",
                      LONG_MAX);
@@ -2228,8 +2303,8 @@ gmp_comb(PyObject *self, PyObject *const *args, Py_ssize_t nargs)
 
     int64_t n, k;
 
-    if ((zz_to_i64(&x->z, &n) || n > ULONG_MAX)
-        || (zz_to_i64(&y->z, &k) || k > ULONG_MAX))
+    if ((zz_get(&x->z, &n) || n > ULONG_MAX)
+        || (zz_get(&y->z, &k) || k > ULONG_MAX))
     {
         PyErr_Format(PyExc_OverflowError,
                      "comb() arguments should not exceed %ld",
@@ -2277,8 +2352,8 @@ gmp_perm(PyObject *self, PyObject *const *args, Py_ssize_t nargs)
 
     int64_t n, k;
 
-    if ((zz_to_i64(&x->z, &n) || n > ULONG_MAX)
-        || (zz_to_i64(&y->z, &k) || k > ULONG_MAX))
+    if ((zz_get(&x->z, &n) || n > ULONG_MAX)
+        || (zz_get(&y->z, &k) || k > ULONG_MAX))
     {
         PyErr_Format(PyExc_OverflowError,
                      "perm() arguments should not exceed %ld",
@@ -2367,7 +2442,7 @@ zz_mpmath_normalize(zz_bitcnt_t prec, zz_rnd rnd, bool *negative,
     if (zz_iszero(man)) {
         *negative = false;
         *bc = 0;
-        return zz_from_i32(0, exp);
+        return zz_set(0, exp);
     }
     /* if size <= prec and the number is odd return it */
     if (*bc <= prec && zz_isodd(man)) {
@@ -2413,7 +2488,7 @@ do_rnd:
         zz_t tmp;
 
         if (zz_init(&tmp) || shift > INT64_MAX
-            || zz_from_i64((int64_t)shift, &tmp)
+            || zz_set((int64_t)shift, &tmp)
             || zz_add(exp, &tmp, exp))
         {
             /* LCOV_EXCL_START */
@@ -2437,7 +2512,7 @@ do_rnd:
     zz_t tmp;
 
     if (zz_init(&tmp) || zbits > INT64_MAX
-        || zz_from_i64((int64_t)zbits, &tmp)
+        || zz_set((int64_t)zbits, &tmp)
         || zz_add(exp, &tmp, exp))
     {
         /* LCOV_EXCL_START */
@@ -2636,82 +2711,72 @@ static PyMethodDef gmp_functions[] = {
     {NULL} /* sentinel */
 };
 
-PyDoc_STRVAR(gmp_info__doc__,
-             "gmp.gmplib_info\n\n\
-A named tuple that holds information about GNU GMP\n\
-and it's internal representation of integers.\n\
+PyDoc_STRVAR(mpz_info__doc__,
+             "gmp.mpz_info\n\n\
+A named tuple that holds information about mpz type.\n\
 The attributes are read only.");
 
-static PyStructSequence_Field gmp_info_fields[] = {
+static PyStructSequence_Field mpz_info_fields[] = {
     {"bits_per_digit", "size of a digit in bits"},
     {"sizeof_digit", "size in bytes of the C type, used to represent a digit"},
-    {"sizeof_digitcnt", ("size in bytes of the C type, used to"
-                        " represent a count of digits")},
-    {"sizeof_bitcnt", ("size in bytes of the C type, used to"
-                       " represent a count of bits")},
-    {"version", "the GNU GMP version"},
+    {"bitcnt_max", "maximal count of bits in integer"},
     {NULL}};
 
-static PyStructSequence_Desc gmp_info_desc = {
-    "gmp.gmplib_info", gmp_info__doc__, gmp_info_fields, 5};
+static PyStructSequence_Desc mpz_info_desc = {
+    "gmp.mpz_info", mpz_info__doc__, mpz_info_fields, 3};
 
 static int
 gmp_exec(PyObject *m)
 {
-    static zz_info info;
-
-    if (zz_setup(&info)) {
+    if (zz_setup()) {
         return -1; /* LCOV_EXCL_LINE */
     }
     if (PyModule_AddType(m, &MPZ_Type) < 0) {
         return -1; /* LCOV_EXCL_LINE */
     }
 
-    PyTypeObject *GMP_InfoType = PyStructSequence_NewType(&gmp_info_desc);
+    PyTypeObject *MPZ_InfoType = PyStructSequence_NewType(&mpz_info_desc);
 
-    if (!GMP_InfoType) {
+    if (!MPZ_InfoType) {
         return -1; /* LCOV_EXCL_LINE */
     }
 
-    PyObject *gmp_info = PyStructSequence_New(GMP_InfoType);
+    PyObject *mpz_info = PyStructSequence_New(MPZ_InfoType);
+    const zz_layout *layout = zz_get_layout();
 
-    Py_DECREF(GMP_InfoType);
-    if (gmp_info == NULL) {
+    bits_per_digit = layout->bits_per_digit;
+    Py_DECREF(MPZ_InfoType);
+    if (mpz_info == NULL) {
         return -1; /* LCOV_EXCL_LINE */
     }
-    PyStructSequence_SET_ITEM(gmp_info, 0,
-                              PyLong_FromLong(info.bits_per_digit));
-    PyStructSequence_SET_ITEM(gmp_info, 1,
-                              PyLong_FromLong(info.digit_bytes));
-    PyStructSequence_SET_ITEM(gmp_info, 2,
-                              PyLong_FromLong(info.digitcnt_bytes));
-    PyStructSequence_SET_ITEM(gmp_info, 3,
-                              PyLong_FromLong(info.bitcnt_bytes));
-    PyStructSequence_SET_ITEM(gmp_info, 4,
-                              PyUnicode_FromFormat("%d.%d.%d",
-                                                   info.version[0],
-                                                   info.version[1],
-                                                   info.version[2]));
+    PyStructSequence_SET_ITEM(mpz_info, 0,
+                              PyLong_FromLong(bits_per_digit));
+    PyStructSequence_SET_ITEM(mpz_info, 1,
+                              PyLong_FromLong(layout->digit_size));
+    PyStructSequence_SET_ITEM(mpz_info, 2,
+                              PyLong_FromUInt64(zz_get_bitcnt_max()));
     if (PyErr_Occurred()) {
         /* LCOV_EXCL_START */
-        Py_DECREF(gmp_info);
+fail1:
+        Py_DECREF(mpz_info);
         return -1;
         /* LCOV_EXCL_STOP */
     }
-    if (PyModule_AddObject(m, "gmp_info", gmp_info) < 0) {
-        /* LCOV_EXCL_START */
-        Py_DECREF(gmp_info);
-        return -1;
-        /* LCOV_EXCL_STOP */
+    if (PyModule_AddObject(m, "mpz_info", mpz_info) < 0) {
+        goto fail1; /* LCOV_EXCL_LINE */
+    }
+    if (PyModule_AddStringConstant(m, "_zz_version", zz_get_version()) < 0) {
+        goto fail1; /* LCOV_EXCL_LINE */
     }
 
     PyObject *ns = PyDict_New();
 
     if (!ns) {
-        return -1; /* LCOV_EXCL_LINE */
+        goto fail1; /* LCOV_EXCL_LINE */
     }
     if (PyDict_SetItemString(ns, "gmp", m) < 0) {
         /* LCOV_EXCL_START */
+        Py_DECREF(mpz_info);
         Py_DECREF(ns);
         return -1;
         /* LCOV_EXCL_STOP */
@@ -2727,7 +2792,7 @@ gmp_exec(PyObject *m)
 
     Py_DECREF(ns);
     if (!res) {
-        return -1; /* LCOV_EXCL_LINE */
+        goto fail1; /* LCOV_EXCL_LINE */
     }
     Py_DECREF(res);
     return 0;
