@@ -1850,61 +1850,64 @@ noop:
     }
 
     MPZ_Object *ndigits = NULL;
+    zz_t exp, ten, p;
 
     CHECK_OP_INT(ndigits, args[0]);
 
     if (zz_isneg(&ndigits->z)) {
-        (void)zz_neg(&ndigits->z, &ndigits->z);
+        if (zz_init(&exp) || zz_pos(&ndigits->z, &exp)) {
+            /* LCOV_EXCL_START */
+            zz_clear(&exp);
+            Py_DECREF(ndigits);
+            return PyErr_NoMemory();
+            /* LCOV_EXCL_STOP */
+        }
     }
     else {
         Py_DECREF(ndigits);
         goto noop;
     }
-
-    MPZ_Object *ten = MPZ_new();
-
-    if (!ten || zz_set(10, &ten->z)) {
-        /* LCOV_EXCL_START */
-        Py_DECREF(ndigits);
-        Py_XDECREF(ten);
-        return NULL;
-        /* LCOV_EXCL_STOP */
-    }
-
-    PyObject *p = power((PyObject *)ten, (PyObject *)ndigits, Py_None);
-
-    Py_DECREF(ten);
     Py_DECREF(ndigits);
-    if (!p) {
-        return NULL; /* LCOV_EXCL_LINE */
-    }
-
-    MPZ_Object *r = MPZ_new();
-
-    if (!r) {
+    if (zz_init(&ten) || zz_set(10, &ten) || exp.size != 1) {
         /* LCOV_EXCL_START */
-        Py_XDECREF(r);
-        return NULL;
-        /* LCOV_EXCL_STOP */
-    }
-    if (zz_divnear(&u->z, &((MPZ_Object *)p)->z, NULL, &r->z)) {
-        /* LCOV_EXCL_START */
-        Py_DECREF(r);
+        zz_clear(&exp);
+        zz_clear(&ten);
         return PyErr_NoMemory();
         /* LCOV_EXCL_STOP */
     }
-    Py_DECREF(p);
+    if (zz_init(&p) || zz_pow(&ten, exp.digits[0], &p)) {
+        /* LCOV_EXCL_START */
+        zz_clear(&exp);
+        zz_clear(&ten);
+        zz_clear(&p);
+        return PyErr_NoMemory();
+        /* LCOV_EXCL_STOP */
+    }
+    zz_clear(&exp);
+    zz_clear(&ten);
 
     MPZ_Object *res = MPZ_new();
 
-    if (!res || zz_sub(&u->z, &r->z, &res->z)) {
+    if (!res) {
         /* LCOV_EXCL_START */
-        Py_DECREF(r);
-        Py_XDECREF(res);
+        zz_clear(&p);
+        return NULL;
+        /* LCOV_EXCL_STOP */
+    }
+    if (zz_divnear(&u->z, &p, NULL, &res->z)) {
+        /* LCOV_EXCL_START */
+        zz_clear(&p);
+        Py_DECREF(res);
         return PyErr_NoMemory();
         /* LCOV_EXCL_STOP */
     }
-    Py_DECREF(r);
+    zz_clear(&p);
+    if (zz_sub(&u->z, &res->z, &res->z)) {
+        /* LCOV_EXCL_START */
+        Py_DECREF(res);
+        return PyErr_NoMemory();
+        /* LCOV_EXCL_STOP */
+    }
     return (PyObject *)res;
 end:
     return NULL;
