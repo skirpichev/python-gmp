@@ -62,7 +62,7 @@ PyObject *
 MPZ_to_str(MPZ_Object *u, int base, int options)
 {
     size_t len;
-    bool negative = zz_isneg(&u->z), cast_abs = false;
+    bool negative = zz_isneg(&u->z);
 
     if (zz_sizeinbase(&u->z, base, &len)) {
         PyErr_SetString(PyExc_ValueError,
@@ -78,7 +78,7 @@ MPZ_to_str(MPZ_Object *u, int base, int options)
     }
     len++;
 
-    char *buf = malloc(len), *p = buf;
+    char *buf = malloc(len), *p = buf, saved_char = 0;
 
     if (!buf) {
         return PyErr_NoMemory(); /* LCOV_EXCL_LINE */
@@ -90,7 +90,7 @@ MPZ_to_str(MPZ_Object *u, int base, int options)
     if (options & OPT_PREFIX) {
         if (negative) {
             *(p++) = '-';
-            cast_abs = true;
+            saved_char = '-';
         }
         if (base == 2) {
             *(p++) = '0';
@@ -109,14 +109,15 @@ MPZ_to_str(MPZ_Object *u, int base, int options)
             *(p++) = 'X';
         }
     }
-    if (cast_abs) {
-        (void)zz_abs(&u->z, &u->z);
+    if (saved_char) {
+        saved_char = *(--p);
+        assert(saved_char);
     }
 
     zz_err ret = zz_get_str(&u->z, base, p, &len);
 
-    if (cast_abs) {
-        (void)zz_neg(&u->z, &u->z);
+    if (saved_char) {
+        *p = saved_char;
     }
     if (ret) {
         /* LCOV_EXCL_START */
