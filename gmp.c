@@ -858,12 +858,6 @@ hash(PyObject *self)
         return u->hash_cache;
     }
 
-    bool negative = zz_isneg(&u->z);
-
-    if (negative) {
-        (void)zz_abs(&u->z, &u->z);
-    }
-
     zz_digit_t digits[1];
     zz_t w = {false, 1, 1, digits};
 
@@ -872,9 +866,8 @@ hash(PyObject *self)
 
     Py_hash_t r = w.size ? (Py_hash_t)w.digits[0] : 0;
 
-    if (negative) {
-        (void)zz_neg(&u->z, &u->z);
-        r = -r;
+    if (zz_isneg(&u->z) && r) {
+        r = -((Py_hash_t)PyHASH_MODULUS - r);
     }
     if (r == -1) {
         r = -2;

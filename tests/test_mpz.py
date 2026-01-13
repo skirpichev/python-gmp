@@ -390,6 +390,7 @@ def test_hash_caching():
 @example(75424656551107706)
 @example(1284673497348563845623546741523784516734143215346712)
 @example(65869376547959985897597359)
+@example(-2305843009213693951)
 def test_unary_bulk(x):
     mx = mpz(x)
     for op in [operator.pos, operator.neg, operator.abs,
