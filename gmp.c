@@ -25,6 +25,7 @@ _Thread_local gmp_global global = {
 };
 
 uint8_t bits_per_digit;
+Py_hash_t pyhash_modulus;
 
 static MPZ_Object *
 MPZ_new(void)
@@ -889,13 +890,13 @@ hash(PyObject *self)
     zz_digit_t digits[1];
     zz_t w = {false, 1, 1, digits};
 
-    assert((int64_t)INT64_MAX > PyHASH_MODULUS);
-    (void)zz_div(&u->z, (int64_t)PyHASH_MODULUS, NULL, &w);
+    assert((int64_t)INT64_MAX > pyhash_modulus);
+    (void)zz_div(&u->z, (int64_t)pyhash_modulus, NULL, &w);
 
     Py_hash_t r = w.size ? (Py_hash_t)w.digits[0] : 0;
 
     if (zz_isneg(&u->z) && r) {
-        r = -((Py_hash_t)PyHASH_MODULUS - r);
+        r = -(pyhash_modulus - r);
     }
     if (r == -1) {
         r = -2;
@@ -2831,11 +2832,36 @@ fail1:
     }
     res = PyEval_EvalCode(codeobj, ns, NULL);
     Py_DECREF(codeobj);
-    Py_DECREF(ns);
     if (!res) {
         goto fail1; /* LCOV_EXCL_LINE */
     }
     Py_DECREF(res);
+
+    PyObject *sys_mod = PyImport_ImportModuleLevel("sys", NULL, NULL, NULL, 0);
+
+    if (!sys_mod || PyDict_SetItemString(ns, "sys", sys_mod) < 0) {
+        /* LCOV_EXCL_START */
+        Py_DECREF(ns);
+        goto fail1;
+        /* LCOV_EXCL_STOP */
+    }
+    codeobj = Py_CompileString("sys.hash_info.modulus", "<string>",
+                               Py_eval_input);
+    if (!codeobj || !(res = PyEval_EvalCode(codeobj, ns, NULL))) {
+        /* LCOV_EXCL_START */
+        Py_XDECREF(codeobj);
+        Py_DECREF(ns);
+        goto fail1;
+        /* LCOV_EXCL_STOP */
+    }
+    Py_DECREF(codeobj);
+    Py_DECREF(sys_mod);
+    Py_DECREF(ns);
+    pyhash_modulus = (Py_hash_t)PyLong_AsSsize_t(res);
+    Py_DECREF(res);
+    if (pyhash_modulus == -1) {
+        goto fail1; /* LCOV_EXCL_LINE */
+    }
     return 0;
 }
 
