@@ -516,7 +516,7 @@ MPZ_from_bytes(PyObject *obj, int is_little, int is_signed)
         if (is_little) {
             free(buffer);
         }
-        Py_XDECREF(res);
+        Py_XDECREF((PyObject *)res);
         return (MPZ_Object *)PyErr_NoMemory();
         /* LCOV_EXCL_STOP */
     }
@@ -741,7 +741,7 @@ str(PyObject *self)
 #define CHECK_OP(u, a)          \
     if (MPZ_Check(a)) {         \
         u = (MPZ_Object *)a;    \
-        Py_INCREF(u);           \
+        Py_INCREF(a);           \
     }                           \
     else if (PyLong_Check(a)) { \
         u = MPZ_from_int(a);    \
@@ -909,7 +909,7 @@ to_bool(PyObject *self)
 #define CHECK_OPv2(u, a)        \
     if (MPZ_Check(a)) {         \
         u = (MPZ_Object *)a;    \
-        Py_INCREF(u);           \
+        Py_INCREF(a);           \
     }                           \
     else if (PyLong_Check(a)) { \
         ;                       \
@@ -978,16 +978,16 @@ done:                                                           \
             PyErr_NoMemory();                                   \
         }                                                       \
     end:                                                        \
-        Py_XDECREF(u);                                          \
-        Py_XDECREF(v);                                          \
+        Py_XDECREF((PyObject *)u);                              \
+        Py_XDECREF((PyObject *)v);                              \
         return (PyObject *)res;                                 \
     fallback:                                                   \
-        Py_XDECREF(u);                                          \
-        Py_XDECREF(v);                                          \
+        Py_XDECREF((PyObject *)u);                              \
+        Py_XDECREF((PyObject *)v);                              \
         Py_RETURN_NOTIMPLEMENTED;                               \
     numbers:                                                    \
-        Py_XDECREF(u);                                          \
-        Py_XDECREF(v);                                          \
+        Py_XDECREF((PyObject *)u);                              \
+        Py_XDECREF((PyObject *)v);                              \
                                                                 \
         PyObject *uf, *vf, *rf;                                 \
                                                                 \
@@ -1045,8 +1045,8 @@ nb_divmod(PyObject *self, PyObject *other)
 
     if (!q || !r) {
         /* LCOV_EXCL_START */
-        Py_XDECREF(q);
-        Py_XDECREF(r);
+        Py_XDECREF((PyObject *)q);
+        Py_XDECREF((PyObject *)r);
         return NULL;
         /* LCOV_EXCL_STOP */
     }
@@ -1072,15 +1072,15 @@ nb_divmod(PyObject *self, PyObject *other)
     /* LCOV_EXCL_START */
 end:
     Py_DECREF(res);
-    Py_XDECREF(u);
-    Py_XDECREF(v);
+    Py_XDECREF((PyObject *)u);
+    Py_XDECREF((PyObject *)v);
     return NULL;
     /* LCOV_EXCL_STOP */
 fallback:
 numbers:
     Py_DECREF(res);
-    Py_XDECREF(u);
-    Py_XDECREF(v);
+    Py_XDECREF((PyObject *)u);
+    Py_XDECREF((PyObject *)v);
     Py_RETURN_NOTIMPLEMENTED;
 }
 
@@ -1278,16 +1278,16 @@ nb_truediv(PyObject *self, PyObject *other)
         PyErr_NoMemory(); /* LCOV_EXCL_LINE */
     }
 end:
-    Py_XDECREF(u);
-    Py_XDECREF(v);
+    Py_XDECREF((PyObject *)u);
+    Py_XDECREF((PyObject *)v);
     return res;
 fallback:
-    Py_XDECREF(u);
-    Py_XDECREF(v);
+    Py_XDECREF((PyObject *)u);
+    Py_XDECREF((PyObject *)v);
     Py_RETURN_NOTIMPLEMENTED;
 numbers:
-    Py_XDECREF(u);
-    Py_XDECREF(v);
+    Py_XDECREF((PyObject *)u);
+    Py_XDECREF((PyObject *)v);
 
     PyObject *uf, *vf;
 
@@ -1323,7 +1323,7 @@ numbers:
 #define CHECK_OP_INT(u, a)      \
     if (MPZ_Check(a)) {         \
         u = (MPZ_Object *)a;    \
-        Py_INCREF(u);           \
+        Py_INCREF(a);           \
     }                           \
     else {                      \
         u = MPZ_from_int(a);    \
@@ -1373,8 +1373,8 @@ numbers:
             /* LCOV_EXCL_STOP */                                \
         }                                                       \
     end:                                                        \
-        Py_XDECREF(u);                                          \
-        Py_XDECREF(v);                                          \
+        Py_XDECREF((PyObject *)u);                              \
+        Py_XDECREF((PyObject *)v);                              \
         return (PyObject *)res;                                 \
     }
 
@@ -1445,8 +1445,8 @@ done:                                                                \
             /* LCOV_EXCL_STOP */                                     \
         }                                                            \
     end:                                                             \
-        Py_XDECREF(u);                                               \
-        Py_XDECREF(v);                                               \
+        Py_XDECREF((PyObject *)u);                                   \
+        Py_XDECREF((PyObject *)v);                                   \
         return (PyObject *)res;                                      \
     }
 
@@ -1566,16 +1566,16 @@ power(PyObject *self, PyObject *other, PyObject *module)
         Py_DECREF(w);
     }
 end:
-    Py_XDECREF(u);
-    Py_XDECREF(v);
+    Py_XDECREF((PyObject *)u);
+    Py_XDECREF((PyObject *)v);
     return (PyObject *)res;
 fallback:
-    Py_XDECREF(u);
-    Py_XDECREF(v);
+    Py_XDECREF((PyObject *)u);
+    Py_XDECREF((PyObject *)v);
     Py_RETURN_NOTIMPLEMENTED;
 numbers:
-    Py_XDECREF(u);
-    Py_XDECREF(v);
+    Py_XDECREF((PyObject *)u);
+    Py_XDECREF((PyObject *)v);
 
     PyObject *uf, *vf;
 
@@ -2116,9 +2116,9 @@ gmp_gcdext(PyObject *Py_UNUSED(module), PyObject *const *args,
 
     if (!g || !s || !t) {
         /* LCOV_EXCL_START */
-        Py_XDECREF(g);
-        Py_XDECREF(s);
-        Py_XDECREF(t);
+        Py_XDECREF((PyObject *)g);
+        Py_XDECREF((PyObject *)s);
+        Py_XDECREF((PyObject *)t);
         return PyErr_NoMemory();
         /* LCOV_EXCL_STOP */
     }
@@ -2127,8 +2127,8 @@ gmp_gcdext(PyObject *Py_UNUSED(module), PyObject *const *args,
 
     zz_err ret = zz_gcdext(&x->z, &y->z, &g->z, &s->z, &t->z);
 
-    Py_XDECREF(x);
-    Py_XDECREF(y);
+    Py_XDECREF((PyObject *)x);
+    Py_XDECREF((PyObject *)y);
     if (ret == ZZ_MEM) {
         return PyErr_NoMemory(); /* LCOV_EXCL_LINE */
     }
@@ -2142,8 +2142,8 @@ end:
     Py_DECREF(g);
     Py_DECREF(s);
     Py_DECREF(t);
-    Py_XDECREF(x);
-    Py_XDECREF(y);
+    Py_XDECREF((PyObject *)x);
+    Py_XDECREF((PyObject *)y);
     return NULL;
 }
 
@@ -2214,8 +2214,8 @@ gmp_isqrt_rem(PyObject *Py_UNUSED(module), PyObject *arg)
 
     if (!root || !rem) {
         /* LCOV_EXCL_START */
-        Py_XDECREF(root);
-        Py_XDECREF(rem);
+        Py_XDECREF((PyObject *)root);
+        Py_XDECREF((PyObject *)rem);
         return NULL;
         /* LCOV_EXCL_STOP */
     }
@@ -2263,7 +2263,7 @@ gmp_fac(PyObject *Py_UNUSED(module), PyObject *arg)
                      LONG_MAX);
         goto err;
     }
-    Py_XDECREF(x);
+    Py_XDECREF((PyObject *)x);
     if (zz_fac((zz_digit_t)n, &res->z)) {
         /* LCOV_EXCL_START */
         PyErr_NoMemory();
@@ -2308,8 +2308,8 @@ gmp_comb(PyObject *self, PyObject *const *args, Py_ssize_t nargs)
                      ULONG_MAX);
         goto err;
     }
-    Py_XDECREF(x);
-    Py_XDECREF(y);
+    Py_XDECREF((PyObject *)x);
+    Py_XDECREF((PyObject *)y);
     if (zz_bin((zz_digit_t)n, (zz_digit_t)k, &res->z)) {
         /* LCOV_EXCL_START */
         PyErr_NoMemory();
@@ -2357,8 +2357,8 @@ gmp_perm(PyObject *self, PyObject *const *args, Py_ssize_t nargs)
                      ULONG_MAX);
         goto err;
     }
-    Py_XDECREF(x);
-    Py_XDECREF(y);
+    Py_XDECREF((PyObject *)x);
+    Py_XDECREF((PyObject *)y);
     if (k > n) {
         return (PyObject *)res;
     }
@@ -2559,8 +2559,8 @@ gmp__mpmath_normalize(PyObject *self, PyObject *const *args, Py_ssize_t nargs)
                                             &man->z, &exp->z, &bc))
     {
         /* LCOV_EXCL_START */
-        Py_XDECREF(man);
-        Py_XDECREF(exp);
+        Py_XDECREF((PyObject *)man);
+        Py_XDECREF((PyObject *)exp);
         return PyErr_NoMemory();
         /* LCOV_EXCL_STOP */
     }
@@ -2643,7 +2643,7 @@ gmp__mpmath_create(PyObject *self, PyObject *const *args, Py_ssize_t nargs)
     {
         /* LCOV_EXCL_START */
         Py_DECREF(man);
-        Py_XDECREF(exp);
+        Py_XDECREF((PyObject *)exp);
         return PyErr_NoMemory();
         /* LCOV_EXCL_STOP */
     }
