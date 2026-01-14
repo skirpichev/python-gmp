@@ -2823,8 +2823,14 @@ fail1:
                        "gmp.__all__ = ['comb', 'factorial', 'gcd', 'isqrt',\n"
                        "               'lcm', 'mpz', 'perm']\n"
                        "gmp.__version__ = imp.version('python-gmp')\n");
-    PyObject *res = PyRun_String(str, Py_file_input, ns, ns);
+    PyObject *codeobj = Py_CompileString(str, "<file>", Py_file_input);
+    PyObject *res;
 
+    if (!codeobj) {
+        goto fail1; /* LCOV_EXCL_LINE */
+    }
+    res = PyEval_EvalCode(codeobj, ns, NULL);
+    Py_DECREF(codeobj);
     Py_DECREF(ns);
     if (!res) {
         goto fail1; /* LCOV_EXCL_LINE */
