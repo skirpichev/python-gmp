@@ -1071,8 +1071,8 @@ def test_mpz_collatz(xs):
         assert all(f.result() == 1 for f in futures)
 
 
-@pytest.mark.skipif(platform.python_implementation() != "CPython"
-                    or sys.version_info < (3, 13),
+# See pypy/pypy#5368 and oracle/graalpython#593
+@pytest.mark.skipif(platform.python_implementation() != "CPython",
                     reason="no way to specify a signature")
 def test_int_api():
     for meth in dir(int):
@@ -1080,4 +1080,12 @@ def test_int_api():
         if meth.startswith("_") or not callable(m):
             continue
         mz = getattr(mpz, meth)
-        assert inspect.signature(m) == inspect.signature(mz)
+        try:
+            m_sig = inspect.signature(m)
+        except ValueError:
+            # Signatures for some METH_NOARGS builtins were
+            # unavailable til python/cpython#107794.
+            if sys.version_info < (3, 13):
+                continue
+        mz_sig = inspect.signature(mz)
+        assert m_sig == mz_sig
