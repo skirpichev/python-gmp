@@ -8,7 +8,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-#if !defined(PYPY_VERSION) && !defined(Py_GIL_DISABLED)
+#if !defined(PYPY_VERSION)
 #  define CACHE_SIZE (99)
 #else
 #  define CACHE_SIZE (0)
@@ -2753,8 +2753,10 @@ gmp__free_cache(PyObject *Py_UNUSED(module), PyObject *Py_UNUSED(args))
         PyObject *self = (PyObject *)u;
         PyTypeObject *type = Py_TYPE(self);
 
+        PyObject_GC_UnTrack(self);
         zz_clear(&u->z);
         type->tp_free(self);
+        Py_DECREF(type);
     }
     global.gmp_cache_size = 0;
     Py_RETURN_NONE;
@@ -2902,6 +2904,7 @@ gmp_traverse(PyObject *module, visitproc visit, void *arg)
 {
     gmp_state *state = PyModule_GetState(module);
 
+    gmp__free_cache(module, NULL); /* XXX: to make cache work on f-t builds */
     Py_VISIT(state->MPZ_Type);
     return 0;
 }
