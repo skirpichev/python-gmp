@@ -7,7 +7,12 @@
 #include <stdlib.h>
 #include <string.h>
 
-#ifndef PYPY_VERSION
+#define ON_CPYTHON 1
+#if defined(PYPY_VERSION) || defined(GRAALVM_PYTHON)
+#  undef ON_CPYTHON
+#endif
+
+#ifdef ON_CPYTHON
 #  define MAX_FREELIST_SIZE 100
 #  define MAX_FREELIST_SIZEOF 256
 
@@ -29,7 +34,7 @@ MPZ_new(void)
 {
     MPZ_Object *res;
 
-#ifndef PYPY_VERSION
+#ifdef ON_CPYTHON
     if (global.freelist_size) {
         res = global.freelist[--global.freelist_size];
         (void)zz_set(0, &res->z);
@@ -44,7 +49,7 @@ MPZ_new(void)
         if (zz_init(&res->z)) {
             return (MPZ_Object *)PyErr_NoMemory(); /* LCOV_EXCL_LINE */
         }
-#ifndef PYPY_VERSION
+#ifdef ON_CPYTHON
     }
 #endif
     res->hash_cache = -1;
@@ -646,7 +651,7 @@ dealloc(PyObject *self)
 {
     MPZ_Object *u = (MPZ_Object *)self;
 
-#ifndef PYPY_VERSION
+#ifdef ON_CPYTHON
     if (global.freelist_size < MAX_FREELIST_SIZE
         && zz_sizeof(&u->z) <= MAX_FREELIST_SIZEOF
         && MPZ_CheckExact(self))
@@ -665,7 +670,7 @@ dealloc(PyObject *self)
         }
         zz_clear(&u->z);
         tp_free(self);
-#ifndef PYPY_VERSION
+#ifdef ON_CPYTHON
     }
 #endif
 }
