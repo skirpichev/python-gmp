@@ -8,9 +8,7 @@ import platform
 import sys
 import warnings
 from concurrent.futures import ThreadPoolExecutor
-from subprocess import run
 
-import gmp
 import pytest
 from gmp import mpz
 from hypothesis import assume, example, given, settings
@@ -1094,12 +1092,3 @@ def test_int_api():
                 continue
         mz_sig = inspect.signature(mz)
         assert m_sig == mz_sig
-
-
-@pytest.mark.skipif(not hasattr(gmp, "_clear_freelist"),
-                    reason="no support for mpz cache")
-def test_mpz_clear():
-    # for coverage (test module cleanup)
-    res = run([sys.executable, "-c",
-               "import gmp; a = gmp.mpz(1); del a; gmp._clear_freelist()"])
-    assert res.returncode == 0
