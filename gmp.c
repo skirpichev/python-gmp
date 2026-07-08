@@ -7,21 +7,19 @@
 #include <stdlib.h>
 #include <string.h>
 
-#if !defined(PYPY_VERSION)
-#  define MAX_CACHE_SIZE 100
-#else
-#  define MAX_CACHE_SIZE 0
-#endif
-#define MAX_CACHED_SIZEOF 256
+#ifndef PYPY_VERSION
+#  define MAX_FREELIST_SIZE 100
+#  define MAX_FREELIST_SIZEOF 256
 
 typedef struct {
-    MPZ_Object *gmp_cache[MAX_CACHE_SIZE + 1];
-    size_t gmp_cache_size;
+    MPZ_Object *freelist[MAX_FREELIST_SIZE + 1];
+    size_t freelist_size;
 } gmp_global;
 
 _Thread_local gmp_global global = {
-    .gmp_cache_size = 0,
+    .freelist_size = 0,
 };
+#endif
 
 uint8_t bits_per_digit;
 Py_hash_t pyhash_modulus;
@@ -31,12 +29,14 @@ MPZ_new(void)
 {
     MPZ_Object *res;
 
-    if (global.gmp_cache_size) {
-        res = global.gmp_cache[--global.gmp_cache_size];
+#ifndef PYPY_VERSION
+    if (global.freelist_size) {
+        res = global.freelist[--global.freelist_size];
         (void)zz_set(0, &res->z);
-        Py_XINCREF((PyObject *)res);
+        Py_INCREF((PyObject *)res);
     }
     else {
+#endif
         res = PyObject_New(MPZ_Object, &MPZ_Type);
         if (!res) {
             return NULL; /* LCOV_EXCL_LINE */
@@ -44,7 +44,9 @@ MPZ_new(void)
         if (zz_init(&res->z)) {
             return (MPZ_Object *)PyErr_NoMemory(); /* LCOV_EXCL_LINE */
         }
+#ifndef PYPY_VERSION
     }
+#endif
     res->hash_cache = -1;
     return res;
 }
@@ -644,13 +646,15 @@ dealloc(PyObject *self)
 {
     MPZ_Object *u = (MPZ_Object *)self;
 
-    if (global.gmp_cache_size < MAX_CACHE_SIZE
-        && zz_sizeof(&u->z) <= MAX_CACHED_SIZEOF
+#ifndef PYPY_VERSION
+    if (global.freelist_size < MAX_FREELIST_SIZE
+        && zz_sizeof(&u->z) <= MAX_FREELIST_SIZEOF
         && MPZ_CheckExact(self))
     {
-        global.gmp_cache[global.gmp_cache_size++] = u;
+        global.freelist[global.freelist_size++] = u;
     }
     else {
+#endif
         freefunc tp_free;
 
         if (MPZ_CheckExact(self)) {
@@ -661,7 +665,9 @@ dealloc(PyObject *self)
         }
         zz_clear(&u->z);
         tp_free(self);
+#ifndef PYPY_VERSION
     }
+#endif
 }
 
 static PyObject *
@@ -2611,11 +2617,12 @@ gmp__mpmath_create(PyObject *self, PyObject *const *args, Py_ssize_t nargs)
     return Py_BuildValue("(bNNK)", negative, man, iexp, bc);
 }
 
+#ifndef PYPY_VERSION
 static PyObject *
-gmp__free_cache(PyObject *Py_UNUSED(module), PyObject *Py_UNUSED(args))
+gmp__clear_freelist(PyObject *Py_UNUSED(module), PyObject *Py_UNUSED(args))
 {
-    while (global.gmp_cache_size) {
-        MPZ_Object *u = global.gmp_cache[--global.gmp_cache_size];
+    while (global.freelist_size) {
+        MPZ_Object *u = global.freelist[--global.freelist_size];
         PyObject *self = (PyObject *)u;
 
         zz_clear(&u->z);
@@ -2623,6 +2630,7 @@ gmp__free_cache(PyObject *Py_UNUSED(module), PyObject *Py_UNUSED(args))
     }
     Py_RETURN_NONE;
 }
+#endif
 
 static PyMethodDef gmp_functions[] = {
     {"gcd", (PyCFunction)gmp_gcd, METH_FASTCALL,
@@ -2656,8 +2664,10 @@ static PyMethodDef gmp_functions[] = {
     {"_mpmath_create", (PyCFunction)gmp__mpmath_create, METH_FASTCALL,
      ("_mpmath_create($module, man, exp, prec=0, rnd='d', /)\n--\n\n"
       "Helper function for mpmath.")},
-    {"_free_cache", gmp__free_cache, METH_NOARGS,
-     "_free_cache($module)\n--\n\nFree mpz's cache."},
+#ifndef PYPY_VERSION
+    {"_clear_freelist", gmp__clear_freelist, METH_NOARGS,
+     "_clear_freelist($module)\n--\n\nFree mpz's cache."},
+#endif
     {NULL} /* sentinel */
 };
 
