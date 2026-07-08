@@ -79,14 +79,7 @@ gmp_PyUnicode_TransformDecimalAndSpaceToASCII(PyObject *unicode)
     }
 
     Py_UCS1 *out = PyUnicode_1BYTE_DATA(result);
-#if defined(__GNUC__) || defined(__clang__)
-#  pragma GCC diagnostic push /* XXX: oracle/graalpython#580 */
-#  pragma GCC diagnostic ignored "-Wsign-conversion"
-#endif
-    int kind = PyUnicode_KIND(unicode);
-#if defined(__GNUC__) || defined(__clang__)
-#  pragma GCC diagnostic pop
-#endif
+    int kind = (int)PyUnicode_KIND(unicode); /* oracle/graalpython#580 */
     const void *data = PyUnicode_DATA(unicode);
 
     for (Py_ssize_t i = 0; i < len; ++i) {
