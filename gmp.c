@@ -7,11 +7,6 @@
 #include <stdlib.h>
 #include <string.h>
 
-#define ON_CPYTHON 1
-#if defined(PYPY_VERSION) || defined(GRAALVM_PYTHON)
-#  undef ON_CPYTHON
-#endif
-
 #ifdef ON_CPYTHON
 #  define MAX_FREELIST_SIZE 100
 #  define MAX_FREELIST_SIZEOF 256
@@ -188,8 +183,7 @@ MPZ_from_str(PyObject *obj, int base)
 static MPZ_Object *
 MPZ_from_int(PyObject *obj)
 {
-#if !defined(PYPY_VERSION) && !defined(GRAALVM_PYTHON) \
-    && !defined(Py_LIMITED_API)
+#if defined(ON_CPYTHON) && !defined(Py_LIMITED_API)
     PyLongExport long_export = {0, 0, 0, 0, 0};
     const zz_layout *int_layout = (zz_layout *)PyLong_GetNativeLayout();
     MPZ_Object *res = NULL;
@@ -251,7 +245,7 @@ MPZ_from_int(PyObject *obj)
 
     Py_DECREF(str);
     return res;
-#endif
+#endif /* defined(ON_CPYTHON) && !defined(Py_LIMITED_API) */
 }
 
 static PyObject *
@@ -263,8 +257,7 @@ MPZ_to_int(MPZ_Object *u)
         return PyLong_FromInt64(value);
     }
 
-#if !defined(PYPY_VERSION) && !defined(GRAALVM_PYTHON) \
-    && !defined(Py_LIMITED_API)
+#if defined(ON_CPYTHON) && !defined(Py_LIMITED_API)
     const zz_layout *int_layout = (zz_layout *)PyLong_GetNativeLayout();
     size_t size = (zz_bitlen(&u->z) + int_layout->bits_per_digit
                    - 1)/int_layout->bits_per_digit;
@@ -296,7 +289,7 @@ MPZ_to_int(MPZ_Object *u)
 
     free(buf);
     return res;
-#endif
+#endif /* defined(ON_CPYTHON) && !defined(Py_LIMITED_API) */
 }
 
 static void
