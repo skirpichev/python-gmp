@@ -7,11 +7,6 @@
 #include <stdlib.h>
 #include <string.h>
 
-#define ON_CPYTHON 1
-#if defined(PYPY_VERSION) || defined(GRAALVM_PYTHON)
-#  undef ON_CPYTHON
-#endif
-
 #ifdef ON_CPYTHON
 #  define MAX_FREELIST_SIZE 100
 #  define MAX_FREELIST_SIZEOF 256
@@ -188,8 +183,7 @@ MPZ_from_str(PyObject *obj, int base)
 static MPZ_Object *
 MPZ_from_int(PyObject *obj)
 {
-#if !defined(PYPY_VERSION) && !defined(GRAALVM_PYTHON) \
-    && !defined(Py_LIMITED_API)
+#if defined(ON_CPYTHON) && !defined(Py_LIMITED_API)
     PyLongExport long_export = {0, 0, 0, 0, 0};
     const zz_layout *int_layout = (zz_layout *)PyLong_GetNativeLayout();
     MPZ_Object *res = NULL;
@@ -251,7 +245,7 @@ MPZ_from_int(PyObject *obj)
 
     Py_DECREF(str);
     return res;
-#endif
+#endif /* defined(ON_CPYTHON) && !defined(Py_LIMITED_API) */
 }
 
 static PyObject *
@@ -263,8 +257,7 @@ MPZ_to_int(MPZ_Object *u)
         return PyLong_FromInt64(value);
     }
 
-#if !defined(PYPY_VERSION) && !defined(GRAALVM_PYTHON) \
-    && !defined(Py_LIMITED_API)
+#if defined(ON_CPYTHON) && !defined(Py_LIMITED_API)
     const zz_layout *int_layout = (zz_layout *)PyLong_GetNativeLayout();
     size_t size = (zz_bitlen(&u->z) + int_layout->bits_per_digit
                    - 1)/int_layout->bits_per_digit;
@@ -296,7 +289,7 @@ MPZ_to_int(MPZ_Object *u)
 
     free(buf);
     return res;
-#endif
+#endif /* defined(ON_CPYTHON) && !defined(Py_LIMITED_API) */
 }
 
 static void
@@ -506,46 +499,14 @@ new_impl(PyTypeObject *Py_UNUSED(type), PyObject *arg, PyObject *base_arg)
             return Py_NewRef(arg);
         }
         if (PyNumber_Check(arg)) {
-            PyObject *integer = NULL;
-            unaryfunc nb_int = PyType_GetSlot(Py_TYPE(arg), Py_nb_int);
+            PyObject *integer = PyNumber_Long(arg);
+            PyObject *mpz = NULL;
 
-            if (nb_int) {
-                integer = nb_int(arg);
-                if (!integer) {
-                    return NULL;
-                }
-                if (!PyLong_Check(integer)) {
-                    PyErr_Format(PyExc_TypeError,
-                                 "__int__ returned non-int (type %U)",
-                                 PyType_GetFullyQualifiedName(Py_TYPE(integer)));
-                    Py_XDECREF(integer);
-                    return NULL;
-                }
-                if (!PyLong_CheckExact(integer)
-                    && PyErr_WarnFormat(PyExc_DeprecationWarning, 1,
-                                        "__int__ returned non-int (type %U).  "
-                                        "The ability to return an instance of a "
-                                        "strict subclass of int "
-                                        "is deprecated, and may be removed "
-                                        "in a future version of Python.",
-                                        PyType_GetFullyQualifiedName(Py_TYPE(integer))))
-                {
-                    Py_XDECREF(integer);
-                    return NULL;
-                }
-            }
-            else {
-                integer = PyNumber_Index(arg);
-                if (!integer) {
-                    return NULL;
-                }
-            }
             if (integer) {
-                PyObject *mpz = (PyObject *)MPZ_from_int(integer);
-
+                mpz = (PyObject *)MPZ_from_int(integer);
                 Py_DECREF(integer);
-                return (PyObject *)mpz;
             }
+            return mpz;
         }
         goto str;
     }
@@ -2055,8 +2016,8 @@ gmp_gcdext(PyObject *Py_UNUSED(module), PyObject *const *args,
 
     zz_err ret = zz_gcdext(&x->z, &y->z, &g->z, &s->z, &t->z);
 
-    Py_XDECREF((PyObject *)x);
-    Py_XDECREF((PyObject *)y);
+    Py_DECREF(x);
+    Py_DECREF(y);
     if (ret == ZZ_MEM) {
         return PyErr_NoMemory(); /* LCOV_EXCL_LINE */
     }
@@ -2200,7 +2161,7 @@ overflow:
                      ULONG_MAX);
         goto err;
     }
-    Py_XDECREF((PyObject *)x);
+    Py_DECREF((PyObject *)x);
 
     zz_err ret = zz_fac((zz_digit_t)n, &res->z);
 
@@ -2250,8 +2211,8 @@ overflow:
                      ULONG_MAX);
         goto err;
     }
-    Py_XDECREF((PyObject *)x);
-    Py_XDECREF((PyObject *)y);
+    Py_DECREF((PyObject *)x);
+    Py_DECREF((PyObject *)y);
 
     zz_err ret = zz_bin(n, k, &res->z);
 
@@ -2304,8 +2265,8 @@ overflow:
                      ULONG_MAX);
         goto err;
     }
-    Py_XDECREF((PyObject *)x);
-    Py_XDECREF((PyObject *)y);
+    Py_DECREF((PyObject *)x);
+    Py_DECREF((PyObject *)y);
     if (k > n) {
         return (PyObject *)res;
     }
