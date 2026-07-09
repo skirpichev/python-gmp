@@ -140,8 +140,8 @@ _PyType_GetFullyQualifiedName(PyTypeObject *type)
     else {
         result = Py_NewRef(qualname);
     }
-    Py_XDECREF(module);
-    Py_XDECREF(qualname);
+    Py_DECREF(module);
+    Py_DECREF(qualname);
     return result;
 }
 #endif

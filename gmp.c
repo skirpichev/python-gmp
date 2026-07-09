@@ -506,7 +506,7 @@ new_impl(PyTypeObject *Py_UNUSED(type), PyObject *arg, PyObject *base_arg)
             return Py_NewRef(arg);
         }
         if (PyNumber_Check(arg)) {
-            PyObject *integer = NULL;
+            PyObject *integer;
             unaryfunc nb_int = PyType_GetSlot(Py_TYPE(arg), Py_nb_int);
 
             if (nb_int) {
@@ -518,7 +518,7 @@ new_impl(PyTypeObject *Py_UNUSED(type), PyObject *arg, PyObject *base_arg)
                     PyErr_Format(PyExc_TypeError,
                                  "__int__ returned non-int (type %U)",
                                  PyType_GetFullyQualifiedName(Py_TYPE(integer)));
-                    Py_XDECREF(integer);
+                    Py_DECREF(integer);
                     return NULL;
                 }
                 if (!PyLong_CheckExact(integer)
@@ -530,7 +530,7 @@ new_impl(PyTypeObject *Py_UNUSED(type), PyObject *arg, PyObject *base_arg)
                                         "in a future version of Python.",
                                         PyType_GetFullyQualifiedName(Py_TYPE(integer))))
                 {
-                    Py_XDECREF(integer);
+                    Py_DECREF(integer);
                     return NULL;
                 }
             }
@@ -540,12 +540,11 @@ new_impl(PyTypeObject *Py_UNUSED(type), PyObject *arg, PyObject *base_arg)
                     return NULL;
                 }
             }
-            if (integer) {
-                PyObject *mpz = (PyObject *)MPZ_from_int(integer);
 
-                Py_DECREF(integer);
-                return (PyObject *)mpz;
-            }
+            PyObject *mpz = (PyObject *)MPZ_from_int(integer);
+
+            Py_DECREF(integer);
+            return (PyObject *)mpz;
         }
         goto str;
     }
@@ -2055,8 +2054,8 @@ gmp_gcdext(PyObject *Py_UNUSED(module), PyObject *const *args,
 
     zz_err ret = zz_gcdext(&x->z, &y->z, &g->z, &s->z, &t->z);
 
-    Py_XDECREF((PyObject *)x);
-    Py_XDECREF((PyObject *)y);
+    Py_DECREF(x);
+    Py_DECREF(y);
     if (ret == ZZ_MEM) {
         return PyErr_NoMemory(); /* LCOV_EXCL_LINE */
     }
@@ -2200,7 +2199,7 @@ overflow:
                      ULONG_MAX);
         goto err;
     }
-    Py_XDECREF((PyObject *)x);
+    Py_DECREF((PyObject *)x);
 
     zz_err ret = zz_fac((zz_digit_t)n, &res->z);
 
@@ -2250,8 +2249,8 @@ overflow:
                      ULONG_MAX);
         goto err;
     }
-    Py_XDECREF((PyObject *)x);
-    Py_XDECREF((PyObject *)y);
+    Py_DECREF((PyObject *)x);
+    Py_DECREF((PyObject *)y);
 
     zz_err ret = zz_bin(n, k, &res->z);
 
@@ -2304,8 +2303,8 @@ overflow:
                      ULONG_MAX);
         goto err;
     }
-    Py_XDECREF((PyObject *)x);
-    Py_XDECREF((PyObject *)y);
+    Py_DECREF((PyObject *)x);
+    Py_DECREF((PyObject *)y);
     if (k > n) {
         return (PyObject *)res;
     }
