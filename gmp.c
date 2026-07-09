@@ -506,45 +506,14 @@ new_impl(PyTypeObject *Py_UNUSED(type), PyObject *arg, PyObject *base_arg)
             return Py_NewRef(arg);
         }
         if (PyNumber_Check(arg)) {
-            PyObject *integer;
-            unaryfunc nb_int = PyType_GetSlot(Py_TYPE(arg), Py_nb_int);
+            PyObject *integer = PyNumber_Long(arg);
+            PyObject *mpz = NULL;
 
-            if (nb_int) {
-                integer = nb_int(arg);
-                if (!integer) {
-                    return NULL;
-                }
-                if (!PyLong_Check(integer)) {
-                    PyErr_Format(PyExc_TypeError,
-                                 "__int__ returned non-int (type %U)",
-                                 PyType_GetFullyQualifiedName(Py_TYPE(integer)));
-                    Py_DECREF(integer);
-                    return NULL;
-                }
-                if (!PyLong_CheckExact(integer)
-                    && PyErr_WarnFormat(PyExc_DeprecationWarning, 1,
-                                        "__int__ returned non-int (type %U).  "
-                                        "The ability to return an instance of a "
-                                        "strict subclass of int "
-                                        "is deprecated, and may be removed "
-                                        "in a future version of Python.",
-                                        PyType_GetFullyQualifiedName(Py_TYPE(integer))))
-                {
-                    Py_DECREF(integer);
-                    return NULL;
-                }
+            if (integer) {
+                mpz = (PyObject *)MPZ_from_int(integer);
+                Py_DECREF(integer);
             }
-            else {
-                integer = PyNumber_Index(arg);
-                if (!integer) {
-                    return NULL;
-                }
-            }
-
-            PyObject *mpz = (PyObject *)MPZ_from_int(integer);
-
-            Py_DECREF(integer);
-            return (PyObject *)mpz;
+            return mpz;
         }
         goto str;
     }
