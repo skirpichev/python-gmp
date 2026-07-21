@@ -1000,6 +1000,17 @@ BINOP(mul, PyNumber_Multiply)
 BINOP(quo_, PyNumber_FloorDivide)
 BINOP(rem_, PyNumber_Remainder)
 
+#define CHECK_OP_INT(u, a)              \
+    if (MPZ_Check(a)) {                 \
+        u = (MPZ_Object *)Py_NewRef(a); \
+    }                                   \
+    else {                              \
+        u = MPZ_from_int(a);            \
+        if (!u) {                       \
+            goto end;                   \
+        }                               \
+    }                                   \
+
 static PyObject *
 nb_divmod(PyObject *self, PyObject *other)
 {
@@ -1009,8 +1020,8 @@ nb_divmod(PyObject *self, PyObject *other)
     if (!res) {
         return NULL; /* LCOV_EXCL_LINE */
     }
-    CHECK_OP(u, self);
-    CHECK_OP(v, other);
+    CHECK_OP_INT(u, self);
+    CHECK_OP_INT(v, other);
 
     MPZ_Object *q = MPZ_new();
     MPZ_Object *r = MPZ_new();
@@ -1048,12 +1059,6 @@ end:
     Py_XDECREF((PyObject *)v);
     return NULL;
     /* LCOV_EXCL_STOP */
-fallback:
-numbers:
-    Py_DECREF(res);
-    Py_XDECREF((PyObject *)u);
-    Py_XDECREF((PyObject *)v);
-    Py_RETURN_NOTIMPLEMENTED;
 }
 
 static zz_err
@@ -1293,17 +1298,6 @@ numbers:
     Py_DECREF(vf);
     return res;
 }
-
-#define CHECK_OP_INT(u, a)              \
-    if (MPZ_Check(a)) {                 \
-        u = (MPZ_Object *)Py_NewRef(a); \
-    }                                   \
-    else {                              \
-        u = MPZ_from_int(a);            \
-        if (!u) {                       \
-            goto end;                   \
-        }                               \
-    }                                   \
 
 #define BINOP_INT(suff)                                         \
     static PyObject *                                           \
