@@ -3,6 +3,9 @@
 #include <ctype.h>
 #include <float.h>
 #include <setjmp.h>
+#ifdef Py_GIL_DISABLED
+#  include <stdatomic.h>
+#endif
 #include <stdbool.h>
 #include <stdlib.h>
 #include <string.h>
@@ -795,9 +798,16 @@ static Py_hash_t
 hash(PyObject *self)
 {
     MPZ_Object *u = (MPZ_Object *)self;
+#ifdef Py_GIL_DISABLED
+    Py_hash_t hash = atomic_load_explicit((const _Atomic(Py_hash_t)
+                                           *)&u->hash_cache,
+                                          memory_order_relaxed);
+#else
+    Py_hash_t hash = u->hash_cache;
+#endif
 
-    if (u->hash_cache != -1) {
-        return u->hash_cache;
+    if (hash != -1) {
+        return hash;
     }
 
     zz_t w;
@@ -805,22 +815,24 @@ hash(PyObject *self)
     if (zz_init(&w)) {
         return -1; /* LCOV_EXCL_LINE */
     }
-
     assert((int64_t)INT64_MAX > pyhash_modulus);
     (void)zz_div(&u->z, (int64_t)pyhash_modulus, NULL, &w);
-
-    Py_hash_t r;
-
     assert(sizeof(Py_hash_t) == 8);
-    (void)zz_get(&w, (int64_t *)&r);
+    (void)zz_get(&w, (int64_t *)&hash);
     zz_clear(&w);
-    if (zz_isneg(&u->z) && r) {
-        r = -(pyhash_modulus - r);
+    if (zz_isneg(&u->z) && hash) {
+        hash = -(pyhash_modulus - hash);
     }
-    if (r == -1) {
-        r = -2;
+    if (hash == -1) {
+        hash = -2;
     }
-    return u->hash_cache = r;
+#ifdef Py_GIL_DISABLED
+    atomic_store_explicit((_Atomic(Py_hash_t) *)&u->hash_cache,
+                          hash, memory_order_relaxed);
+    return hash;
+#else
+    return u->hash_cache = hash;
+#endif
 }
 
 #define UNOP(suff, func)                                       \
