@@ -878,18 +878,26 @@ to_bool(PyObject *self)
     return !zz_iszero(&((MPZ_Object *)self)->z);
 }
 
-#define CHECK_OPv2(u, a)                \
-    if (MPZ_Check(a)) {                 \
-        u = (MPZ_Object *)Py_NewRef(a); \
-    }                                   \
-    else if (PyLong_Check(a)) {         \
-        ;                               \
-    }                                   \
-    else if (Number_Check(a)) {         \
-        goto numbers;                   \
-    }                                   \
-    else {                              \
-        goto fallback;                  \
+#define CHECK_OPv2(u, a)                     \
+    if (MPZ_Check(a)) {                      \
+        u = (MPZ_Object *)Py_NewRef(a);      \
+    }                                        \
+    else if (PyLong_Check(a)) {              \
+        int error;                           \
+                                             \
+        ival = PyLong_AsSdigit_t(a, &error); \
+        if (error) {                         \
+            u = MPZ_from_int(a);             \
+            if (!u) {                        \
+                goto end;                    \
+            }                                \
+        }                                    \
+    }                                        \
+    else if (Number_Check(a)) {              \
+        goto numbers;                        \
+    }                                        \
+    else {                                   \
+        goto fallback;                       \
     }
 
 #define BINOP(suff, slot)                                       \
@@ -897,6 +905,7 @@ to_bool(PyObject *self)
     nb_##suff(PyObject *self, PyObject *other)                  \
     {                                                           \
         MPZ_Object *u = NULL, *v = NULL, *res = NULL;           \
+        int64_t ival = 0;                                       \
                                                                 \
         CHECK_OPv2(u, self);                                    \
         CHECK_OPv2(v, other);                                   \
@@ -909,33 +918,14 @@ to_bool(PyObject *self)
         zz_err ret = ZZ_OK;                                     \
                                                                 \
         if (!u) {                                               \
-            int error;                                          \
-            int64_t temp = PyLong_AsSdigit_t(self, &error);     \
-                                                                \
-            if (!error) {                                       \
-                ret = zz_##suff(temp, &v->z, &res->z);          \
-                goto done;                                      \
-            }                                                   \
-            u = MPZ_from_int(self);                             \
-            if (!u) {                                           \
-                goto end;                                       \
-            }                                                   \
+            ret = zz_##suff(ival, &v->z, &res->z);              \
         }                                                       \
-        if (!v) {                                               \
-            int error;                                          \
-            int64_t temp = PyLong_AsSdigit_t(other, &error);    \
-                                                                \
-            if (!error) {                                       \
-                ret = zz_##suff(&u->z, temp, &res->z);          \
-                goto done;                                      \
-            }                                                   \
-            v = MPZ_from_int(other);                            \
-            if (!v) {                                           \
-                goto end;                                       \
-            }                                                   \
+        else if (!v) {                                          \
+            ret = zz_##suff(&u->z, ival, &res->z);              \
         }                                                       \
-        ret = zz_##suff(&u->z, &v->z, &res->z);                 \
-done:                                                           \
+        else {                                                  \
+            ret = zz_##suff(&u->z, &v->z, &res->z);             \
+        }                                                       \
         if (ret) {                                              \
             Py_CLEAR(res);                                      \
             if (ret == ZZ_VAL) {                                \
