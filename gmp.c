@@ -135,7 +135,7 @@ MPZ_to_str(MPZ_Object *u, int base, int options)
 static MPZ_Object *
 MPZ_from_str(PyObject *obj, int base)
 {
-    const char *str = PyUnicode_AsUTF8(obj);
+    const char *str = PyUnicode_AsUTF8AndSize(obj, NULL);
 
     if (!str) {
         return NULL; /* LCOV_EXCL_LINE */
