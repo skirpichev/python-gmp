@@ -157,6 +157,7 @@ MPZ_from_str(PyObject *obj, int base)
     }
     else if (ret == ZZ_BUF) {
         /* LCOV_EXCL_START */
+        Py_DECREF(res);
         PyErr_SetString(PyExc_OverflowError,
                         "too many digits in integer");
         return NULL;
