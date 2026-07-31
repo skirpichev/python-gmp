@@ -135,7 +135,7 @@ MPZ_to_str(MPZ_Object *u, int base, int options)
 static MPZ_Object *
 MPZ_from_str(PyObject *obj, int base)
 {
-    const char *str = PyUnicode_AsUTF8(obj);
+    const char *str = PyUnicode_AsUTF8AndSize(obj, NULL);
 
     if (!str) {
         return NULL; /* LCOV_EXCL_LINE */
@@ -157,6 +157,7 @@ MPZ_from_str(PyObject *obj, int base)
     }
     else if (ret == ZZ_BUF) {
         /* LCOV_EXCL_START */
+        Py_DECREF(res);
         PyErr_SetString(PyExc_OverflowError,
                         "too many digits in integer");
         return NULL;
@@ -438,15 +439,8 @@ new_impl(PyTypeObject *Py_UNUSED(type), PyObject *arg, PyObject *base_arg)
     }
 str:
     if (PyUnicode_Check(arg)) {
-        PyObject *asciistr = gmp_PyUnicode_TransformDecimalAndSpaceToASCII(arg);
+        PyObject *res = (PyObject *)MPZ_from_str(arg, base);
 
-        if (!asciistr) {
-            return NULL; /* LCOV_EXCL_LINE */
-        }
-
-        PyObject *res = (PyObject *)MPZ_from_str(asciistr, base);
-
-        Py_DECREF(asciistr);
         return res;
     }
     else if (PyByteArray_Check(arg) || PyBytes_Check(arg)) {
@@ -1644,7 +1638,7 @@ The signed argument indicates whether two’s complement is used."},
 
 PyDoc_STRVAR(mpz_doc,
              "mpz(number=0, /)\nmpz(string, /, base=10)\n\n\
-Convert a number or a string to an integer.  If numeric argument is not\n\
+Convert a number or an ASCII string to an integer.  If numeric argument is not\n\
 an int subclass, return mpz(int(number)).\n\n\
 If argument is not a number or if base is given, then it must be a string,\n\
 bytes, or bytearray instance representing an integer literal in the\n\

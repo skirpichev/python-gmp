@@ -270,16 +270,13 @@ def test_mpz_interface():
     with pytest.raises(ValueError, match="invalid literal"):
         mpz(" ")
     with pytest.raises(ValueError, match="invalid literal"):
-        mpz("ыыы")
+        mpz("qqq")
     assert mpz() == mpz(0) == 0
     assert mpz("  -123") == -123
     assert mpz("123  ") == 123
     assert mpz("    -123  ") == -123
     assert mpz("+123") == 123
-    assert mpz("١٢٣٤") == 1234  # unicode decimal digits
-    assert mpz("١23") == 123
     assert mpz("\t123") == 123
-    assert mpz("\xa0123") == 123
     assert mpz("-010") == -10
     assert mpz("-10") == -10
     assert mpz("0b_10", 0) == 2
@@ -950,12 +947,14 @@ def test_from_bytes_interface():
 @example(1<<116)
 @example(646541478744828163276576707651635923929979156076518566789121)
 @example((0xfffffffffffff8<<(242*4)) + (1<<970))
+@example(0xa<<10000)
 def test_to_float(x):
     mx = mpz(x)
     try:
         fx = float(x)
     except OverflowError:
-        pytest.raises(OverflowError, lambda: float(mx))
+        with pytest.raises(OverflowError):
+            float(mx)
     else:
         assert str(float(mx)) == str(fx)
 
