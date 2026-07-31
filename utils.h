@@ -34,6 +34,4 @@ int gmp_parse_pyargs(const gmp_pyargs *fnargs, Py_ssize_t argidx[],
                      PyObject *const *args, Py_ssize_t nargs,
                      PyObject *kwnames);
 
-PyObject * gmp_PyUnicode_TransformDecimalAndSpaceToASCII(PyObject *unicode);
-
 #endif /* UTILS_H */

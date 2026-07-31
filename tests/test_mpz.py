@@ -270,16 +270,13 @@ def test_mpz_interface():
     with pytest.raises(ValueError, match="invalid literal"):
         mpz(" ")
     with pytest.raises(ValueError, match="invalid literal"):
-        mpz("ыыы")
+        mpz("qqq")
     assert mpz() == mpz(0) == 0
     assert mpz("  -123") == -123
     assert mpz("123  ") == 123
     assert mpz("    -123  ") == -123
     assert mpz("+123") == 123
-    assert mpz("١٢٣٤") == 1234  # unicode decimal digits
-    assert mpz("١23") == 123
     assert mpz("\t123") == 123
-    assert mpz("\xa0123") == 123
     assert mpz("-010") == -10
     assert mpz("-10") == -10
     assert mpz("0b_10", 0) == 2
