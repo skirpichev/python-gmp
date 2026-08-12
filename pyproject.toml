@@ -52,7 +52,7 @@ develop = ["python-gmp[tests]", "prek", "pyperf"]
 line-length = 79
 
 [tool.ruff.lint]
-select = ["E", "F", "I", "PT", "W", "Q", "SIM"]
+select = ["E", "F", "I", "PT", "W", "Q", "SIM", "B", "UP", "RUF"]
 
 [tool.cibuildwheel]
 build-frontend = {name="build", args=["--verbose", "-Csetup-args=--vsenv"]}
