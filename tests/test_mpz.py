@@ -127,7 +127,7 @@ def test_format_interface():
     with pytest.raises(ValueError, match="Unknown format code"):
         format(mx, "q")
     with pytest.raises(ValueError,
-                       match="(Unknown format code|Invalid format specifier)"):
+                       match=r"(Unknown format code|Invalid format)"):
         format(mx, "\x81")
     with pytest.raises(ValueError,
                        match=(r"Negative zero coercion \(z\) not allowed|"
@@ -135,53 +135,57 @@ def test_format_interface():
         format(mx, "zd")
     with pytest.raises(ValueError, match="Precision not allowed"):
         format(mx, ".10d")
-    with pytest.raises(ValueError, match="Cannot specify '_' with 'n'."):
+    with pytest.raises(ValueError, match=r"Cannot specify '_' with 'n'."):
         format(mx, "_n")
-    with pytest.raises(ValueError, match="Cannot specify ',' with 'n'."):
+    with pytest.raises(ValueError, match=r"Cannot specify ',' with 'n'."):
         format(mx, ",n")
-    with pytest.raises(ValueError, match="Cannot specify '_' with 'c'."):
+    with pytest.raises(ValueError, match=r"Cannot specify '_' with 'c'."):
         format(mx, "_c")
     with pytest.raises(ValueError,
-                       match=("Invalid format specifier|"
+                       match=(r"Invalid format specifier|"
                               "Invalid conversion specification")):
         format(mx, "f=10dx")
     with pytest.raises(ValueError,
                        match=("Format specifier missing precision"
-                              "|no precision given")):
+                              r"|no precision given")):
         format(mx, ".d")
-    with pytest.raises(ValueError, match="many decimal digits|width too big"):
+    with pytest.raises(ValueError, match=r"many decimal digits|width too big"):
         format(mx, "f=10000000000000000000d")
-    with pytest.raises(ValueError, match=("many decimal digits|"
+    with pytest.raises(ValueError, match=(r"many decimal digits|"
                                           "precision too big")):
         format(mx, ".10000000000000000000f")
-    with pytest.raises(ValueError, match="Cannot specify both ',' and '_'."):
+    with pytest.raises(ValueError, match=r"Cannot specify both ',' and '_'."):
         format(mx, ",_d")
-    with pytest.raises(ValueError, match="Cannot specify both ',' and '_'."):
+    with pytest.raises(ValueError, match=r"Cannot specify both ',' and '_'."):
         format(mx, "_,d")
-    with pytest.raises(ValueError, match="Cannot specify ',' with 'x'."):
+    with pytest.raises(ValueError, match=r"Cannot specify ',' with 'x'."):
         format(mx, ",x")
     with pytest.raises(ValueError,
-                       match=("Cannot specify ',' with|"
+                       match=(r"Cannot specify ',' with|"
                               "Invalid format specifier")):
         format(mx, ",\xa0")
     with pytest.raises(ValueError, match="Sign not allowed"):
         format(mx, "+c")
     with pytest.raises(ValueError, match=r"Alternate form \(#\) not allowed"):
         format(mx, "#c")
-    pytest.raises(OverflowError, lambda: format(mpz(123456789), "c"))
-    pytest.raises(OverflowError, lambda: format(mpz(10**100), "c"))
-    pytest.raises(OverflowError, lambda: format(mpz(-1), "c"))
-    pytest.raises(OverflowError, lambda: format(mpz(1<<32), "c"))
+    with pytest.raises(OverflowError):
+        format(mpz(123456789), "c")
+    with pytest.raises(OverflowError):
+        format(mpz(10**100), "c")
+    with pytest.raises(OverflowError):
+        format(mpz(-1), "c")
+    with pytest.raises(OverflowError):
+        format(mpz(1<<32), "c")
     if sys.version_info >= (3, 14):
         with pytest.raises(ValueError,
-                           match="Cannot specify both ',' and '_'."):
+                           match=r"Cannot specify both ',' and '_'."):
             format(mx, ".10,_f")
         with pytest.raises(ValueError,
-                           match="Cannot specify both ',' and '_'."):
+                           match=r"Cannot specify both ',' and '_'."):
             format(mx, ".10_,f")
-        with pytest.raises(ValueError, match="Cannot specify '_' with 'n'."):
+        with pytest.raises(ValueError, match=r"Cannot specify '_' with 'n'."):
             format(mx, ".10_n")
-        with pytest.raises(ValueError, match="Cannot specify ',' with 'n'."):
+        with pytest.raises(ValueError, match=r"Cannot specify ',' with 'n'."):
             format(mx, ".10,n")
     assert format(mx, ".2f") == "123.00"
     assert format(mx, "") == "123"
@@ -366,9 +370,9 @@ def test_richcompare_mixed(x, y):
 def test_richcompare_errors():
     mx = mpz(123)
     with pytest.raises(TypeError):
-        mx > 1j
+        assert mx > 1j
     with pytest.raises(TypeError):
-        mx > object()
+        assert mx > object()
 
 
 def test_hash_caching():
@@ -604,8 +608,10 @@ def test_truediv_mixed(x, y):
 
 def test_truediv_errors():
     mx = mpz(123)
-    pytest.raises(TypeError, lambda: mx / object())
-    pytest.raises(TypeError, lambda: object() / mx)
+    with pytest.raises(TypeError):
+        mx / object()
+    with pytest.raises(TypeError):
+        object() / mx
 
 
 @given(bigints(), integers(max_value=100000))
@@ -980,7 +986,7 @@ def test_round_interface():
     with pytest.raises(OverflowError):
         x.__round__((-1<<64) + 1)
     with pytest.raises(OverflowError):
-        x.__round__((-1<<62))
+        x.__round__(-1<<62)
     with pytest.raises(OverflowError):
         x.__round__(-1<<127)
 
