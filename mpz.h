@@ -6,7 +6,7 @@
 
 typedef struct {
     PyObject_HEAD
-    Py_hash_t hash_cache;
+    Py_hash_t hash;
     zz_t z;
 } MPZ_Object;
 

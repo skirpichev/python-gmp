@@ -45,7 +45,7 @@ MPZ_new(void)
 #ifdef ON_CPYTHON
     }
 #endif
-    res->hash_cache = -1;
+    res->hash = -1;
     return res;
 }
 
@@ -710,11 +710,10 @@ hash(PyObject *self)
 {
     MPZ_Object *u = (MPZ_Object *)self;
 #ifdef Py_GIL_DISABLED
-    Py_hash_t hash = atomic_load_explicit((const _Atomic(Py_hash_t)
-                                           *)&u->hash_cache,
+    Py_hash_t hash = atomic_load_explicit((const _Atomic(Py_hash_t) *)&u->hash,
                                           memory_order_relaxed);
 #else
-    Py_hash_t hash = u->hash_cache;
+    Py_hash_t hash = u->hash;
 #endif
 
     if (hash != -1) {
@@ -738,11 +737,11 @@ hash(PyObject *self)
         hash = -2;
     }
 #ifdef Py_GIL_DISABLED
-    atomic_store_explicit((_Atomic(Py_hash_t) *)&u->hash_cache,
+    atomic_store_explicit((_Atomic(Py_hash_t) *)&u->hash,
                           hash, memory_order_relaxed);
     return hash;
 #else
-    return u->hash_cache = hash;
+    return u->hash = hash;
 #endif
 }
 
