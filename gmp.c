@@ -726,7 +726,7 @@ hash(PyObject *self)
         return -1; /* LCOV_EXCL_LINE */
     }
     assert((int64_t)INT64_MAX > pyhash_modulus);
-    (void)zz_div(&u->z, (int64_t)pyhash_modulus, NULL, &w);
+    (void)zz_rem(&u->z, (int64_t)pyhash_modulus, &w);
     assert(sizeof(Py_hash_t) == 8);
     (void)zz_get(&w, (int64_t *)&hash);
     zz_clear(&w);
@@ -894,8 +894,8 @@ BINOP(sub, PyNumber_Subtract)
 BINOP(mul, PyNumber_Multiply)
 
 /* can't overflow */
-BINOP(quo_, PyNumber_FloorDivide)
-BINOP(rem_, PyNumber_Remainder)
+BINOP(quo, PyNumber_FloorDivide)
+BINOP(rem, PyNumber_Remainder)
 
 #define CHECK_OP_INT(u, a)              \
     if (MPZ_Check(a)) {                 \
@@ -1194,9 +1194,9 @@ static PyNumberMethods as_number = {
     .nb_subtract = nb_sub,
     .nb_multiply = nb_mul,
     .nb_divmod = nb_divmod,
-    .nb_floor_divide = nb_quo_,
+    .nb_floor_divide = nb_quo,
     .nb_true_divide = nb_truediv,
-    .nb_remainder = nb_rem_,
+    .nb_remainder = nb_rem,
     .nb_power = power,
     .nb_positive = plus,
     .nb_negative = nb_negative,
@@ -1985,7 +1985,7 @@ overflow:
     zz_err ret = zz_fac((zz_digit_t)n, &res->z);
 
     if (ret || zz_fac((zz_digit_t)(n-k), &den->z)
-        || zz_div(&res->z, &den->z, &res->z, NULL))
+        || zz_quo(&res->z, &den->z, &res->z))
     {
         /* LCOV_EXCL_START */
         Py_DECREF(den);

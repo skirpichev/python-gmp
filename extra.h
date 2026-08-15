@@ -10,8 +10,8 @@ zz_err zz_get_bytes(const zz_t *u, size_t length, bool is_signed,
 zz_err zz_set_bytes(const unsigned char *buffer, size_t length,
                     bool is_signed, zz_t *u);
 
-#define zz_quo_(u, v, w) zz_div((u), (v), (w), NULL)
-#define zz_rem_(u, v, w) zz_div((u), (v), NULL, (w))
+#define zz_quo(u, v, w) zz_div((u), (v), (w), NULL)
+#define zz_rem(u, v, w) zz_div((u), (v), NULL, (w))
 
 zz_err zz_divnear(const zz_t *u, const zz_t *v, zz_t *q, zz_t *r);
 zz_err zz_truediv(const zz_t *u, const zz_t *v, double *res);
