@@ -4,6 +4,7 @@
 #ifdef Py_GIL_DISABLED
 #  include <stdatomic.h>
 #endif
+#include <stdlib.h>
 
 #ifdef ON_CPYTHON
 #  define MAX_FREELIST_SIZE 100
