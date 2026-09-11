@@ -1,48 +1,8 @@
 #include "mpz.h"
 
-#include <locale.h>
-
 extern PyObject * to_int(PyObject *self);
 
 #if defined(ON_CPYTHON) && PY_VERSION_HEX >= 0x030D00A0
-
-static void
-unknown_presentation_type(Py_UCS4 presentation_type, PyObject* type_name)
-{
-    /* %c might be out-of-range, hence the two cases. */
-    if (presentation_type > 32 && presentation_type < 128) {
-        PyErr_Format(PyExc_ValueError,
-                     "Unknown format code '%c' for object of type '%U'",
-                     (char)presentation_type, type_name);
-    }
-    else {
-        PyErr_Format(PyExc_ValueError,
-                     "Unknown format code '\\x%x' for object of type '%U'",
-                     (unsigned int)presentation_type, type_name);
-    }
-}
-
-static void
-invalid_thousands_separator_type(int specifier, Py_UCS4 presentation_type)
-{
-    assert(specifier == ',' || specifier == '_');
-    if (presentation_type > 32 && presentation_type < 128) {
-        PyErr_Format(PyExc_ValueError,
-                     "Cannot specify '%c' with '%c'.",
-                     specifier, (char)presentation_type);
-    }
-    else {
-        PyErr_Format(PyExc_ValueError,
-                     "Cannot specify '%c' with '\\x%x'.",
-                     specifier, (unsigned int)presentation_type);
-    }
-}
-
-static void
-invalid_comma_and_underscore(void)
-{
-    PyErr_Format(PyExc_ValueError, "Cannot specify both ',' and '_'.");
-}
 
 /*
     get_integer consumes 0 or more decimal digit characters from an
@@ -53,7 +13,7 @@ invalid_comma_and_underscore(void)
 */
 static int
 get_integer(PyObject *str, Py_ssize_t *ppos, Py_ssize_t end,
-                  Py_ssize_t *result)
+            Py_ssize_t *result)
 {
     Py_ssize_t accumulator = 0, digitval, pos = *ppos;
     int numdigits = 0;
@@ -93,7 +53,10 @@ Py_LOCAL_INLINE(int)
 is_alignment_token(Py_UCS4 c)
 {
     switch (c) {
-    case '<': case '>': case '=': case '^':
+    case '<':
+    case '>':
+    case '=':
+    case '^':
         return 1;
     default:
         return 0;
@@ -105,20 +68,14 @@ Py_LOCAL_INLINE(int)
 is_sign_element(Py_UCS4 c)
 {
     switch (c) {
-    case ' ': case '+': case '-':
+    case ' ':
+    case '+':
+    case '-':
         return 1;
     default:
         return 0;
     }
 }
-
-/* Locale type codes. LT_NO_LOCALE must be zero. */
-enum LocaleType {
-    LT_NO_LOCALE = 0,
-    LT_DEFAULT_LOCALE = ',',
-    LT_UNDERSCORE_LOCALE = '_',
-    LT_UNDER_FOUR_LOCALE,
-};
 
 typedef struct {
     Py_UCS4 fill_char;
@@ -126,7 +83,7 @@ typedef struct {
     int alternate;
     Py_UCS4 sign;
     Py_ssize_t width;
-    enum LocaleType thousands_separators;
+    Py_UCS4 thousands_separators;
     Py_UCS4 type;
 } InternalFormatSpec;
 
@@ -160,7 +117,7 @@ parse_internal_render_format_spec(PyObject *obj,
     format->alternate = 0;
     format->sign = '\0';
     format->width = -1;
-    format->thousands_separators = LT_NO_LOCALE;
+    format->thousands_separators = '\0';
     format->type = default_type;
 
     /* If the second char is an alignment token,
@@ -208,25 +165,10 @@ parse_internal_render_format_spec(PyObject *obj,
     if (consumed == 0) {
         format->width = -1;
     }
-    /* Comma signifies add thousands separators */
-    if (end-pos && READ_spec(pos) == ',') {
-        format->thousands_separators = LT_DEFAULT_LOCALE;
-        ++pos;
-    }
     /* Underscore signifies add thousands separators */
     if (end-pos && READ_spec(pos) == '_') {
-        if (format->thousands_separators != LT_NO_LOCALE) {
-            invalid_comma_and_underscore();
-            return 0;
-        }
-        format->thousands_separators = LT_UNDERSCORE_LOCALE;
+        format->thousands_separators = '_';
         ++pos;
-    }
-    if (end-pos && READ_spec(pos) == ',') {
-        if (format->thousands_separators == LT_UNDERSCORE_LOCALE) {
-            invalid_comma_and_underscore();
-            return 0;
-        }
     }
     /* Finally, parse the type field. */
     if (end-pos > 1) {
@@ -250,47 +192,10 @@ parse_internal_render_format_spec(PyObject *obj,
         ++pos;
     }
 
-    /* Do as much validating as we can, just by looking at the format
-       specifier.  Do not take into account what type of formatting
-       we're doing (int, float, string). */
-
-    if (format->thousands_separators) {
-        switch (format->type) {
-        case 'd':
-        case '\0':
-            /* These are allowed. See PEP 378.*/
-            break;
-        case 'b':
-        case 'o':
-        case 'x':
-        case 'X':
-            /* Underscores are allowed in bin/oct/hex. See PEP 515. */
-            if (format->thousands_separators == LT_UNDERSCORE_LOCALE) {
-                /* Every four digits, not every three, in bin/oct/hex. */
-                format->thousands_separators = LT_UNDER_FOUR_LOCALE;
-                break;
-            }
-        default:
-            invalid_thousands_separator_type((int)format->thousands_separators,
-                                             format->type);
-            return 0;
-        }
-    }
-
     assert (format->align <= 127);
     assert (format->sign <= 127);
     return 1;
 }
-
-/* Locale info needed for formatting integers and the part of floats
-   before and including the decimal. Note that locales only support
-   8-bit chars, not unicode. */
-typedef struct {
-    PyObject *thousands_sep;
-    const char *grouping;
-} LocaleInfo;
-
-#define LocaleInfo_STATIC_INIT {0, 0}
 
 /* describes the layout for an integer, see the comment in
    calc_number_widths() for details */
@@ -301,188 +206,10 @@ typedef struct {
     Py_ssize_t n_rpadding;
     char sign;
     Py_ssize_t n_sign;      /* number of digits needed for sign (0/1) */
-    Py_ssize_t n_grouped_digits; /* Space taken up by the digits, including
-                                    any grouping chars. */
-    Py_ssize_t n_decimal;   /* 0 if only an integer */
     /* These 2 are not the widths of fields, but are needed by
        STRINGLIB_GROUPING. */
-    Py_ssize_t n_digits;    /* The number of digits before a decimal
-                               or exponent. */
-    Py_ssize_t n_min_width; /* The min_width we used when we computed
-                               the n_grouped_digits width. */
+    Py_ssize_t n_digits;    /* The number of digits, including separators. */
 } NumberFieldWidths;
-
-#if PY_VERSION_HEX > 0x030D00A0
-/* _PyUnicode_InsertThousandsGrouping() helper functions */
-
-typedef struct {
-    const char *grouping;
-    char previous;
-    Py_ssize_t i; /* Where we're currently pointing in grouping. */
-} GroupGenerator;
-
-static void
-GroupGenerator_init(GroupGenerator *self, const char *grouping)
-{
-    self->grouping = grouping;
-    self->i = 0;
-    self->previous = 0;
-}
-
-/* Returns the next grouping, or 0 to signify end. */
-static Py_ssize_t
-GroupGenerator_next(GroupGenerator *self)
-{
-    /* Note that we don't really do much error checking here. If a
-       grouping string contains just CHAR_MAX, for example, then just
-       terminate the generator. That shouldn't happen, but at least we
-       fail gracefully. */
-    switch (self->grouping[self->i]) {
-    case 0:
-        return self->previous;
-    case CHAR_MAX:
-        /* Stop the generator. */
-        return 0;
-    default:
-        {
-            char ch = self->grouping[self->i];
-            self->previous = ch;
-            self->i++;
-            return (Py_ssize_t)ch;
-        }
-    }
-}
-
-/* Fill in some digits, leading zeros, and thousands separator. All
-   are optional, depending on when we're called. */
-static void
-InsertThousandsGrouping_fill(_PyUnicodeWriter *writer, Py_ssize_t *buffer_pos,
-                             PyObject *digits, Py_ssize_t *digits_pos,
-                             Py_ssize_t n_chars, Py_ssize_t n_zeros,
-                             PyObject *thousands_sep, Py_ssize_t thousands_sep_len,
-                             Py_UCS4 *maxchar)
-{
-    if (!writer) {
-        /* if maxchar > 127, maxchar is already set */
-        if (*maxchar == 127 && thousands_sep) {
-            Py_UCS4 maxchar2 = PyUnicode_MAX_CHAR_VALUE(thousands_sep);
-            *maxchar = Py_MAX(*maxchar, maxchar2);
-        }
-        return;
-    }
-    if (thousands_sep) {
-        *buffer_pos -= thousands_sep_len;
-        /* Copy the thousands_sep chars into the buffer. */
-        PyUnicode_CopyCharacters(writer->buffer, *buffer_pos,
-                                      thousands_sep, 0,
-                                      thousands_sep_len);
-    }
-    *buffer_pos -= n_chars;
-    *digits_pos -= n_chars;
-    PyUnicode_CopyCharacters(writer->buffer, *buffer_pos,
-                                  digits, *digits_pos,
-                                  n_chars);
-    if (n_zeros) {
-        *buffer_pos -= n_zeros;
-        PyUnicode_Fill(writer->buffer, *buffer_pos, n_zeros, '0');
-    }
-}
-
-static Py_ssize_t
-_PyUnicode_InsertThousandsGrouping(_PyUnicodeWriter *writer,
-                                   Py_ssize_t n_buffer, PyObject *digits,
-                                   Py_ssize_t d_pos, Py_ssize_t n_digits,
-                                   Py_ssize_t min_width, const char *grouping,
-                                   PyObject *thousands_sep, Py_UCS4 *maxchar)
-{
-    min_width = Py_MAX(0, min_width);
-    if (writer) {
-        assert(digits != NULL);
-        assert(maxchar == NULL);
-    }
-    else {
-        assert(digits == NULL);
-        assert(maxchar != NULL);
-    }
-    assert(0 <= d_pos);
-    assert(0 <= n_digits);
-    assert(grouping != NULL);
-    assert(PyUnicode_Check(thousands_sep));
-
-    Py_ssize_t count = 0;
-    Py_ssize_t n_zeros;
-    int loop_broken = 0;
-    int use_separator = 0; /* First time through, don't append the
-                              separator. They only go between
-                              groups. */
-    Py_ssize_t buffer_pos;
-    Py_ssize_t digits_pos;
-    Py_ssize_t len;
-    Py_ssize_t n_chars;
-    Py_ssize_t remaining = n_digits; /* Number of chars remaining to
-                                        be looked at */
-    /* A generator that returns all of the grouping widths, until it
-       returns 0. */
-    GroupGenerator groupgen;
-    GroupGenerator_init(&groupgen, grouping);
-    const Py_ssize_t thousands_sep_len = PyUnicode_GetLength(thousands_sep);
-
-    /* if digits are not grouped, thousands separator
-       should be an empty string */
-    assert(!(grouping[0] == CHAR_MAX && thousands_sep_len != 0));
-
-    digits_pos = d_pos + n_digits;
-    if (writer) {
-        buffer_pos = writer->pos + n_buffer;
-        assert(buffer_pos <= PyUnicode_GetLength(writer->buffer));
-        assert(digits_pos <= PyUnicode_GetLength(digits));
-    }
-    else {
-        buffer_pos = n_buffer;
-    }
-    if (!writer) {
-        *maxchar = 127;
-    }
-    while ((len = GroupGenerator_next(&groupgen)) > 0) {
-        len = Py_MIN(len, Py_MAX(Py_MAX(remaining, min_width), 1));
-        n_zeros = Py_MAX(0, len - remaining);
-        n_chars = Py_MAX(0, Py_MIN(remaining, len));
-        /* Use n_zero zero's and n_chars chars
-           Count only, don't do anything. */
-        count += (use_separator ? thousands_sep_len : 0) + n_zeros + n_chars;
-        /* Copy into the writer. */
-        InsertThousandsGrouping_fill(writer, &buffer_pos,
-                                     digits, &digits_pos,
-                                     n_chars, n_zeros,
-                                     use_separator ? thousands_sep : NULL,
-                                     thousands_sep_len, maxchar);
-        /* Use a separator next time. */
-        use_separator = 1;
-        remaining -= n_chars;
-        min_width -= len;
-        if (remaining <= 0 && min_width <= 0) {
-            loop_broken = 1;
-            break;
-        }
-        min_width -= thousands_sep_len;
-    }
-    if (!loop_broken) {
-        /* We left the loop without using a break statement. */
-        len = Py_MAX(Py_MAX(remaining, min_width), 1);
-        n_zeros = Py_MAX(0, len - remaining);
-        n_chars = Py_MAX(0, Py_MIN(remaining, len));
-        /* Use n_zero zero's and n_chars chars */
-        count += (use_separator ? thousands_sep_len : 0) + n_zeros + n_chars;
-        /* Copy into the writer. */
-        InsertThousandsGrouping_fill(writer, &buffer_pos,
-                                     digits, &digits_pos,
-                                     n_chars, n_zeros,
-                                     use_separator ? thousands_sep : NULL,
-                                     thousands_sep_len, maxchar);
-    }
-    return count;
-}
-#endif
 
 /* Not all fields of format are used.
    Should this take discrete params in order to be more clear
@@ -493,7 +220,6 @@ static Py_ssize_t
 calc_number_widths(NumberFieldWidths *spec, Py_ssize_t n_prefix,
                    Py_UCS4 sign_char, Py_ssize_t n_start,
                    Py_ssize_t n_end,
-                   const LocaleInfo *locale,
                    const InternalFormatSpec *format, Py_UCS4 *maxchar)
 {
     Py_ssize_t n_non_digit_non_padding;
@@ -508,9 +234,9 @@ calc_number_widths(NumberFieldWidths *spec, Py_ssize_t n_prefix,
     spec->n_sign = 0;
 
     /* the output will look like:
-       |                                                                   |
-       | <lpadding> <sign> <prefix> <spadding> <grouped_digits> <rpadding> |
-       |                                                                   |
+       |                                                           |
+       | <lpadding> <sign> <prefix> <spadding> <digits> <rpadding> |
+       |                                                           |
 
        sign is computed from format->sign and the actual
        sign of the number
@@ -546,37 +272,11 @@ calc_number_widths(NumberFieldWidths *spec, Py_ssize_t n_prefix,
     }
     /* The number of chars used for non-digits and non-padding. */
     n_non_digit_non_padding = spec->n_sign + spec->n_prefix;
-    /* min_width can go negative, that's okay. format->width == -1 means
-       we don't care. */
-    if (format->fill_char == '0' && format->align == '=') {
-        spec->n_min_width = format->width - n_non_digit_non_padding;
-    }
-    else {
-        spec->n_min_width = 0;
-    }
-    if (spec->n_digits == 0)
-        /* This case only occurs when using 'c' formatting, we need
-           to special case it because the grouping code always wants
-           to have at least one character. */
-        spec->n_grouped_digits = 0;
-    else {
-        Py_UCS4 grouping_maxchar;
-        spec->n_grouped_digits = _PyUnicode_InsertThousandsGrouping(
-            NULL, 0,
-            NULL, 0, spec->n_digits,
-            spec->n_min_width,
-            locale->grouping, locale->thousands_sep, &grouping_maxchar);
-        if (spec->n_grouped_digits == -1) {
-            return -1; /* LCOV_EXCL_LINE */
-        }
-        *maxchar = Py_MAX(*maxchar, grouping_maxchar);
-    }
     /* Given the desired width and the total of digit and non-digit
        space we consume, see if we need any padding. format->width can
        be negative (meaning no padding), but this code still works in
        that case. */
-    n_padding = format->width - (n_non_digit_non_padding
-                                 + spec->n_grouped_digits);
+    n_padding = format->width - (n_non_digit_non_padding + spec->n_digits);
     if (n_padding > 0) {
         /* Some padding is needed. Determine if it's left, space, or right. */
         switch (format->align) {
@@ -604,8 +304,7 @@ calc_number_widths(NumberFieldWidths *spec, Py_ssize_t n_prefix,
     }
 
     return (spec->n_lpadding + spec->n_sign + spec->n_prefix
-            + spec->n_spadding + spec->n_grouped_digits
-            + spec->n_rpadding);
+            + spec->n_spadding + spec->n_digits + spec->n_rpadding);
 }
 
 /* Fill in the digit parts of a number's string representation,
@@ -614,12 +313,10 @@ calc_number_widths(NumberFieldWidths *spec, Py_ssize_t n_prefix,
 static int
 fill_number(PyUnicodeWriter *writer, const NumberFieldWidths *spec,
             PyObject *digits, Py_ssize_t d_start, PyObject *prefix,
-            Py_ssize_t p_start, Py_UCS4 fill_char, LocaleInfo *locale)
+            Py_ssize_t p_start, Py_UCS4 fill_char)
 {
-    /* Used to keep track of digits, decimal, and remainder. */
+    /* Used to keep track of digits */
     Py_ssize_t d_pos = d_start;
-    Py_ssize_t r;
-    _PyUnicodeWriter *_writer = (_PyUnicodeWriter *)writer;
 
     if (spec->n_lpadding) {
         for (Py_ssize_t i = 0; i < spec->n_lpadding; i++) {
@@ -637,21 +334,9 @@ fill_number(PyUnicodeWriter *writer, const NumberFieldWidths *spec,
             PyUnicodeWriter_WriteChar(writer, fill_char);
         }
     }
-    /* Only for type 'c' special case, it has no digits. */
-    if (spec->n_digits != 0) {
-        /* Fill the digits with InsertThousandsGrouping. */
-        r = _PyUnicode_InsertThousandsGrouping(_writer, spec->n_grouped_digits,
-                                               digits, d_pos, spec->n_digits,
-                                               spec->n_min_width,
-                                               locale->grouping,
-                                               locale->thousands_sep, NULL);
-        if (r == -1) {
-            return -1; /* LCOV_EXCL_LINE */
-        }
-        assert(r == spec->n_grouped_digits);
-        d_pos += spec->n_digits;
-    }
-    ((_PyUnicodeWriter *)writer)->pos += spec->n_grouped_digits;
+    PyUnicodeWriter_WriteSubstring(writer, digits, d_pos,
+                                   spec->n_digits + d_pos);
+    d_pos += spec->n_digits;
     if (spec->n_rpadding) {
         for (Py_ssize_t i = 0; i < spec->n_rpadding; i++) {
             PyUnicodeWriter_WriteChar(writer, fill_char);
@@ -660,51 +345,9 @@ fill_number(PyUnicodeWriter *writer, const NumberFieldWidths *spec,
     return 0;
 }
 
-static const char no_grouping[1] = {CHAR_MAX};
-
-/* Find the thousands_separator(s?), and
-   grouping description, either for a hard-coded locale if LT_DEFAULT_LOCALE or
-   LT_UNDERSCORE_LOCALE/LT_UNDER_FOUR_LOCALE, or none if LT_NO_LOCALE. */
-static int
-get_locale_info(enum LocaleType type, LocaleInfo *locale_info)
-{
-    switch (type) {
-    case LT_DEFAULT_LOCALE:
-    case LT_UNDERSCORE_LOCALE:
-    case LT_UNDER_FOUR_LOCALE:
-        locale_info->thousands_sep = PyUnicode_FromOrdinal(
-            type == LT_DEFAULT_LOCALE ? ',' : '_');
-        if (!locale_info->thousands_sep) {
-            return -1;  /* LCOV_EXCL_LINE */
-        }
-        if (type != LT_UNDER_FOUR_LOCALE) {
-            locale_info->grouping = "\3"; /* Group every 3 characters.  The
-                                         (implicit) trailing 0 means repeat
-                                         infinitely. */
-        }
-        else {
-            locale_info->grouping = "\4"; /* Bin/oct/hex group every four. */
-        }
-        break;
-    case LT_NO_LOCALE:
-        locale_info->thousands_sep = Py_GetConstant(Py_CONSTANT_EMPTY_STR);
-        if (!locale_info->thousands_sep) {
-            return -1; /* LCOV_EXCL_LINE */
-        }
-        locale_info->grouping = no_grouping;
-        break;
-    }
-    return 0;
-}
-
-static void
-free_locale_info(LocaleInfo *locale_info)
-{
-    Py_XDECREF(locale_info->thousands_sep);
-}
-
-extern PyObject * MPZ_to_str(MPZ_Object *u, int base, int options);
-extern int OPT_PREFIX;
+extern PyObject * MPZ_to_str(MPZ_Object *u, int base, char group,
+                             int options, int width);
+extern int OPT_PREFIX, OPT_SIGN;
 
 static PyObject *
 format_long_internal(MPZ_Object *value, const InternalFormatSpec *format)
@@ -718,14 +361,11 @@ format_long_internal(MPZ_Object *value, const InternalFormatSpec *format)
     Py_ssize_t n_total;
     Py_ssize_t prefix = 0;
     NumberFieldWidths spec;
-
-    /* Locale settings, either from the actual locale or
-       from a hard-code pseudo-locale */
-    LocaleInfo locale = LocaleInfo_STATIC_INIT;
     int base;
     int leading_chars_to_skip = 0;  /* Number of characters added by
-                                       PyNumber_ToBase that we want to
+                                       MPZ_to_str that we want to
                                        skip over. */
+    char group = 0;
 
     /* Compute the base and how many characters will be added by
        PyNumber_ToBase */
@@ -757,10 +397,23 @@ format_long_internal(MPZ_Object *value, const InternalFormatSpec *format)
         && MPZ_CheckExact(value))
     {
         /* Fast path */
-        return MPZ_to_str(value, base, format->alternate ? OPT_PREFIX : 0);
+        return MPZ_to_str(value, base, 0,
+                          format->alternate ? OPT_PREFIX : 0, -1);
+    }
+    if (format->thousands_separators) {
+        if (format->type == 'd') {
+            group = 3;
+        }
+        else {
+            group = 4;
+        }
     }
     /* Do the hard part, converting to a string in a given base */
-    tmp = MPZ_to_str(value, base, OPT_PREFIX);
+    tmp = MPZ_to_str(value, base, group,
+                     OPT_PREFIX | ((format->sign == '+'
+                                    || format->sign == ' ') ? OPT_SIGN : 0),
+                     (format->fill_char == '0' && format->align == '=') ?
+                     (int)format->width : -1);
     assert(PyUnicode_Check(tmp));
     if (tmp == NULL) {
         goto done; /* LCOV_EXCL_LINE */
@@ -783,16 +436,10 @@ format_long_internal(MPZ_Object *value, const InternalFormatSpec *format)
     /* Skip over the leading chars (0x, 0b, etc.) */
     n_digits -= leading_chars_to_skip;
     inumeric_chars += leading_chars_to_skip;
-
-    /* Determine the grouping, separator, and decimal point, if any. */
-    if (get_locale_info(format->thousands_separators, &locale) == -1)
-    {
-        goto done; /* LCOV_EXCL_LINE */
-    }
     /* Calculate how much memory we'll need. */
     n_total = calc_number_widths(&spec, n_prefix, sign_char, inumeric_chars,
                                  inumeric_chars + n_digits,
-                                 &locale, format, &maxchar);
+                                 format, &maxchar);
     if (n_total == -1) {
         goto done; /* LCOV_EXCL_LINE */
     }
@@ -806,7 +453,7 @@ format_long_internal(MPZ_Object *value, const InternalFormatSpec *format)
     ((_PyUnicodeWriter *)writer)->pos = 0;
     /* Populate the memory. */
     if (fill_number(writer, &spec, tmp, inumeric_chars, tmp, prefix,
-                    format->fill_char, &locale))
+                    format->fill_char))
     {
         /* LCOV_EXCL_START */
         PyUnicodeWriter_Discard(writer);
@@ -816,7 +463,6 @@ format_long_internal(MPZ_Object *value, const InternalFormatSpec *format)
     return PyUnicodeWriter_Finish(writer);
 done:
     Py_XDECREF(tmp);
-    free_locale_info(&locale);
     return NULL;
 }
 
@@ -869,22 +515,37 @@ __format__(PyObject *self, PyObject *format_spec)
         cast = to_float;
         break;
     default:
-        unknown_presentation_type(format.type,
-                                  PyType_GetFullyQualifiedName(Py_TYPE(self)));
+        {
+            PyObject *type_name = PyType_GetFullyQualifiedName(Py_TYPE(self));
+
+            /* %c might be out-of-range, hence the two cases. */
+            if (format.type > 32 && format.type < 128) {
+                PyErr_Format(PyExc_ValueError,
+                             "Unknown format code '%c' for object of type '%U'",
+                             (char)format.type, type_name);
+            }
+            else {
+                PyErr_Format(PyExc_ValueError,
+                             "Unknown format code '\\x%x' for object of type '%U'",
+                             (unsigned int)format.type, type_name);
+            }
+        }
         return NULL;
     }
 
 fallback:
-    PyObject *num = cast(self);
+    {
+        PyObject *num = cast(self);
 
-    if (!num) {
-        return NULL; /* LCOV_EXCL_LINE */
+        if (!num) {
+            return NULL; /* LCOV_EXCL_LINE */
+        }
+
+        PyObject *res = PyObject_CallMethod(num, "__format__", "O", format_spec);
+
+        Py_DECREF(num);
+        return res;
     }
-
-    PyObject *res = PyObject_CallMethod(num, "__format__", "O", format_spec);
-
-    Py_DECREF(num);
-    return res;
 }
 #else
 PyObject *
