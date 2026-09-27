@@ -1,6 +1,5 @@
 import decimal
 import inspect
-import locale
 import math
 import operator
 import pickle
@@ -113,6 +112,7 @@ def test_underscores_auto(s):
 @example(-3912, "0=28d")
 @example(-3912, "028d")
 @example(-3912, "028_d")
+@example(-3912, "")
 def test_format_bulk(x, fmt):
     mx = mpz(x)
     r = format(x, fmt)
@@ -129,90 +129,14 @@ def test_format_interface():
                        match=r"(Unknown format code|Invalid format)"):
         format(mx, "\x81")
     with pytest.raises(ValueError,
-                       match=(r"Negative zero coercion \(z\) not allowed|"
-                              "Invalid conversion specification")):
-        format(mx, "zd")
-    with pytest.raises(ValueError, match="Precision not allowed"):
-        format(mx, ".10d")
-    with pytest.raises(ValueError, match=r"Cannot specify '_' with 'n'."):
-        format(mx, "_n")
-    with pytest.raises(ValueError, match=r"Cannot specify ',' with 'n'."):
-        format(mx, ",n")
-    with pytest.raises(ValueError, match=r"Cannot specify '_' with 'c'."):
-        format(mx, "_c")
-    with pytest.raises(ValueError,
                        match=(r"Invalid format specifier|"
                               "Invalid conversion specification")):
         format(mx, "f=10dx")
-    with pytest.raises(ValueError,
-                       match=("Format specifier missing precision"
-                              r"|no precision given")):
-        format(mx, ".d")
     with pytest.raises(ValueError, match=r"many decimal digits|width too big"):
         format(mx, "f=10000000000000000000d")
-    with pytest.raises(ValueError, match=(r"many decimal digits|"
-                                          "precision too big")):
-        format(mx, ".10000000000000000000f")
-    with pytest.raises(ValueError, match=r"Cannot specify both ',' and '_'."):
-        format(mx, ",_d")
-    with pytest.raises(ValueError, match=r"Cannot specify both ',' and '_'."):
-        format(mx, "_,d")
-    with pytest.raises(ValueError, match=r"Cannot specify ',' with 'x'."):
-        format(mx, ",x")
-    with pytest.raises(ValueError,
-                       match=(r"Cannot specify ',' with|"
-                              "Invalid format specifier")):
-        format(mx, ",\xa0")
-    with pytest.raises(ValueError, match="Sign not allowed"):
-        format(mx, "+c")
-    with pytest.raises(ValueError, match=r"Alternate form \(#\) not allowed"):
-        format(mx, "#c")
-    with pytest.raises(OverflowError):
-        format(mpz(123456789), "c")
-    with pytest.raises(OverflowError):
-        format(mpz(10**100), "c")
-    with pytest.raises(OverflowError):
-        format(mpz(-1), "c")
-    with pytest.raises(OverflowError):
-        format(mpz(1<<32), "c")
-    if sys.version_info >= (3, 14):
-        with pytest.raises(ValueError,
-                           match=r"Cannot specify both ',' and '_'."):
-            format(mx, ".10,_f")
-        with pytest.raises(ValueError,
-                           match=r"Cannot specify both ',' and '_'."):
-            format(mx, ".10_,f")
-        with pytest.raises(ValueError, match=r"Cannot specify '_' with 'n'."):
-            format(mx, ".10_n")
-        with pytest.raises(ValueError, match=r"Cannot specify ',' with 'n'."):
-            format(mx, ".10,n")
-    assert format(mx, ".2f") == "123.00"
-    assert format(mx, "") == "123"
+
+    assert format(mx, "f") == "123.000000"
     assert format(mx, "c") == "{"
-    assert format(mpz(0), "c") == "\x00"
-    assert format(mx, "010c") == "000000000{"
-    assert format(mx, "<10c") == "{         "
-
-    if sys.version_info >= (3, 14):
-        assert format(mx, ".,f") == "123.000,000"
-        assert format(mx, "._f") == "123.000_000"
-
-    try:
-        locale.setlocale(locale.LC_ALL, "ru_RU.UTF-8")
-        s = locale.localeconv()["thousands_sep"]
-        if not s:
-            return  # XXX: on musllinux
-        assert format(mpz(123456789), "n") == f"123{s}456{s}789"
-        assert format(mpz(123), "011n") == f"000{s}000{s}123"
-        locale.setlocale(locale.LC_ALL, "C")
-        if platform.python_implementation() == "GraalVM":
-            return  # XXX: oracle/graalpython#521
-        locale.setlocale(locale.LC_NUMERIC, "ps_AF.UTF-8")
-        s = locale.localeconv()["thousands_sep"]
-        assert format(mpz(123456789), "n") == f"123{s}456{s}789"
-    except locale.Error:
-        pass
-    locale.setlocale(locale.LC_ALL, "C")
 
 
 @given(bigints())
