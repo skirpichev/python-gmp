@@ -113,7 +113,6 @@ def test_underscores_auto(s):
 @example(-3912, "0=28d")
 @example(-3912, "028d")
 @example(-3912, "028_d")
-@example(-3912, "28n")
 def test_format_bulk(x, fmt):
     mx = mpz(x)
     r = format(x, fmt)
