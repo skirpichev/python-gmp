@@ -302,27 +302,46 @@ fill_number(PyUnicodeWriter *writer, const NumberFieldWidths *spec,
     return 0;
 }
 
-extern PyObject * MPZ_to_str(MPZ_Object *u, int base, char group,
-                             int options, int width);
-extern int OPT_PREFIX, OPT_SIGN;
+Py_LOCAL(void)
+insert_from_end_inplace(char *str, Py_ssize_t n, char c)
+{
+    assert(str && n > 0);
+
+    size_t len = strlen(str);
+
+    if (len <= n) {
+        return;
+    }
+
+    Py_ssize_t num_separators = ((Py_ssize_t)len - 1) / n;
+    Py_ssize_t new_len = (Py_ssize_t)len + num_separators;
+    Py_ssize_t src = (Py_ssize_t)len;
+    Py_ssize_t dest = new_len;
+    Py_ssize_t count = -1;
+
+    while (src >= 0) {
+        if (count > 0 && count % n == 0 && src < len) {
+            str[dest--] = c;
+        }
+        str[dest--] = str[src--];
+        count++;
+    }
+}
+
+extern PyObject * MPZ_to_str(MPZ_Object *u, int base, bool tag);
 
 Py_LOCAL(PyObject *)
-format_mpz_internal(MPZ_Object *value, const InternalFormatSpec *format)
+MPZ_format(MPZ_Object *u, const InternalFormatSpec *format)
 {
-    PyObject *tmp = NULL;
-    Py_ssize_t inumeric_chars = 0;
-    char sign_char = '\0';
-    Py_ssize_t n_digits;       /* Count of digits need from the computed string */
-    Py_ssize_t n_prefix = 2;   /* Count of prefix chars, (e.g., '0x') */
-    Py_ssize_t n_total;
-    Py_ssize_t prefix = 0;
-    NumberFieldWidths spec;
+    size_t len = 0;
+    bool negative = zz_isneg(&u->z);
+    bool sign = format->sign == '+' || format->sign == ' ';
+    Py_ssize_t min_leading = 0, group = 0, width = -1;
     int base;
-    int options = 0;
-    char group = 0;
 
-    /* Compute the base and how many characters will be added by
-       MPZ_to_str */
+    if (format->fill_char == '0' && format->align == '=') {
+        width = format->width;
+    }
     switch (format->type) {
     case 'b':
         base = 2;
@@ -336,30 +355,20 @@ format_mpz_internal(MPZ_Object *value, const InternalFormatSpec *format)
     case 'X':
         base = -16;
         break;
-    default:  /* stops a compiler warning */
+    default:
     case 'd':
         base = 10;
-        n_prefix = 0;
         break;
     }
-    /* The number of prefix chars is the same as the leading
-       chars to skip */
-    if (format->alternate) {
-        options |= OPT_PREFIX;
-    }
-    else {
-        n_prefix = 0;
-    }
-    if (format->sign == '+' || format->sign == ' ') {
-        options |= OPT_SIGN;
-    }
-    if (!(options & OPT_SIGN) && format->width == -1
+    /* Fast path */
+    if (!format->alternate && !sign
+        && format->width == -1
         && !format->thousands_separators
-        && MPZ_CheckExact(value))
+        && MPZ_CheckExact(u))
     {
-        /* Fast path */
-        return MPZ_to_str(value, base, 0, options, -1);
+        return MPZ_to_str(u, base, false);
     }
+    sign |= negative;
     if (format->thousands_separators) {
         if (format->type == 'd') {
             group = 3;
@@ -368,11 +377,107 @@ format_mpz_internal(MPZ_Object *value, const InternalFormatSpec *format)
             group = 4;
         }
     }
-    /* Do the hard part, converting to a string in a given base */
-    tmp = MPZ_to_str(value, base, group, options,
-                     format->fill_char == '0' && format->align == '=' ?
-                     (int)format->width : -1);
-    assert(PyUnicode_Check(tmp));
+    (void)zz_sizeinbase(&u->z, base, &len);
+    if (format->alternate) {
+        len += 2;
+    }
+    min_leading = width - (Py_ssize_t)len - sign;
+    if (min_leading > 0) {
+        if (group > 0) {
+            min_leading = ((group*(width - sign))/(group + 1)
+                           + 1 - (Py_ssize_t)len);
+        }
+        if (min_leading > 0) {
+            len += (size_t)min_leading;
+        }
+    }
+    if (group > 0) {
+        len += (len - 1) / (size_t)group;
+    }
+    len += sign;
+    len++; /* '\0' */
+
+    char *buf = malloc(len), *p = buf, saved_char = 0;
+
+    if (!buf) {
+        return PyErr_NoMemory(); /* LCOV_EXCL_LINE */
+    }
+    if (negative) {
+        saved_char = '-';
+        *(p++) = saved_char;
+    }
+    if (format->alternate) {
+        if (base == 2) {
+            *(p++) = '0';
+            *(p++) = 'b';
+        }
+        else if (base == 8) {
+            *(p++) = '0';
+            *(p++) = 'o';
+        }
+        else if (base == 16) {
+            *(p++) = '0';
+            *(p++) = 'x';
+        }
+        else if (base == -16) {
+            *(p++) = '0';
+            *(p++) = 'X';
+        }
+    }
+    if (saved_char) {
+        saved_char = *(--p);
+        assert(saved_char);
+    }
+    for (int i = 0; i < min_leading; i++) {
+        *(p++) = '0';
+    }
+
+    zz_err ret = zz_get_str(&u->z, base, p);
+
+    if (min_leading > 0) {
+       if (negative) {
+           *p = '0';
+       }
+       p -= min_leading;
+    }
+    if (group > 0 && u->z.size) {
+        insert_from_end_inplace(p + negative, group, '_');
+    }
+    if (saved_char) {
+        *p = saved_char;
+    }
+    if (ret) {
+        /* LCOV_EXCL_START */
+        free(buf);
+        return PyErr_NoMemory();
+        /* LCOV_EXCL_STOP */
+    }
+    p += strlen(p);
+
+    PyObject *res = PyUnicode_FromString(buf);
+
+    free(buf);
+    return res;
+}
+
+Py_LOCAL(PyObject *)
+format_mpz_internal(MPZ_Object *value, const InternalFormatSpec *format)
+{
+    PyObject *tmp = NULL;
+    Py_ssize_t inumeric_chars = 0;
+    char sign_char = '\0';
+    Py_ssize_t n_digits; /* Count of digits need from the computed string */
+    Py_ssize_t n_prefix = 2; /* Count of prefix chars, (e.g., '0x') */
+    Py_ssize_t n_total;
+    Py_ssize_t prefix = 0;
+    NumberFieldWidths spec;
+
+    /* The number of prefix chars is the same as the leading
+       chars to skip */
+    if (!format->alternate || format->type == 'd') {
+        n_prefix = 0;
+    }
+    tmp = MPZ_format(value, format);
     if (tmp == NULL) {
         goto done; /* LCOV_EXCL_LINE */
     }
