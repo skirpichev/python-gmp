@@ -49,125 +49,37 @@ MPZ_new(void)
     return res;
 }
 
-static void
-insert_from_end_inplace(char *str, char n, char c)
-{
-    assert(str && n > 0);
-
-    size_t len = strlen(str);
-
-    if (len <= n) {
-        return;
-    }
-
-    size_t num_separators = (len - 1) / (size_t)n;
-    size_t new_len = len + num_separators;
-
-    intmax_t src = (intmax_t)len;
-    intmax_t dest = (intmax_t)new_len;
-    intmax_t count = -1;
-
-    while (src >= 0) {
-        if (count > 0 && count % n == 0 && src < len) {
-            str[dest--] = c;
-        }
-        str[dest--] = str[src--];
-        count++;
-    }
-}
-
 static const char *MPZ_TAG = "mpz(";
-static int OPT_TAG = 0x1;
-int OPT_PREFIX = 0x2;
-int OPT_SIGN = 0x4;
 
 PyObject *
-MPZ_to_str(MPZ_Object *u, int base, char group, int options, int width)
+MPZ_to_str(MPZ_Object *u, int base, bool tag)
 {
     size_t len = 0;
     bool negative = zz_isneg(&u->z);
-    bool sign = negative || (options & OPT_SIGN);
-    int min_leading = 0;
 
     if (zz_sizeinbase(&u->z, base, &len)) {
         PyErr_SetString(PyExc_ValueError,
                         "mpz base must be >= 2 and <= 36");
         return NULL;
     }
-    if (options & OPT_TAG) {
+    if (tag) {
         len += strlen(MPZ_TAG) + 1;
     }
-    if (options & OPT_PREFIX) {
-        len += 2;
-    }
-    min_leading = width - (int)len - sign;
-    if (min_leading > 0) {
-        if (group > 0) {
-            min_leading = (group*(width - sign))/(group + 1) + 1 - (int)len;
-        }
-        if (min_leading > 0) {
-            len += (size_t)min_leading;
-        }
-    }
-    if (group > 0) {
-        len += (len - 1) / (size_t)group;
-    }
-    len += sign;
+    len += negative;
     len++; /* '\0' */
 
-    char *buf = malloc(len), *p = buf, saved_char = 0;
+    char *buf = malloc(len), *p = buf;
 
     if (!buf) {
         return PyErr_NoMemory(); /* LCOV_EXCL_LINE */
     }
-    if (options & OPT_TAG) {
+    if (tag) {
         strcpy(p, MPZ_TAG);
         p += strlen(MPZ_TAG);
-    }
-    if (options & OPT_PREFIX) {
-        if (negative) {
-            saved_char = '-';
-            *(p++) = saved_char;
-        }
-        if (base == 2) {
-            *(p++) = '0';
-            *(p++) = 'b';
-        }
-        else if (base == 8) {
-            *(p++) = '0';
-            *(p++) = 'o';
-        }
-        else if (base == 16) {
-            *(p++) = '0';
-            *(p++) = 'x';
-        }
-        else if (base == -16) {
-            *(p++) = '0';
-            *(p++) = 'X';
-        }
-    }
-    if (saved_char) {
-        saved_char = *(--p);
-        assert(saved_char);
-    }
-    for (int i = 0; i < min_leading; i++) {
-        *(p++) = '0';
     }
 
     zz_err ret = zz_get_str(&u->z, base, p);
 
-    if (min_leading > 0) {
-       if (negative) {
-           *p = '0';
-       }
-       p -= min_leading;
-    }
-    if (group > 0 && u->z.size) {
-        insert_from_end_inplace(p + negative, group, '_');
-    }
-    if (saved_char) {
-        *p = saved_char;
-    }
     if (ret) {
         /* LCOV_EXCL_START */
         free(buf);
@@ -175,7 +87,7 @@ MPZ_to_str(MPZ_Object *u, int base, char group, int options, int width)
         /* LCOV_EXCL_STOP */
     }
     p += strlen(p);
-    if (options & OPT_TAG) {
+    if (tag) {
         *(p++) = ')';
         *p = '\0';
     }
@@ -637,13 +549,13 @@ vectorcall(PyObject *type, PyObject *const *args, size_t nargsf,
 static PyObject *
 repr(PyObject *self)
 {
-    return MPZ_to_str((MPZ_Object *)self, 10, 0, OPT_TAG, -1);
+    return MPZ_to_str((MPZ_Object *)self, 10, true);
 }
 
 static PyObject *
 str(PyObject *self)
 {
-    return MPZ_to_str((MPZ_Object *)self, 10, 0, 0, -1);
+    return MPZ_to_str((MPZ_Object *)self, 10, false);
 }
 
 #define Number_Check(op) (PyFloat_Check((op)) || PyComplex_Check((op)))
@@ -1617,7 +1529,7 @@ digits(PyObject *self, PyObject *const *args, Py_ssize_t nargs,
             return NULL;
         }
     }
-    return MPZ_to_str((MPZ_Object *)self, base, 0, 0, -1);
+    return MPZ_to_str((MPZ_Object *)self, base, false);
 }
 
 extern PyObject * __format__(PyObject *self, PyObject *format_spec);
