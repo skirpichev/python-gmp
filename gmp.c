@@ -405,9 +405,42 @@ new_impl(PyTypeObject *Py_UNUSED(type), PyObject *arg, PyObject *base_arg)
     }
 str:
     if (PyUnicode_Check(arg)) {
-        PyObject *res = (PyObject *)MPZ_from_str(arg, base);
+        if (PyUnicode_IS_ASCII(arg)) {
+            return (PyObject *)MPZ_from_str(arg, base);
+        }
 
-        return res;
+        PyObject *builtins = PyEval_GetFrameBuiltins();
+
+        if (!builtins) {
+            return NULL; /* LCOV_EXCL_LINE */
+        }
+
+        PyObject *int_func = PyDict_GetItemString(builtins, "int");
+
+        Py_DECREF(builtins);
+        if (!int_func) {
+            return NULL; /* LCOV_EXCL_LINE */
+        }
+
+
+        PyObject *integer;
+
+        if (Py_IsNone(base_arg)) {
+            integer = PyObject_CallOneArg(int_func, arg);
+        }
+        else {
+            integer = PyObject_CallFunction(int_func, "OO", arg, base_arg);
+        }
+        if (integer) {
+            PyObject *res = (PyObject *)MPZ_from_int(integer);
+
+            if (!res) {
+                return NULL; /* LCOV_EXCL_LINE */
+            }
+            Py_DECREF(integer);
+            return res;
+        }
+        return NULL; /* LCOV_EXCL_LINE */
     }
     else if (PyByteArray_Check(arg) || PyBytes_Check(arg)) {
         const char *string;
@@ -1603,8 +1636,8 @@ The signed argument indicates whether two’s complement is used."},
 
 PyDoc_STRVAR(mpz_doc,
              "mpz(number=0, /)\nmpz(string, /, base=10)\n\n\
-Convert a number or an ASCII string to an integer.  If numeric argument is not\n\
-an int subclass, return mpz(int(number)).\n\n\
+Convert a number or a string to an integer.  If numeric argument is not\n\
+an int subclass, return same as mpz(int(number)).\n\n\
 If argument is not a number or if base is given, then it must be a string,\n\
 bytes, or bytearray instance representing an integer literal in the\n\
 given base.  The literal can be preceded by '+' or '-' and be surrounded\n\
@@ -2193,9 +2226,10 @@ A named tuple that holds information about mpz type.\n\
 The attributes are read only.");
 
 static PyStructSequence_Field mpz_info_fields[] = {
-    {"bits_per_digit", "size of a digit in bits"},
-    {"sizeof_digit", "size in bytes of the C type, used to represent a digit"},
-    {"bitcnt_max", "maximal count of bits in integer"},
+    {"bits_per_digit", "The size of a digit in bits."},
+    {"sizeof_digit",
+     "The size in bytes of the C type used to represent a digit."},
+    {"bitcnt_max", "The maximal count of bits in an integer."},
     {NULL}};
 
 static PyStructSequence_Desc mpz_info_desc = {
@@ -2260,7 +2294,7 @@ fail1:
                        "numbers.Integral.register(gmp.mpz)\n"
                        "gmp.fac = gmp.factorial\n"
                        "gmp.__all__ = ['comb', 'factorial', 'gcd', 'isqrt',\n"
-                       "               'lcm', 'mpz', 'perm']\n"
+                       "               'lcm', 'mpz', 'perm', 'mpz_info']\n"
                        "gmp.__version__ = imp.version('python-gmp')\n");
     PyObject *codeobj = Py_CompileString(str, "<file>", Py_file_input);
     PyObject *res;
@@ -2316,7 +2350,8 @@ static PyModuleDef_Slot gmp_slots[] = {
 static struct PyModuleDef gmp_module = {
     PyModuleDef_HEAD_INIT,
     .m_name = "gmp",
-    .m_doc = "Bindings to the GNU GMP for Python.",
+    .m_doc = "Bindings to the GNU GMP for Python, providing int-compatible\n\
+integer type and functions as in the math.integer submodule.",
     .m_size = 0,
     .m_methods = gmp_functions,
     .m_slots = gmp_slots,
