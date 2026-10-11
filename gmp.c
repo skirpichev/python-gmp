@@ -2349,7 +2349,8 @@ static PyModuleDef_Slot gmp_slots[] = {
 static struct PyModuleDef gmp_module = {
     PyModuleDef_HEAD_INIT,
     .m_name = "gmp",
-    .m_doc = "Bindings to the GNU GMP for Python.",
+    .m_doc = "Bindings to the GNU GMP for Python, providing int-compatible\n\
+integer type and functions as in the math.integer submodule.",
     .m_size = 0,
     .m_methods = gmp_functions,
     .m_slots = gmp_slots,
