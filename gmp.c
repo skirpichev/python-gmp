@@ -405,9 +405,42 @@ new_impl(PyTypeObject *Py_UNUSED(type), PyObject *arg, PyObject *base_arg)
     }
 str:
     if (PyUnicode_Check(arg)) {
-        PyObject *res = (PyObject *)MPZ_from_str(arg, base);
+        if (PyUnicode_IS_ASCII(arg)) {
+            return (PyObject *)MPZ_from_str(arg, base);
+        }
 
-        return res;
+        PyObject *builtins = PyEval_GetFrameBuiltins();
+
+        if (!builtins) {
+            return NULL; /* LCOV_EXCL_LINE */
+        }
+
+        PyObject *int_func = PyDict_GetItemString(builtins, "int");
+
+        Py_DECREF(builtins);
+        if (!int_func) {
+            return NULL; /* LCOV_EXCL_LINE */
+        }
+
+
+        PyObject *integer;
+
+        if (Py_IsNone(base_arg)) {
+            integer = PyObject_CallOneArg(int_func, arg);
+        }
+        else {
+            integer = PyObject_CallFunction(int_func, "OO", arg, base_arg);
+        }
+        if (integer) {
+            PyObject *res = (PyObject *)MPZ_from_int(integer);
+
+            if (!res) {
+                return NULL; /* LCOV_EXCL_LINE */
+            }
+            Py_DECREF(integer);
+            return res;
+        }
+        return NULL; /* LCOV_EXCL_LINE */
     }
     else if (PyByteArray_Check(arg) || PyBytes_Check(arg)) {
         const char *string;
@@ -1603,8 +1636,8 @@ The signed argument indicates whether two’s complement is used."},
 
 PyDoc_STRVAR(mpz_doc,
              "mpz(number=0, /)\nmpz(string, /, base=10)\n\n\
-Convert a number or an ASCII string to an integer.  If numeric argument is not\n\
-an int subclass, return mpz(int(number)).\n\n\
+Convert a number or a string to an integer.  If numeric argument is not\n\
+an int subclass, return same as mpz(int(number)).\n\n\
 If argument is not a number or if base is given, then it must be a string,\n\
 bytes, or bytearray instance representing an integer literal in the\n\
 given base.  The literal can be preceded by '+' or '-' and be surrounded\n\
