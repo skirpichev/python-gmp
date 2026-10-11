@@ -12,7 +12,7 @@ jobs:
   backport:
     name: Backport PR
     if: github.event.pull_request.merged == true && !(contains(github.event.pull_request.labels.*.name, 'backport')) && !(contains(github.event.pull_request.labels.*.name, 'backport-pr-created'))
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     steps:
       # Workaround not to fail the workflow if the PR does not need a backport
       # https://github.com/sorenlouv/backport-github-action/issues/127#issuecomment-2277248320
