@@ -2226,9 +2226,10 @@ A named tuple that holds information about mpz type.\n\
 The attributes are read only.");
 
 static PyStructSequence_Field mpz_info_fields[] = {
-    {"bits_per_digit", "size of a digit in bits"},
-    {"sizeof_digit", "size in bytes of the C type, used to represent a digit"},
-    {"bitcnt_max", "maximal count of bits in integer"},
+    {"bits_per_digit", "The size of a digit in bits."},
+    {"sizeof_digit",
+     "The size in bytes of the C type used to represent a digit."},
+    {"bitcnt_max", "The maximal count of bits in an integer."},
     {NULL}};
 
 static PyStructSequence_Desc mpz_info_desc = {
@@ -2293,7 +2294,7 @@ fail1:
                        "numbers.Integral.register(gmp.mpz)\n"
                        "gmp.fac = gmp.factorial\n"
                        "gmp.__all__ = ['comb', 'factorial', 'gcd', 'isqrt',\n"
-                       "               'lcm', 'mpz', 'perm']\n"
+                       "               'lcm', 'mpz', 'perm', 'mpz_info']\n"
                        "gmp.__version__ = imp.version('python-gmp')\n");
     PyObject *codeobj = Py_CompileString(str, "<file>", Py_file_input);
     PyObject *res;
